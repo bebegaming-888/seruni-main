@@ -1,0 +1,72 @@
+import { SectionTitle } from "@/components/site/SectionTitle";
+import { Link } from "@/components/Link";
+import { ArrowUpRight, AlertCircle, Info, Bell } from "lucide-react";
+import { PENGUMUMAN } from "@/data/site";
+
+const styles = {
+  urgent: {
+    badge: "bg-primary text-primary-foreground animate-pulse-soft",
+    icon: AlertCircle,
+    label: "URGENT",
+  },
+  important: { badge: "bg-warning text-ink", icon: Bell, label: "PENTING" },
+  normal: { badge: "bg-muted text-ink", icon: Info, label: "INFO" },
+};
+
+export function AnnouncementSection() {
+  return (
+    <section id="pengumuman" className="py-20 sm:py-28 px-4 sm:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="flex items-end justify-between flex-wrap gap-4 mb-12">
+          <div>
+            <p className="eyebrow text-primary mb-3">Pengumuman</p>
+            <SectionTitle first="Info" second="penting" className="text-ink" />
+          </div>
+          <Link
+            to="/informasi/pengumuman"
+            className="btn-pill bg-cream text-ink hover:bg-ink hover:text-background group"
+          >
+            Semua Pengumuman
+            <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-5">
+          {PENGUMUMAN.map((p) => {
+            const s = styles[p.priority];
+            const Icon = s.icon;
+            return (
+              <article
+                key={p.id}
+                className="rounded-3xl border border-border bg-card p-6 hover:shadow-card transition-shadow flex flex-col"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-ui font-bold ${s.badge}`}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {s.label}
+                  </span>
+                  {p.countdown && (
+                    <span className="font-ui text-xs text-muted-foreground">⏱ {p.countdown}</span>
+                  )}
+                </div>
+                <h3 className="font-display text-xl font-bold text-ink leading-tight">{p.title}</h3>
+                <p className="font-body text-sm text-muted-foreground mt-2 flex-1">{p.excerpt}</p>
+                <div className="flex items-center justify-between mt-5 pt-4 border-t border-border">
+                  <span className="font-ui text-xs text-muted-foreground">{p.date}</span>
+                  <Link
+                    to="/informasi/pengumuman"
+                    className="font-ui text-sm font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    Selengkapnya <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}

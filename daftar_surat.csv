@@ -1,0 +1,74 @@
+NO,KODE,NAMA_SURAT,KATEGORI,STATUS,RINGKASAN,CATATAN
+1,474.0,Surat Keterangan Domisili,Kependudukan,KEEP,Surat paling fundamental dan paling banyak dipakai. Wewenang penuh desa. Semua keperluan domisili.,Target DNA: 13 field (dari 28)
+2,475.0,Surat Keterangan Pindah Domisili,Kependudukan,KEEP,Wewenang desa. Syarat mutasi kepindahan di Dukcapil dengan form F-1.02.,Target DNA: 16 field (dari 26)
+3,475.1,Surat Keterangan Pendatang / Numpang KK,Kependudukan,KEEP,Wewenang desa. Catat pendatang yang numpang KK. Syarat KK baru.,Target DNA: 18 field (dari 27)
+4,474.5,Surat Keterangan Kepala Keluarga,Kependudukan,KEEP,Akses program bantuan (PKH,
+5,474.3,Surat Keterangan Beda Nama,Kependudukan,REVISE,Penyamaan 2 nama berbeda di 2 dokumen. KEEP tapi DNA DISINGKAT.,Target DNA: 12 field (dari 22)
+6,475.2,Surat Keterangan Alamat Sementara,Kependudukan,REVISE,Untuk warga yang временно tinggal di luar desanya. DNA DISINGKAT.,Target DNA: 12 field (dari 23)
+7,465.0,Surat Keterangan Tidak Mampu (SKTM),Sosial & Ekonomi,KEEP,SURAT PALING PENTING. Akses BPJS PBI,
+8,465.2,Surat Keterangan Penghasilan,Sosial & Ekonomi,REVISE,KUR,
+9,474.6,Surat Keterangan Kehilangan,Sosial & Ekonomi,KEEP,Pengantar penggantian dokumen/barang hilang. Wewenang desa. Kebutuhan umum.,Target DNA: 14 field (dari 24)
+10,300.0,Surat Pengantar SKCK,Sosial & Ekonomi,REVISE,Paling sering diminta. Hapus field Sidik Jari/Foto. Hapus Ciri Fisik.,Target DNA: 17 field (dari 27)
+11,300.1,Surat Keterangan Kelakuan Baik,Sosial & Ekonomi,REVISE,"Kebutuhan lamaran kerja/organisasi. Tambah disclaimer ""Berdasarkan yg kami ketahui"".",Target DNA: 12 field (dari 23)
+12,465.4,Surat Keterangan Tidak Punya Pekerjaan,Sosial & Ekonomi,KEEP,Kartu Prakerja,
+13,475.3,Surat Keterangan Terdaftar DTKS/P3KE,Sosial & Ekonomi,TAMBAHAN-BARU,"PENGGANTI ""Warga Miskin Ekstrem"". Desa hanya mengecek apakah warga ada di DTKS.",SURAT BARU - GANTI yang bukan wewenang
+14,475.4,Surat Pengantar Verifikasi DTKS,Sosial & Ekonomi,TAMBAHAN-BARU,"PENGGANTI ""Penerima PKH"". Desa hanya mengecek terdaftar di DTKS",
+15,474.7,Surat Keterangan Belum Menikah,Pernikahan & Keluarga,REVISE,Syarat utama akta nikah KUA. Hapus field Ayah/Ibu yang tidak selalu relevan.,Target DNA: 14 field (dari 24)
+16,451.0,Surat Keterangan Nikah (N-1 s/d N-6),Pernikahan & Keluarga,KEEP,SATUKAN 6 formulir menjadi 1 template dengan switch N-1 sd N-6.,Target DNA: 22 field (dari 35)
+17,477.0,Surat Keterangan Nikah Non-Muslim,Pernikahan & Keluarga,KEEP,Non-muslim yang menikah di Catatan Sipil.,Target DNA: 15 field (dari 25)
+18,477.1,Surat Keterangan Status Janda,Pernikahan & Keluarga,REVISE,DNA DISINGKAT - cukup NIK + Alasan + Tanggal.,Target DNA: 10 field (dari 25)
+19,477.2,Surat Keterangan Status Duda,Pernikahan & Keluarga,REVISE,DNA DISINGKAT - cukup NIK + Alasan + Tanggal.,Target DNA: 10 field (dari 24)
+20,474.8,Surat Keterangan Hubungan Keluarga,Pernikahan & Keluarga,KEEP,Klaim asuransi,
+21,474.9,Surat Keterangan Ahli Waris,Pernikahan & Keluarga,KEEP,Klaim tabungan,
+22,451.1,Surat Dispensasi Nikah (Pengantar PA),Pernikahan & Keluarga,KEEP,Dispensasi nikah di bawah umur. Pengantar ke Pengadilan Agama.,Target DNA: 14 field (dari 26)
+23,451.2,Surat Keterangan Wali Nikah Hakim,Pernikahan & Keluarga,KEEP,Wali tidak ada/berhalangan. Dasar penunjukan wali hakim.,Target DNA: 14 field (dari 25)
+24,510.0,Surat Keterangan Usaha (SKU),Usaha & Ekonomi,KEEP,SURAT PALING PENTING kategori usaha. Syarat NIB,
+25,140.0,Surat Keterangan Izin Keramaian,Usaha & Ekonomi,KEEP,"Keramaian/hajatan. Ganti batas ""50 orang"" dengan ""khalayak umum"".",Target DNA: 15 field (dari 27)
+26,524.0,Surat Keterangan Peternak,Usaha & Ekonomi,KEEP,Kartu ternak,
+27,530.0,Surat Keterangan Pengrajin / Seniman,Usaha & Ekonomi,KEEP,Program Ekraf,
+28,510.2,Surat Keterangan Pedagang Pasar,Usaha & Ekonomi,KEEP,SIUP mikro,
+29,30.1,Surat Keterangan Kepemilikan Tanah,Tanah & Properti,KEEP,KETERANGAN BUKAN bukti hukum. Untuk legal -> BPN. DNA DISINGKAT.,Target DNA: 14 field (dari 32)
+30,30.2,Surat Keterangan Tidak Sengketa Tanah,Tanah & Properti,KEEP,"Transaksi tanah. Tambah disclaimer ""berdasarkan yg kami ketahui"".",Target DNA: 14 field (dari 25)
+31,30.3,Surat Keterangan Hibah Tanah,Tanah & Properti,KEEP,Tahap awal proses hibah di PPAT.,Target DNA: 16 field (dari 29)
+32,30.4,Surat Keterangan Jual Beli Tanah,Tanah & Properti,KEEP,Tahap awal AJB di PPAT. SANGAT umum dibutuhkan.,Target DNA: 16 field (dari 29)
+33,650.0,Surat Keterangan Kepemilikan Rumah,Tanah & Properti,KEEP,IMB/PBG,
+34,650.1,Surat Keterangan Belum Memiliki Rumah,Tanah & Properti,KEEP,BSPS,
+35,451.3,Surat Keterangan Tanah Wakaf,Tanah & Properti,KEEP,Pendaftaran di BWI dan Kanwil Depag.,Target DNA: 14 field (dari 26)
+36,420.0,Surat Keterangan untuk Beasiswa,Pendidikan,KEEP,Akses beasiswa. DNA DISINGKAT.,Target DNA: 14 field (dari 28)
+37,420.2,Surat Keterangan Penelitian / KKN / PKL,Pendidikan,KEEP,KKN tradisi akademik Indonesia. DNA DISINGKAT.,Target DNA: 14 field (dari 25)
+38,420.3,Surat Keterangan Putus Sekolah,Pendidikan,KEEP,Akses program kesetaraan dan pelatihan.,Target DNA: 12 field (dari 25)
+39,420.5,Surat Aktif Sekolah (PIP/KPS),Pendidikan,KEEP,Pencairan PIP. DNA DISINGKAT.,Target DNA: 13 field (dari 25)
+40,461.0,Surat Keterangan Penyandang Disabilitas,Kesehatan & Khusus,KEEP,Akses program ATENSI,
+41,463.1,Surat Keterangan Lansia,Kesehatan & Khusus,KEEP,Bantuan lansia,
+42,463.2,Surat Keterangan Anak Yatim / Piatu,Kesehatan & Khusus,KEEP,Beasiswa yatim,
+43,440.1,Surat Keterangan Hamil / Ibu Melahirkan,Kesehatan & Khusus,KEEP,ANC,
+44,520.0,Surat Keterangan Petani,Pertanian & Lingkungan,KEEP,Kartu tani,
+45,523.0,Surat Keterangan Nelayan,Pertanian & Lingkungan,KEEP,Kartu nelayan,
+46,360.0,Surat Keterangan Dampak Bencana,Pertanian & Lingkungan,KEEP,Klaim asuransi,
+47,520.2,Surat Keterangan Penggunaan Lahan,Pertanian & Lingkungan,KEEP,Pengajuan perubahan peruntukan.,Target DNA: 13 field (dari 25)
+48,520.3,Surat Keterangan Kelompok Tani / Nelayan,Pertanian & Lingkungan,KEEP,Akses program Gapoktan. DNA DISINGKAT.,Target DNA: 14 field (dari 26)
+49,140.1,Surat Pengantar ke Instansi Lain,Surat Dinas,KEEP,Safety net untuk keperluan yang tidak tercakup surat spesifik.,Target DNA: 12 field (dari 21)
+50,140.2,Surat Permohonan Bantuan,Surat Dinas,KEEP,Warga meminta bantuan ke desa.,Target DNA: 12 field (dari 23)
+51,140.3,Surat Rekomendasi,Surat Dinas,KEEP,Rekomendasi keinstansi. DNA DISINGKAT.,Target DNA: 12 field (dari 23)
+52,474.10,Surat Pengantar Pembuatan KTP,Surat Umum & Lainnya,KEEP,Pengantar pembuatan KTP. Wewenang penuh.,Target DNA: 12 field (dari 22)
+53,474.11,Surat Pengantar Pembuatan KK,Surat Umum & Lainnya,KEEP,Pengganti ELIMINASI KK Sementara.,Target DNA: 12 field (dari 22)
+54,474.12,Surat Pernyataan Tanggung Jawab Mutlak (SPTJM),Surat Umum & Lainnya,KEEP,Saat dokumen primer tidak ada. WAJIB MATERAI.,Target DNA: 12 field (dari 23)
+55,180.0,Surat Kuasa,Surat Umum & Lainnya,KEEP,Instrumen hukum umum. Wewenang cukup.,Target DNA: 12 field (dari 24)
+56,471.0,Surat Keterangan WNI Keturunan,Surat Umum & Lainnya,KEEP,Keperluan kependudukan dan hukum.,Target DNA: 12 field (dari 22)
+57,456.0,Surat Keterangan Naik Haji / Umrah,Surat Umum & Lainnya,KEEP,Kementerian Agama kadang minta.,Target DNA: 12 field (dari 26)
+58,471.1,Surat Keterangan untuk Paspor,Surat Umum & Lainnya,KEEP,Imigrasi kadang minta. DNA DISINGKAT.,Target DNA: 12 field (dari 24)
+59,471.2,Surat Keterangan Calon TKI / PMI,Surat Umum & Lainnya,KEEP,Syarat BP2MI dan Disnaker. DNA DISINGKAT.,Target DNA: 14 field (dari 27)
+60,30.9,Surat Pengantar PTSL,Surat Umum & Lainnya,KEEP,PTSL sering dilakukan BPN.,Target DNA: 13 field (dari 26)
+61,220.0,Surat Keterangan Keaktifan Organisasi,Surat Umum & Lainnya,KEEP,Administrasi dan kegiatan resmi. DNA DISINGKAT.,Target DNA: 12 field (dari 25)
+62,475.5,Surat Keterangan Tidak Berada di Desa,Surat Umum & Lainnya,KEEP,Alibi,
+63,474.20,Surat Pengantar Penerbitan Akta Kelahiran,Surat Umum & Lainnya,TAMBAHAN-BARU,PENGGANTI Surat Keterangan Kelahiran (bukan wewenang). Surat pengantar ke Dukcapil.,SURAT BARU - GANTI yang bukan wewenang
+64,474.21,Surat Pengantar Penerbitan Akta Kematian,Surat Umum & Lainnya,TAMBAHAN-BARU,PENGGANTI Surat Keterangan Kematian (bukan wewenang). Surat pengantar ke Dukcapil.,SURAT BARU - GANTI yang bukan wewenang
+65,474.22,Surat Pengantar Penerbitan Akta Lahir,Surat Umum & Lainnya,TAMBAHAN-BARU,PENGGANTI Surat Belum Ada Akta Lahir (bukan wewenang).,SURAT BARU - GANTI yang bukan wewenang
+66,510.4,Surat Pengantar Izin Reklame,Surat Umum & Lainnya,TAMBAHAN-BARU,PENGGANTI Surat Izin Reklame (bukan wewenang). Surat pengantar ke Dinas Perizinan.,SURAT BARU - GANTI yang bukan wewenang
+67,510.5,Surat Pengantar Izin Bangunan (IMB/PBG),Surat Umum & Lainnya,TAMBAHAN-BARU,PENGGANTI Surat Pengantar IMB/PBG (bukan wewenang).,SURAT BARU - GANTI yang bukan wewenang
+68,510.6,Surat Pengantar Pendirian Sanggar / Kursus,Surat Umum & Lainnya,TAMBAHAN-BARU,PENGGANTI Surat Izin Mendirikan Sanggar (bukan wewenang).,SURAT BARU - GANTI yang bukan wewenang
+69,440.2,Surat Pengantar Pemeriksaan Bebas Narcoba,Surat Umum & Lainnya,TAMBAHAN-BARU,PENGGANTI Surat Pengantar Bebas Narcoba (bukan wewenang).,SURAT BARU - GANTI yang bukan wewenang
+70,510.7,Surat Pengantar Izin Penebangan Pohon,Surat Umum & Lainnya,TAMBAHAN-BARU,PENGGANTI Surat Izin Penebangan Pohon (bukan wewenang).,SURAT BARU - GANTI yang bukan wewenang
+71,466.1,Surat Pengantar Izin Penggalangan Dana,Surat Umum & Lainnya,TAMBAHAN-BARU,PENGGANTI Surat Izin Penggalangan Dana (bukan wewenang).,SURAT BARU - GANTI yang bukan wewenang
+72,30.10,Surat Pengantar Pendaftaran Tanah,Surat Umum & Lainnya,TAMBAHAN-BARU,PENGGANTI Surat Sporadik Tanah (bukan wewenang).,SURAT BARU - GANTI yang bukan wewenang
+73,474.23,Surat Pengantar Verifikasi Kelahiran,Surat Umum & Lainnya,TAMBAHAN-BARU,PENGGANTI Surat Keterangan Kelahiran. Verifikasi data kelahiran di desa.,SURAT BARU - GANTI yang bukan wewenang

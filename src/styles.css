@@ -1,0 +1,294 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400;1,9..144,600&family=Raleway:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap");
+
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Desa Seruni Mumbul — E-Surat
+ * Design system (HSL tokens) wired into Tailwind v4 via @theme inline.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-ink: hsl(var(--ink));
+  --color-cream: hsl(var(--cream));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-hover: hsl(var(--primary-hover));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-info: hsl(var(--info));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-ring-offset-background: hsl(var(--background));
+
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-marquee-reverse: marquee-reverse 40s linear infinite;
+  --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Raleway", "Trebuchet MS", sans-serif;
+  --font-ui: "Poppins", "Segoe UI", sans-serif;
+}
+
+:root {
+  --background: 40 33% 97%;
+  --cream: 40 33% 94%;
+  --foreground: 220 15% 13%;
+  --ink: 220 15% 10%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 220 15% 13%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 15% 13%;
+
+  --primary: 10 78% 50%;
+  --primary-hover: 10 78% 44%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 155 45% 35%;
+  --secondary-foreground: 0 0% 100%;
+
+  --muted: 40 20% 92%;
+  --muted-foreground: 220 8% 42%;
+  --accent: 40 25% 93%;
+  --accent-foreground: 220 15% 13%;
+
+  --destructive: 10 78% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 155 55% 40%;
+  --warning: 40 92% 60%;
+  --info: 220 75% 55%;
+
+  --border: 40 15% 88%;
+  --input: 40 15% 90%;
+  --ring: 10 78% 50%;
+
+  --radius: 0.75rem;
+
+  --chart-1: 10 78% 50%;
+  --chart-2: 155 45% 35%;
+  --chart-3: 220 75% 55%;
+  --chart-4: 40 92% 60%;
+  --chart-5: 280 60% 55%;
+
+  --sidebar: 40 33% 97%;
+  --sidebar-foreground: 220 15% 13%;
+  --sidebar-primary: 10 78% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 40 25% 93%;
+  --sidebar-accent-foreground: 220 15% 13%;
+  --sidebar-border: 40 15% 88%;
+  --sidebar-ring: 10 78% 50%;
+}
+
+.dark {
+  --background: 220 15% 10%;
+  --cream: 220 12% 14%;
+  --foreground: 40 30% 95%;
+  --ink: 40 30% 98%;
+
+  --card: 220 14% 14%;
+  --card-foreground: 40 30% 95%;
+  --popover: 220 14% 14%;
+  --popover-foreground: 40 30% 95%;
+
+  --primary: 10 80% 58%;
+  --primary-hover: 10 82% 64%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 155 50% 48%;
+  --secondary-foreground: 0 0% 100%;
+
+  --muted: 220 10% 18%;
+  --muted-foreground: 220 10% 65%;
+  --accent: 220 10% 18%;
+  --accent-foreground: 40 30% 95%;
+
+  --destructive: 10 80% 58%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 155 55% 55%;
+  --warning: 40 92% 65%;
+  --info: 220 75% 65%;
+
+  --border: 220 10% 22%;
+  --input: 220 10% 22%;
+  --ring: 10 80% 58%;
+
+  --sidebar: 220 14% 14%;
+  --sidebar-foreground: 40 30% 95%;
+  --sidebar-primary: 10 80% 58%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 220 10% 18%;
+  --sidebar-accent-foreground: 40 30% 95%;
+  --sidebar-border: 220 10% 22%;
+  --sidebar-ring: 10 80% 58%;
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: "Raleway", "Trebuchet MS", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5 {
+    font-family: "Fraunces", Georgia, serif;
+    letter-spacing: -0.02em;
+  }
+  button,
+  .ui {
+    font-family: "Poppins", "Segoe UI", sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: "Fraunces", Georgia, serif;
+  }
+  .font-body {
+    font-family: "Raleway", "Trebuchet MS", sans-serif;
+  }
+  .font-ui {
+    font-family: "Poppins", "Segoe UI", sans-serif;
+  }
+
+  .hero-title {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(2.5rem, 7vw, 5.5rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
+  .section-title {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(2rem, 4.5vw, 3.25rem);
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+  }
+  .eyebrow {
+    font-family: "Poppins", sans-serif;
+    font-weight: 600;
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .btn-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 9999px;
+    font-family: "Poppins", sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+  }
+  .shadow-pill {
+    box-shadow: 0 6px 24px -8px rgba(0, 0, 0, 0.18);
+  }
+  .shadow-card {
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      0 8px 24px -12px rgba(0, 0, 0, 0.08);
+  }
+  .shadow-elev {
+    box-shadow: 0 20px 60px -24px rgba(0, 0, 0, 0.25);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes marquee-reverse {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "@context": "https://schema.org",
+  "@type": "LocalGovernmentOffice",
+  "name": "Desa Seruni Mumbul",
+  "alternateName": " Pemerintah Desa Seruni Mumbul",
+  "url": "https://serunimumbul.desa.id",
+  "logo": "https://serunimumbul.desa.id/favicon.svg",
+  "description": "Portal resmi Sistem Informasi Desa Seruni Mumbul — Kecamatan Pringgabaya, Kabupaten Lombok Timur, Nusa Tenggara Barat. Layanan E-Surat online, transparansi APBDes, dan informasi desa.",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Jl. Raya Pringgabaya No. 88",
+    "addressLocality": "Seruni Mumbul",
+    "addressRegion": "Nusa Tenggara Barat",
+    "postalCode": "83654",
+    "addressCountry": "ID"
+  },
+  "telephone": "+62 812-3456-7890",
+  "email": "info@serunimumbul.desa.id",
+  "areaServed": {
+    "@type": "Place",
+    "name": "Seruni Mumbul, Pringgabaya, Lombok Timur"
+  },
+  "serviceType": [
+    "E-Surat Online",
+    "Pengajuan Surat Keterangan",
+    "Verifikasi Dokumen",
+    "Informasi Desa",
+    "Transparansi APBDes"
+  ],
+  "openingHoursSpecification": [
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      "opens": "08:00",
+      "closes": "15:00",
+      "description": "Pelayanan tatap muka"
+    }
+  ],
+  "hasOfferCatalog": {
+    "@type": "OfferCatalog",
+    "name": "Layanan Desa Seruni Mumbul",
+    "itemListElement": [
+      {
+        "@type": "Offer",
+        "itemOffered": { "@type": "Service", "name": "Surat Keterangan Domisili" }
+      },
+      { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Surat Keterangan Usaha" } },
+      {
+        "@type": "Offer",
+        "itemOffered": { "@type": "Service", "name": "Surat Keterangan Tidak Mampu" }
+      },
+      { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Pengantar KTP" } },
+      { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Pengantar KK" } }
+    ]
+  }
+}
