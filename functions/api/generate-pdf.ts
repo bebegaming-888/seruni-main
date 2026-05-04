@@ -23,9 +23,16 @@ interface PdfRequest {
 }
 
 function generateMockSurat(data: Record<string, unknown>) {
+  const tahun = new Date().getFullYear();
+  const bulan = new Date().getMonth() + 1;
+  const romawi = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"][
+    bulan
+  ];
+  const noUrut = "001";
+  const kode = String(data.kode ?? "SKD");
   return {
-    no: String(data.no ?? "001/SKD/2025"),
-    kode: String(data.kode ?? "SKD"),
+    no: `${data.no ?? `${kode}/${noUrut}/KDS.SRMB/${romawi}/${tahun}`}`,
+    kode,
     nama_surat: String(data.nama_surat ?? "Surat Keterangan Domisili"),
     pemohon: String(data.pemohon ?? "Ahmad Saifullah"),
     nik: String(data.nik ?? "5203011501900001"),
@@ -34,7 +41,7 @@ function generateMockSurat(data: Record<string, unknown>) {
     status: "Disetujui" as const,
     signed_at: new Date().toISOString(),
     signed_by: "H. Sumardi, S.Sos.",
-    qr_payload: `SERUNI-MUMBUL-2025|${data.no ?? "001"}|${Date.now()}`,
+    qr_payload: `SERUNI-MUMBUL|${String(data.no ?? `${kode}/${noUrut}/KDS.SRMB/${romawi}/${tahun}`)}|${Date.now()}`,
     created_at: new Date().toISOString(),
   };
 }

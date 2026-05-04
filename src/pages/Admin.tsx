@@ -57,6 +57,7 @@ import {
   type SuratRecord,
 } from "@/lib/esurat-store";
 import { notifySurat } from "@/lib/esurat-notif";
+import { generateNomorSurat } from "@/lib/nomor-surat";
 import { sendWaNotification } from "@/lib/fonnte";
 import { suratActionsFor, can } from "@/lib/roles";
 import Papa from "papaparse";
@@ -223,13 +224,16 @@ export default function AdminPage() {
     setPreview({ ...r, status: "Menunggu Approval" });
   };
   const approve = async (r: SuratRecord) => {
+    const tahun = new Date().getFullYear();
+    const noSurat = generateNomorSurat(r.kode, tahun);
     const signed_at = new Date().toISOString();
     const updated: SuratRecord = {
       ...r,
+      no: noSurat,
       status: "Disetujui",
       signed_at,
-      signed_by: "Kepala Desa",
-      qr_payload: `SURAT|${r.no}|${r.nik}|${r.kode}|${signed_at}`,
+      signed_by: "H. Sumardi, S.Sos.",
+      qr_payload: `SERUNI-MUMBUL|${noSurat}|${r.nik}|${r.kode}|${signed_at}`,
     };
     saveRecord(updated);
     archiveRecord(r.no);

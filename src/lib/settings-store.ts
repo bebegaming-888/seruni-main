@@ -54,6 +54,10 @@ export type SystemSettings = {
     allowed_types: string[];
     max_file_mb: number;
   };
+  nomor: {
+    inisialJabatan: string; // contoh: "KDS" (Kepala Desa)
+    inisialDesa: string; // contoh: "SRMB" (Seruni Mumbul)
+  };
   security: {
     session_timeout_min: number;
     require_strong_password: boolean;
@@ -128,6 +132,10 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     allowed_types: ["pdf", "jpg", "jpeg", "png"],
     max_file_mb: 5,
   },
+  nomor: {
+    inisialJabatan: "KDS",
+    inisialDesa: "SRMB",
+  },
   security: {
     session_timeout_min: 60,
     require_strong_password: true,
@@ -160,6 +168,7 @@ export function getSettings(): SystemSettings {
       notifications: { ...DEFAULT_SETTINGS.notifications, ...(parsed.notifications ?? {}) },
       signature: { ...DEFAULT_SETTINGS.signature, ...(parsed.signature ?? {}) },
       surat: { ...DEFAULT_SETTINGS.surat, ...(parsed.surat ?? {}) },
+      nomor: { ...DEFAULT_SETTINGS.nomor, ...(parsed.nomor ?? {}) },
       security: { ...DEFAULT_SETTINGS.security, ...(parsed.security ?? {}) },
       appearance: { ...DEFAULT_SETTINGS.appearance, ...(parsed.appearance ?? {}) },
       backup: { ...DEFAULT_SETTINGS.backup, ...(parsed.backup ?? {}) },
