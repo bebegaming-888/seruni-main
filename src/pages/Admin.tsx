@@ -60,6 +60,7 @@ import { notifySurat } from "@/lib/esurat-notif";
 import { generateNomorSurat } from "@/lib/nomor-surat";
 import { sendWaNotification } from "@/lib/fonnte";
 import { suratActionsFor, can } from "@/lib/roles";
+import { getSettings } from "@/lib/settings-store";
 import Papa from "papaparse";
 import type { Penduduk } from "@/data/penduduk";
 import {
@@ -227,12 +228,13 @@ export default function AdminPage() {
     const tahun = new Date().getFullYear();
     const noSurat = generateNomorSurat(r.kode, tahun);
     const signed_at = new Date().toISOString();
+    const signerName = getSettings().signature.signer_name;
     const updated: SuratRecord = {
       ...r,
       no: noSurat,
       status: "Disetujui",
       signed_at,
-      signed_by: "H. Sumardi, S.Sos.",
+      signed_by: signerName,
       qr_payload: `SERUNI-MUMBUL|${noSurat}|${r.nik}|${r.kode}|${signed_at}`,
     };
     saveRecord(updated);

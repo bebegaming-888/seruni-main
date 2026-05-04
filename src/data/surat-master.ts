@@ -105,7 +105,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       },
     ],
     syarat: ["Fotokopi KTP", "Fotokopi Kartu Keluarga", "Surat pengantar RT/RW"],
-    kodeKlasifikasi: "474.0",
+    kodeKlasifikasi: "474",
     note: "Target DNA: 13 field (dari 28)",
   },
 
@@ -152,7 +152,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       },
     ],
     syarat: ["Fotokopi KTP & KK", "Form F-1.02 dari Dukcapil", "Surat pengantar RT/RW"],
-    kodeKlasifikasi: "475.0",
+    kodeKlasifikasi: "475",
     note: "Target DNA: 16 field (dari 26)",
   },
 
@@ -301,7 +301,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "alasan", label: "Keterangan", type: "textarea", colSpan: 2 },
     ],
     syarat: ["Fotokopi KK", "Pas foto 3x4"],
-    kodeKlasifikasi: "474.10",
+    kodeKlasifikasi: "465",
     note: "Target DNA: 12 field (dari 22)",
   },
 
@@ -323,7 +323,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keterangan", label: "Keterangan", type: "textarea", colSpan: 2 },
     ],
     syarat: ["KK lama", "Akta nikah/kelahiran (jika perubahan)"],
-    kodeKlasifikasi: "474.11",
+    kodeKlasifikasi: "465.2",
     note: "Target DNA: 12 field (dari 22)",
   },
 
@@ -348,7 +348,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW", "Foto rumah (opsional)"],
-    kodeKlasifikasi: "465.0",
+    kodeKlasifikasi: "474.6",
   },
 
   SK_PENGHASILAN: {
@@ -364,7 +364,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW"],
-    kodeKlasifikasi: "465.2",
+    kodeKlasifikasi: "300",
     note: "DNA DISINGKAT",
   },
 
@@ -387,7 +387,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keterangan", label: "Keterangan", type: "textarea", colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Surat pengantar RT/RW"],
-    kodeKlasifikasi: "474.6",
+    kodeKlasifikasi: "300.1",
     note: "Target DNA: 14 field (dari 24)",
   },
 
@@ -400,7 +400,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
     eta: "1 hari kerja",
     fields: COMMON_FIELDS_SHORT,
     syarat: ["Fotokopi KTP & KK", "Pas foto 4x6 (2 lembar)", "Surat pengantar RT/RW"],
-    kodeKlasifikasi: "300.0",
+    kodeKlasifikasi: "465.4",
     note: "Target DNA: 17 field (dari 27)",
   },
 
@@ -422,7 +422,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       },
     ],
     syarat: ["Fotokopi KTP & KK", "Surat pengantar RT/RW"],
-    kodeKlasifikasi: "300.1",
+    kodeKlasifikasi: "475.3",
     note: "Disclaimer: Berdasarkan yang kami ketahui",
   },
 
@@ -435,7 +435,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
     eta: "1 hari kerja",
     fields: COMMON_FIELDS_SHORT,
     syarat: ["Fotokopi KTP & KK", "Surat pengantar RT/RW"],
-    kodeKlasifikasi: "465.4",
+    kodeKlasifikasi: "475.4",
   },
 
   VERIF_DTKS: {
@@ -456,7 +456,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Formulir verifikasi DTKS"],
-    kodeKlasifikasi: "475.4",
+    kodeKlasifikasi: "474.7",
     isNew: true,
     note: "PENGGANTI Penerima PKH",
   },
@@ -475,7 +475,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "saksi_2", label: "Nama Saksi 2", type: "text", required: true },
     ],
     syarat: ["Fotokopi KTP", "Fotokopi KK", "Materai 10000"],
-    kodeKlasifikasi: "474.7",
+    kodeKlasifikasi: "451",
     note: "Target DNA: 14 field (dari 24)",
   },
 
@@ -507,7 +507,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "tempat_nikah", label: "Tempat Akad", type: "text", required: true },
     ],
     syarat: ["Fotokopi KTP & KK", "Akta kelahiran", "Pas foto 2x3 & 4x6", "Surat pengantar RT/RW"],
-    kodeKlasifikasi: "451.0",
+    kodeKlasifikasi: "477",
     note: "Target DNA: 22 field (dari 35)",
   },
 
@@ -525,7 +525,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "tempat_nikah", label: "Tempat Pencatatan", type: "text", required: true },
     ],
     syarat: ["Fotokopi KTP & KK", "Akta kelahiran", "Pas foto 2x3 & 4x6"],
-    kodeKlasifikasi: "477.0",
+    kodeKlasifikasi: "477.1",
   },
 
   SK_JANDA: {
@@ -547,7 +547,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Surat cerai / akta kematian"],
-    kodeKlasifikasi: "477.1",
+    kodeKlasifikasi: "477.2",
     note: "Target DNA: 10 field (dari 25)",
   },
 
@@ -570,7 +570,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Surat cerai / akta kematian"],
-    kodeKlasifikasi: "477.2",
+    kodeKlasifikasi: "474.8",
     note: "Target DNA: 10 field (dari 24)",
   },
 
@@ -598,7 +598,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK kedua belah pihak", "Surat pengantar RT/RW"],
-    kodeKlasifikasi: "474.8",
+    kodeKlasifikasi: "474.9",
   },
 
   SK_AHLI_WARIS: {
@@ -621,7 +621,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       },
     ],
     syarat: ["Akta kematian", "KK & KTP ahli waris", "Materai 10000"],
-    kodeKlasifikasi: "474.9",
+    kodeKlasifikasi: "451.1",
   },
 
   DISPENSA_NIKAH: {
@@ -646,7 +646,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       "Surat pengantar RT/RW",
       "Surat keterangan hamil (jika ada)",
     ],
-    kodeKlasifikasi: "451.1",
+    kodeKlasifikasi: "451.2",
     note: "Target DNA: 14 field (dari 26)",
   },
 
@@ -677,7 +677,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       "Surat keterangan tidak ada wali dari RT/RW",
       "Surat keterangan kematian wali (jika ada)",
     ],
-    kodeKlasifikasi: "451.2",
+    kodeKlasifikasi: "510",
     note: "Target DNA: 14 field (dari 25)",
   },
 
@@ -704,7 +704,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP", "Foto tempat usaha", "Pengantar RT/RW"],
-    kodeKlasifikasi: "510.0",
+    kodeKlasifikasi: "140",
   },
 
   IZIN_KERAMAIAN: {
@@ -729,7 +729,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keterangan", label: "Keterangan Tambahan", type: "textarea", colSpan: 2 },
     ],
     syarat: ["Proposal acara", "Pengantar RT/RW", "Persetujuan tetangga"],
-    kodeKlasifikasi: "140.0",
+    kodeKlasifikasi: "524",
     note: "Target DNA: 15 field (dari 27)",
   },
 
@@ -742,7 +742,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
     eta: "1 hari kerja",
     fields: COMMON_FIELDS_MEDIUM,
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW"],
-    kodeKlasifikasi: "524.0",
+    kodeKlasifikasi: "530",
   },
 
   SK_PENGRAJIN: {
@@ -757,7 +757,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW", "Portofolio (opsional)"],
-    kodeKlasifikasi: "530.0",
+    kodeKlasifikasi: "510.2",
   },
 
   SK_PEDAGANG_PASAR: {
@@ -773,7 +773,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW", "Surat keterangan dari pengelola pasar"],
-    kodeKlasifikasi: "510.2",
+    kodeKlasifikasi: "30.1",
   },
 
   /* ==================== TANAH & PROPERTI (10) ==================== */
@@ -797,7 +797,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW"],
-    kodeKlasifikasi: "30.1",
+    kodeKlasifikasi: "30.2",
     note: "Target DNA: 14 field (dari 32)",
   },
 
@@ -815,7 +815,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keterangan", label: "Keterangan", type: "textarea", colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW"],
-    kodeKlasifikasi: "30.2",
+    kodeKlasifikasi: "30.3",
     note: "Disclaimer: Berdasarkan yang kami ketahui",
   },
 
@@ -833,7 +833,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "hubungan", label: "Hubungan dengan Pemberi Hibah", type: "text", required: true },
     ],
     syarat: ["Fotokopi KTP & KK kedua belah pihak", "Pengantar RT/RW"],
-    kodeKlasifikasi: "30.3",
+    kodeKlasifikasi: "30.4",
     note: "Target DNA: 16 field (dari 29)",
   },
 
@@ -852,7 +852,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "penjual", label: "Nama Penjual", type: "text", required: true },
     ],
     syarat: ["Fotokopi KTP & KK kedua belah pihak", "Pengantar RT/RW"],
-    kodeKlasifikasi: "30.4",
+    kodeKlasifikasi: "650",
     note: "Target DNA: 16 field (dari 29)",
   },
 
@@ -869,7 +869,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "tahun_bangun", label: "Tahun Dibangun", type: "number", required: true },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW"],
-    kodeKlasifikasi: "650.0",
+    kodeKlasifikasi: "650.1",
   },
 
   SK_BELUM_PUNYA_RUMAH: {
@@ -881,7 +881,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
     eta: "1 hari kerja",
     fields: COMMON_FIELDS_SHORT,
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW", "Surat pernyataan tidak punya rumah"],
-    kodeKlasifikasi: "650.1",
+    kodeKlasifikasi: "451.3",
   },
 
   SK_TANAH_WAKAF: {
@@ -904,7 +904,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "tujuan_wakaf", label: "Tujuan Wakaf", type: "textarea", colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW", "Akta ikrar wakaf (jika ada)"],
-    kodeKlasifikasi: "451.3",
+    kodeKlasifikasi: "420",
     note: "Target DNA: 14 field (dari 26)",
   },
 
@@ -922,7 +922,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Surat keterangan aktif kuliah/sekolah"],
-    kodeKlasifikasi: "420.0",
+    kodeKlasifikasi: "420.2",
     note: "Target DNA: 14 field (dari 28)",
   },
 
@@ -947,7 +947,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "jumlah_peserta", label: "Jumlah Peserta", type: "number", required: true },
     ],
     syarat: ["Proposal kegiatan", "Surat pengantar dari kampus"],
-    kodeKlasifikasi: "420.2",
+    kodeKlasifikasi: "420.3",
     note: "Target DNA: 14 field (dari 25)",
   },
 
@@ -969,7 +969,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Ijazah terakhir (jika ada)"],
-    kodeKlasifikasi: "420.3",
+    kodeKlasifikasi: "420.5",
     note: "Target DNA: 12 field (dari 25)",
   },
 
@@ -992,7 +992,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK orang tua", "Surat keterangan aktif sekolah"],
-    kodeKlasifikasi: "420.5",
+    kodeKlasifikasi: "461",
     note: "Target DNA: 13 field (dari 25)",
   },
 
@@ -1024,7 +1024,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Surat keterangan rumah sakit"],
-    kodeKlasifikasi: "461.0",
+    kodeKlasifikasi: "463.1",
   },
 
   SK_LANSIA: {
@@ -1039,7 +1039,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW"],
-    kodeKlasifikasi: "463.1",
+    kodeKlasifikasi: "463.2",
   },
 
   SK_YATIM_PIATU: {
@@ -1060,7 +1060,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Akta kematian orang tua"],
-    kodeKlasifikasi: "463.2",
+    kodeKlasifikasi: "440.1",
   },
 
   SK_HAMIL: {
@@ -1075,7 +1075,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Surat keterangan bidan/dokter"],
-    kodeKlasifikasi: "440.1",
+    kodeKlasifikasi: "520",
   },
 
   /* ==================== PERTANIAN & LINGKUNGAN (5) ==================== */
@@ -1088,7 +1088,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
     eta: "1 hari kerja",
     fields: COMMON_FIELDS_MEDIUM,
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW"],
-    kodeKlasifikasi: "520.0",
+    kodeKlasifikasi: "523",
   },
 
   SK_NELAYAN: {
@@ -1100,7 +1100,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
     eta: "1 hari kerja",
     fields: COMMON_FIELDS_MEDIUM,
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW"],
-    kodeKlasifikasi: "523.0",
+    kodeKlasifikasi: "360",
   },
 
   SK_BENCANA: {
@@ -1133,7 +1133,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       "Dokumentasi kejadian (foto/video)",
       "Surat keterangan dari BPBD",
     ],
-    kodeKlasifikasi: "360.0",
+    kodeKlasifikasi: "520.2",
   },
 
   SK_PENGGUNAAN_LAHAN: {
@@ -1150,7 +1150,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "peruntukan_usulan", label: "Peruntukan Usulan", type: "text", required: true },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW", "Peta lokasi"],
-    kodeKlasifikasi: "520.2",
+    kodeKlasifikasi: "520.3",
     note: "Target DNA: 13 field (dari 25)",
   },
 
@@ -1167,7 +1167,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP ketua & anggota", "SK Kelompok", "Pengantar RT/RW"],
-    kodeKlasifikasi: "520.3",
+    kodeKlasifikasi: "140.1",
     note: "Target DNA: 14 field (dari 26)",
   },
 
@@ -1185,7 +1185,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Surat pengantar RT/RW"],
-    kodeKlasifikasi: "140.1",
+    kodeKlasifikasi: "140.2",
     note: "Target DNA: 12 field (dari 21)",
   },
 
@@ -1219,7 +1219,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       },
     ],
     syarat: ["Fotokopi KTP & KK", "Surat pengantar RT/RW"],
-    kodeKlasifikasi: "140.2",
+    kodeKlasifikasi: "140.3",
     note: "Target DNA: 12 field (dari 23)",
   },
 
@@ -1241,7 +1241,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW"],
-    kodeKlasifikasi: "140.3",
+    kodeKlasifikasi: "474.10",
     note: "Target DNA: 12 field (dari 23)",
   },
 
@@ -1264,7 +1264,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       },
     ],
     syarat: ["Fotokopi KTP & KK", "Materai 10000"],
-    kodeKlasifikasi: "474.12",
+    kodeKlasifikasi: "474.11",
     note: "Target DNA: 12 field (dari 23)",
   },
 
@@ -1287,7 +1287,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       },
     ],
     syarat: ["Fotokopi KTP pemberi & penerima kuasa", "Materai 10000"],
-    kodeKlasifikasi: "180.0",
+    kodeKlasifikasi: "474.12",
     note: "Target DNA: 12 field (dari 24)",
   },
 
@@ -1300,7 +1300,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
     eta: "1 hari kerja",
     fields: COMMON_FIELDS_SHORT,
     syarat: ["Fotokopi KTP & KK", "Dokumen keturunan (jika ada)"],
-    kodeKlasifikasi: "471.0",
+    kodeKlasifikasi: "180",
     note: "Target DNA: 12 field (dari 22)",
   },
 
@@ -1316,7 +1316,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Paspun (jika ada)", "Surat pendaftaran haji (jika ada)"],
-    kodeKlasifikasi: "456.0",
+    kodeKlasifikasi: "471",
     note: "Target DNA: 12 field (dari 26)",
   },
 
@@ -1329,7 +1329,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
     eta: "1 hari kerja",
     fields: COMMON_FIELDS_SHORT,
     syarat: ["Fotokopi KTP & KK", "Kartu Keluarga"],
-    kodeKlasifikasi: "471.1",
+    kodeKlasifikasi: "456",
     note: "Target DNA: 12 field (dari 24)",
   },
 
@@ -1346,7 +1346,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "nama_pt", label: "Nama PT/PJTKI", type: "text", required: true },
     ],
     syarat: ["Fotokopi KTP & KK", "Paspor", "Kontrak kerja (jika ada)"],
-    kodeKlasifikasi: "471.2",
+    kodeKlasifikasi: "471.1",
     note: "Target DNA: 14 field (dari 27)",
   },
 
@@ -1362,7 +1362,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "luas_tanah", label: "Luas Tanah (m²)", type: "text", required: true },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW"],
-    kodeKlasifikasi: "30.9",
+    kodeKlasifikasi: "471.2",
     note: "Target DNA: 13 field (dari 26)",
   },
 
@@ -1375,7 +1375,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
     eta: "1 hari kerja",
     fields: COMMON_FIELDS_SHORT,
     syarat: ["Fotokopi KTP & KK", "Surat keterangan organisasi"],
-    kodeKlasifikasi: "220.0",
+    kodeKlasifikasi: "30.9",
     note: "Target DNA: 12 field (dari 25)",
   },
 
@@ -1397,7 +1397,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "lokasi_sekarang", label: "Lokasi Sekarang", type: "text", required: true },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW"],
-    kodeKlasifikasi: "475.5",
+    kodeKlasifikasi: "220",
   },
 
   /* ==================== PENGANTAR BARU (7 surat pengganti non-wewenang) ==================== */
@@ -1417,7 +1417,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "nama_ayah", label: "Nama Ayah", type: "text", required: true },
     ],
     syarat: ["Surat Keterangan Bidan/RS", "Fotokopi KTP & KK orang tua"],
-    kodeKlasifikasi: "474.20",
+    kodeKlasifikasi: "475.5",
     isNew: true,
     note: "SURAT BARU - GANTI yang bukan wewenang",
   },
@@ -1437,7 +1437,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "penyebab", label: "Penyebab Kematian (jika diketahui)", type: "text" },
     ],
     syarat: ["Surat Keterangan RS/Bidan", "Fotokopi KTP & KK pelapor"],
-    kodeKlasifikasi: "474.21",
+    kodeKlasifikasi: "474.20",
     isNew: true,
     note: "SURAT BARU - GANTI yang bukan wewenang",
   },
@@ -1453,7 +1453,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", required: true, colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Surat keterangan tidak ada akta dari Dukcapil"],
-    kodeKlasifikasi: "474.22",
+    kodeKlasifikasi: "474.21",
     isNew: true,
     note: "SURAT BARU - GANTI yang bukan wewenang",
   },
@@ -1468,7 +1468,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
     eta: "1 hari kerja",
     fields: COMMON_FIELDS_SHORT,
     syarat: ["Fotokopi KTP & KK", "Desain reklame"],
-    kodeKlasifikasi: "510.4",
+    kodeKlasifikasi: "474.22",
     isNew: true,
     note: "SURAT BARU - GANTI yang bukan wewenang",
   },
@@ -1492,7 +1492,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "fungsi_bangunan", label: "Fungsi Bangunan", type: "text", required: true },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW", "Denah bangunan"],
-    kodeKlasifikasi: "510.5",
+    kodeKlasifikasi: "510.4",
     isNew: true,
     note: "SURAT BARU - GANTI yang bukan wewenang",
   },
@@ -1506,7 +1506,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
     eta: "1 hari kerja",
     fields: COMMON_FIELDS_SHORT,
     syarat: ["Fotokopi KTP & KK", "Proposal kegiatan"],
-    kodeKlasifikasi: "510.6",
+    kodeKlasifikasi: "510.5",
     isNew: true,
     note: "SURAT BARU - GANTI yang bukan wewenang",
   },
@@ -1520,7 +1520,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
     eta: "1 hari kerja",
     fields: COMMON_FIELDS_SHORT,
     syarat: ["Fotokopi KTP & KK", "Surat pengantar RT/RW"],
-    kodeKlasifikasi: "440.2",
+    kodeKlasifikasi: "510.6",
     isNew: true,
     note: "SURAT BARU - GANTI yang bukan wewenang",
   },
@@ -1538,7 +1538,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "alasan", label: "Alasan Penebangan", type: "textarea", colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW", "Foto lokasi"],
-    kodeKlasifikasi: "510.7",
+    kodeKlasifikasi: "440.2",
     isNew: true,
     note: "SURAT BARU - GANTI yang bukan wewenang",
   },
@@ -1556,7 +1556,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "keperluan", label: "Keperluan", type: "textarea", colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Proposal kegiatan", "Rekening tujuan"],
-    kodeKlasifikasi: "466.1",
+    kodeKlasifikasi: "510.7",
     isNew: true,
     note: "SURAT BARU - GANTI yang bukan wewenang",
   },
@@ -1574,7 +1574,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "batas", label: "Batas-batas", type: "textarea", colSpan: 2 },
     ],
     syarat: ["Fotokopi KTP & KK", "Pengantar RT/RW"],
-    kodeKlasifikasi: "30.10",
+    kodeKlasifikasi: "466.1",
     isNew: true,
     note: "SURAT BARU - GANTI yang bukan wewenang",
   },
@@ -1594,7 +1594,7 @@ export const SURAT_MASTER: Record<string, SuratMaster> = {
       { key: "nama_ayah", label: "Nama Ayah", type: "text", required: true },
     ],
     syarat: ["Surat Keterangan Bidan/RS", "Fotokopi KTP & KK orang tua"],
-    kodeKlasifikasi: "474.23",
+    kodeKlasifikasi: "30.10",
     isNew: true,
     note: "SURAT BARU - GANTI yang bukan wewenang",
   },
