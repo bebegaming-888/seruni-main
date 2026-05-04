@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import Papa from "papaparse";
 import {
@@ -19,88 +18,41 @@ import {
   Pencil,
   Trash2,
   Eye,
-  ShieldCheck,
-  FileSignature,
-  Send,
   Download,
   Upload,
   Search,
-  CheckCircle2,
-  XCircle,
   Copy,
 } from "lucide-react";
 import {
   listTemplates,
   saveTemplate,
   deleteTemplate,
-  setTemplateStatus,
   newBlankTemplate,
   renderTemplate,
   type SuratTemplate,
-  type TemplateStatus,
   type TemplateField,
 } from "@/lib/template-store";
-import { sendWaNotification } from "@/lib/fonnte";
-import { can, templateActionsFor } from "@/lib/roles";
+import { can } from "@/lib/roles";
 import { Switch } from "@/components/ui/switch";
-
-const STATUSES: TemplateStatus[] = [
-  "Draft",
-  "Menunggu Verifikasi",
-  "Diverifikasi",
-  "Disetujui",
-  "Ditolak",
-  "Terkirim",
-];
-
-const STATUS_CLASS: Record<TemplateStatus, string> = {
-  Draft: "bg-muted text-muted-foreground border-border",
-  "Menunggu Verifikasi": "bg-warning/15 text-warning border-warning/30",
-  Diverifikasi: "bg-info/15 text-info border-info/30",
-  Disetujui: "bg-success/15 text-success border-success/30",
-  Ditolak: "bg-destructive/15 text-destructive border-destructive/30",
-  Terkirim: "bg-primary/15 text-primary border-primary/30",
-};
 
 export function TemplateSuratManager() {
   const [items, setItems] = useState<SuratTemplate[]>(() => listTemplates());
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState<"all" | TemplateStatus>("all");
   const [editing, setEditing] = useState<SuratTemplate | null>(null);
   const [previewing, setPreviewing] = useState<SuratTemplate | null>(null);
-  const [sending, setSending] = useState<SuratTemplate | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = () => setItems(listTemplates());
 
   const filtered = useMemo(() => {
-    let list = items;
-    if (tab !== "all") list = list.filter((t) => t.status === tab);
     const s = q.trim().toLowerCase();
-    if (s) {
-      list = list.filter((t) =>
-        [t.code, t.name, t.category, t.description].some((v) =>
-          (v ?? "").toLowerCase().includes(s),
-        ),
-      );
-    }
-    return list;
-  }, [items, tab, q]);
-
-  const counts = useMemo(() => {
-    const c: Record<TemplateStatus, number> = {
-      Draft: 0,
-      "Menunggu Verifikasi": 0,
-      Diverifikasi: 0,
-      Disetujui: 0,
-      Ditolak: 0,
-      Terkirim: 0,
-    };
-    items.forEach((t) => {
-      c[t.status] = (c[t.status] ?? 0) + 1;
-    });
-    return c;
-  }, [items]);
+    if (!s) return items;
+    return items.filter((t) =>
+      [t.code, t.name, t.category, t.description].some((v) =>
+        (v ?? "").toLowerCase().includes(s),
+      ),
+    );
+  }, [items, q]);
 
   const handleNew = () => setEditing(newBlankTemplate());
   const handleEdit = (t: SuratTemplate) => setEditing({ ...t });
@@ -122,35 +74,6 @@ export function TemplateSuratManager() {
     deleteTemplate(t.id);
     refresh();
     toast.success("Template dihapus");
-  };
-  const submitVerify = (t: SuratTemplate) => {
-    setTemplateStatus(t.id, { status: "Menunggu Verifikasi" });
-    refresh();
-    toast.success("Diajukan untuk verifikasi");
-  };
-  const verify = (t: SuratTemplate) => {
-    setTemplateStatus(t.id, {
-      status: "Diverifikasi",
-      verified_by: "Sekretaris Desa",
-      verified_at: new Date().toISOString(),
-    });
-    refresh();
-    toast.success("Template diverifikasi");
-  };
-  const approve = (t: SuratTemplate) => {
-    setTemplateStatus(t.id, {
-      status: "Disetujui",
-      approved_by: "Kepala Desa",
-      approved_at: new Date().toISOString(),
-    });
-    refresh();
-    toast.success("Template disetujui");
-  };
-  const reject = (t: SuratTemplate) => {
-    const note = window.prompt("Alasan penolakan?") ?? "";
-    setTemplateStatus(t.id, { status: "Ditolak", catatan: note });
-    refresh();
-    toast.error("Template ditolak");
   };
 
   const onSave = () => {
@@ -205,7 +128,7 @@ export function TemplateSuratManager() {
             fields: [],
             eta: r.eta || "1 hari kerja",
             body: r.body || "",
-            status: (r.status as TemplateStatus) || "Draft",
+            status: (r.status as SuratTemplate["status"]) || "Draft",
             created_at: new Date().toISOString(),
           };
           saveTemplate(tpl);
@@ -226,8 +149,7 @@ export function TemplateSuratManager() {
               <FileText className="h-6 w-6 text-primary" /> Manajemen Template Surat
             </h2>
             <p className="font-body text-sm text-muted-foreground mt-1">
-              {items.length} template · CRUD, import/export, preview, verifikasi, approval & kirim
-              dokumen
+              {items.length} template · CRUD, import/export, dan preview
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -261,19 +183,7 @@ export function TemplateSuratManager() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-          <TabsList className="flex flex-wrap h-auto rounded-full bg-muted p-1">
-            <TabsTrigger value="all" className="rounded-full text-xs">
-              Semua <span className="ml-1.5 opacity-70">{items.length}</span>
-            </TabsTrigger>
-            {STATUSES.map((s) => (
-              <TabsTrigger key={s} value={s} className="rounded-full text-xs">
-                {s} <span className="ml-1.5 opacity-70">{counts[s]}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+      <div className="flex justify-end">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -294,14 +204,13 @@ export function TemplateSuratManager() {
                 <th className="text-left px-4 py-3">Nama Surat</th>
                 <th className="text-left px-4 py-3 hidden md:table-cell">Kategori</th>
                 <th className="text-left px-4 py-3 hidden lg:table-cell">ETA</th>
-                <th className="text-left px-4 py-3">Status</th>
                 <th className="text-right px-4 py-3">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={5} className="text-center py-12 text-muted-foreground">
                     Tidak ada template.
                   </td>
                 </tr>
@@ -322,75 +231,10 @@ export function TemplateSuratManager() {
                       {t.eta}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`text-[10px] font-ui font-semibold px-2 py-0.5 rounded-full border ${STATUS_CLASS[t.status]}`}
-                      >
-                        {t.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
                       <div className="flex justify-end gap-1 flex-wrap">
                         <IconBtn title="Preview" onClick={() => setPreviewing(t)}>
                           <Eye className="h-4 w-4" />
                         </IconBtn>
-                        {templateActionsFor(t.status).map((a) => {
-                          if (a === "template.submitVerify")
-                            return (
-                              <IconBtn
-                                key={a}
-                                title="Ajukan Verifikasi"
-                                tone="info"
-                                onClick={() => submitVerify(t)}
-                              >
-                                <ShieldCheck className="h-4 w-4" />
-                              </IconBtn>
-                            );
-                          if (a === "template.verify")
-                            return (
-                              <IconBtn
-                                key={a}
-                                title="Verifikasi"
-                                tone="info"
-                                onClick={() => verify(t)}
-                              >
-                                <CheckCircle2 className="h-4 w-4" />
-                              </IconBtn>
-                            );
-                          if (a === "template.approve")
-                            return (
-                              <IconBtn
-                                key={a}
-                                title="Approve & TTD"
-                                tone="success"
-                                onClick={() => approve(t)}
-                              >
-                                <FileSignature className="h-4 w-4" />
-                              </IconBtn>
-                            );
-                          if (a === "template.reject")
-                            return (
-                              <IconBtn
-                                key={a}
-                                title="Tolak"
-                                tone="destructive"
-                                onClick={() => reject(t)}
-                              >
-                                <XCircle className="h-4 w-4" />
-                              </IconBtn>
-                            );
-                          if (a === "template.send")
-                            return (
-                              <IconBtn
-                                key={a}
-                                title="Kirim Dokumen"
-                                tone="primary"
-                                onClick={() => setSending(t)}
-                              >
-                                <Send className="h-4 w-4" />
-                              </IconBtn>
-                            );
-                          return null;
-                        })}
                         {can("template.create") && (
                           <IconBtn title="Duplikasi" onClick={() => handleDuplicate(t)}>
                             <Copy className="h-4 w-4" />
@@ -607,13 +451,6 @@ export function TemplateSuratManager() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               Preview — {previewing?.name}
-              {previewing && (
-                <span
-                  className={`text-[10px] font-ui font-semibold px-2 py-0.5 rounded-full border ${STATUS_CLASS[previewing.status]}`}
-                >
-                  {previewing.status}
-                </span>
-              )}
             </DialogTitle>
           </DialogHeader>
           {previewing && (
@@ -632,12 +469,6 @@ export function TemplateSuratManager() {
                   year: "numeric",
                 }),
               })}
-              {previewing.status === "Disetujui" && previewing.approved_by && (
-                <div className="mt-4 pt-3 border-t border-dashed border-border text-xs text-muted-foreground">
-                  Disetujui oleh {previewing.approved_by} ·{" "}
-                  {new Date(previewing.approved_at!).toLocaleString("id-ID")}
-                </div>
-              )}
             </div>
           )}
           <DialogFooter>
@@ -647,83 +478,7 @@ export function TemplateSuratManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Send dialog */}
-      <SendDialog
-        template={sending}
-        onClose={() => setSending(null)}
-        onSent={() => {
-          refresh();
-        }}
-      />
     </div>
-  );
-}
-
-function SendDialog({
-  template,
-  onClose,
-  onSent,
-}: {
-  template: SuratTemplate | null;
-  onClose: () => void;
-  onSent: () => void;
-}) {
-  const [to, setTo] = useState("");
-  const [msg, setMsg] = useState("");
-  const open = !!template;
-
-  const submit = async () => {
-    if (!template || !to.trim()) {
-      toast.error("Nomor tujuan wajib diisi");
-      return;
-    }
-    const text = msg.trim() || `Dokumen ${template.name} telah disetujui dan dikirim kepada Anda.`;
-    await sendWaNotification(to.trim(), text);
-    setTemplateStatus(template.id, {
-      status: "Terkirim",
-      sent_to: to.trim(),
-      sent_at: new Date().toISOString(),
-    });
-    toast.success("Dokumen terkirim via WA");
-    onSent();
-    onClose();
-    setTo("");
-    setMsg("");
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Kirim Dokumen — {template?.name}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 py-2">
-          <Field label="Nomor WhatsApp Tujuan" full>
-            <Input placeholder="08xxxxxxxxxx" value={to} onChange={(e) => setTo(e.target.value)} />
-          </Field>
-          <Field label="Pesan (opsional)" full>
-            <Textarea
-              rows={4}
-              value={msg}
-              onChange={(e) => setMsg(e.target.value)}
-              placeholder="Pesan tambahan..."
-            />
-          </Field>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Batal
-          </Button>
-          <Button
-            onClick={submit}
-            className="bg-primary hover:bg-primary-hover text-primary-foreground"
-          >
-            <Send className="h-4 w-4 mr-1.5" /> Kirim
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -753,23 +508,17 @@ function IconBtn({
   children: React.ReactNode;
   title: string;
   onClick: () => void;
-  tone?: "primary" | "success" | "info" | "destructive";
+  tone?: "destructive";
 }) {
-  const toneCls =
-    tone === "success"
-      ? "hover:bg-success/10 hover:text-success hover:border-success/40"
-      : tone === "info"
-        ? "hover:bg-info/10 hover:text-info hover:border-info/40"
-        : tone === "destructive"
-          ? "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40"
-          : tone === "primary"
-            ? "hover:bg-primary/10 hover:text-primary hover:border-primary/40"
-            : "hover:bg-muted";
   return (
     <button
       title={title}
       onClick={onClick}
-      className={`h-8 w-8 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground transition ${toneCls}`}
+      className={`h-8 w-8 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground transition ${
+        tone === "destructive"
+          ? "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40"
+          : "hover:bg-muted"
+      }`}
     >
       {children}
     </button>
