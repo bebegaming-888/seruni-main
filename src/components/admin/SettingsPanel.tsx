@@ -439,12 +439,26 @@ export function SettingsPanel() {
                     onChange={(e) => update("surat", { prefix_no: e.target.value })}
                   />
                 </Field>
+                <Field label="Inisial Jabatan">
+                  <Input
+                    placeholder="KDS"
+                    value={s.nomor.inisialJabatan}
+                    onChange={(e) => update("nomor", { inisialJabatan: e.target.value })}
+                  />
+                </Field>
                 <Field label="Maks. Ukuran Lampiran (MB)">
                   <Input
                     type="number"
                     min={1}
                     value={s.surat.max_file_mb}
                     onChange={(e) => update("surat", { max_file_mb: Number(e.target.value) })}
+                  />
+                </Field>
+                <Field label="Inisial Desa">
+                  <Input
+                    placeholder="SRMB"
+                    value={s.nomor.inisialDesa}
+                    onChange={(e) => update("nomor", { inisialDesa: e.target.value })}
                   />
                 </Field>
                 <Field label="Auto-arsip setelah (hari)">
