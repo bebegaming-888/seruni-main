@@ -120,8 +120,8 @@ export function Navbar() {
             onClick={() => setOpen((v) => !v)}
             className={`lg:hidden flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 cursor-pointer active:scale-95 ${
               scrolled
-                ? "bg-ink/90 text-background shadow-pill backdrop-blur-md scale-100"
-                : "bg-ink/80 text-background"
+                ? "bg-ink/90 text-background shadow-pill backdrop-blur-md opacity-100"
+                : "bg-ink/80 text-background opacity-100"
             }`}
             aria-label="Menu"
             aria-expanded={open}
