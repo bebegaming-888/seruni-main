@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "@/components/Link";
+import { useNavigate } from "@tanstack/react-router";
 
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
@@ -32,12 +33,16 @@ import {
   Loader2,
   Copy,
   AlertCircle,
+  UserCircle,
+  LogOut,
+  Smartphone,
 } from "lucide-react";
 import { SURAT_KATEGORI } from "@/data/site";
 import { getSuratMaster, SURAT_MASTER, type SuratMaster } from "@/data/surat-master";
 import { type Penduduk, PENDUDUK_MOCK } from "@/data/penduduk";
 import { lookupPendudukLocal, saveRecord, type SuratRecord } from "@/lib/esurat-store";
 import { notifySurat } from "@/lib/esurat-notif";
+import { isWargaLoggedIn, getWargaSession, logoutWarga } from "@/lib/warga-auth";
 
 type Step = 0 | 1 | 2 | 3 | 4;
 
@@ -196,12 +201,44 @@ export default function ESurat() {
                 Dokumen final dikirim langsung via WhatsApp.
               </p>
             </div>
-            <Link
-              to="/pelayanan/monitoring"
-              className="btn-pill bg-background/10 text-background border border-background/20 hover:bg-background/20"
-            >
-              <Search className="h-4 w-4" /> Lacak Pengajuan
-            </Link>
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              {isWargaLoggedIn() && getWargaSession() ? (
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-success/20 border border-success/30 text-success">
+                  <UserCircle className="h-4 w-4" />
+                  <div className="text-right">
+                    <p className="font-ui text-xs font-semibold leading-tight">
+                      {getWargaSession()!.warga.nama}
+                    </p>
+                    <p className="font-mono text-[10px] opacity-80">
+                      {getWargaSession()!.warga.nik}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      logoutWarga();
+                      toast.success("Berhasil keluar");
+                    }}
+                    className="ml-1 text-success/70 hover:text-success transition"
+                    title="Logout"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/masuk/warga"
+                  className="btn-pill bg-background/10 text-background border border-background/20 hover:bg-background/20"
+                >
+                  <Smartphone className="h-4 w-4" /> Login Warga
+                </Link>
+              )}
+              <Link
+                to="/pelayanan/monitoring"
+                className="btn-pill bg-background/10 text-background border border-background/20 hover:bg-background/20"
+              >
+                <Search className="h-4 w-4" /> Lacak Pengajuan
+              </Link>
+            </div>
           </div>
         </div>
       </section>

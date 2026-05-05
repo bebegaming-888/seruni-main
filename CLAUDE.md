@@ -36,6 +36,10 @@ TanStack Router with file-based routes in `src/routes/`. Route tree is auto-gene
 ### Auth: Two Systems
 
 - **Admin auth** (`src/lib/auth.ts`): localStorage/sessionStorage-based. A fixed superadmin account comes from `VITE_ADMIN_USER`/`VITE_ADMIN_PASS` env vars and **cannot be deleted or renamed**. Additional users are stored in localStorage and manageable via the Settings panel.
+- **Warga auth** (`src/lib/warga-auth.ts`): NIK + OTP WhatsApp login. Session stored in `sessionStorage` (lifetime = tab). Dev mode: OTP "123456" accepted without Supabase.
+  - Edge functions: `functions/api/auth/request-otp.ts`, `functions/api/auth/verify-otp.ts`
+  - DB migration: `supabase/migrations/002_warga_auth.sql` (tabel `otp_requests`, `warga_sessions`, `warga_trackings`)
+  - Protected route: `/masuk/warga`
 - **Supabase auth**: Set up in the DB migration but not yet wired in the frontend. Supabase RLS uses the `admin_users` table, not its own built-in auth.
 
 > `src/lib/supabase.ts` returns `null` when env vars are missing. Always check `isSupabaseConfigured` or null-check the client — never assume it is present.

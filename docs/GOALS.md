@@ -3,7 +3,7 @@
 
 ---
 
-**Versi:** 1.1
+**Versi:** 1.2
 **Tanggal:** 5 Mei 2026
 **Status:** Pedoman Aktif — Menjadi acuan dalam setiap pengambilan keputusan dan eksekusi pengembangan
 **Platform:** Web PWA → Aplikasi Mobile (Roadmap)
@@ -164,7 +164,10 @@ Aplikasi mobile native dapat terhubung ke Supabase secara aman menggunakan anon 
 
 ### Fase 2 — Penguatan (2026 Q2)
 - [x] Sinkronisasi localStorage ↔ Supabase (write-through sync layer `useSupabaseSync.ts`)
-- [ ] Wire Supabase Auth untuk login warga (NIK + OTP WA)
+- [x] Wire Supabase Auth untuk login warga (NIK + OTP WA)
+  - Edge functions: `/api/auth/request-otp` + `/api/auth/verify-otp`
+  - Frontend: `src/lib/warga-auth.ts` + halaman `/masuk/warga`
+  - Dev mode fallback: OTP "123456" tanpa Supabase
 - [ ] Push notification untuk status surat (Web Push API)
 - [ ] Dashboard monitoring RW/RT untuk perangkat desa
 - [ ] Migrasi data penduduk mock ke Supabase tabel `warga`
