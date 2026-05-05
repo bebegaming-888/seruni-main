@@ -24,7 +24,7 @@ export const Route = createFileRoute("/profil/perangkat")({
       },
     ],
   }),
-  component: PerangkatPage,
+  component: () => <PerangkatPage />,
 });
 
 const PERANGKAT = [

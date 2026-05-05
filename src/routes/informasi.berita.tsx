@@ -20,7 +20,7 @@ export const Route = createFileRoute("/informasi/berita")({
     q: typeof search.q === "string" ? search.q : "",
     category: typeof search.category === "string" ? search.category : "Semua",
   }),
-  component: BeritaPage,
+  component: () => <BeritaPage />,
 });
 
 function Badge({

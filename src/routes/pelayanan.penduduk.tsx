@@ -40,7 +40,7 @@ export const Route = createFileRoute("/pelayanan/penduduk")({
       },
     ],
   }),
-  component: PendudukPage,
+  component: () => <PendudukPage />,
 });
 
 // ---- COMPUTED STATS ----

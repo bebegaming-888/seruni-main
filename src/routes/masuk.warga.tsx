@@ -351,7 +351,6 @@ function MasukWargaPage() {
           </Link>
           <Link
             to="/verifikasi/$no"
-            relative="path"
             params={{ no: "contoh" }}
             className="flex items-center justify-between h-12 px-5 rounded-xl border border-border bg-card font-ui text-sm hover:bg-cream transition-colors"
           >

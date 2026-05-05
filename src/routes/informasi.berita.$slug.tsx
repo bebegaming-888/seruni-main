@@ -21,7 +21,7 @@ export const Route = createFileRoute("/informasi/berita/$slug")({
       ],
     };
   },
-  component: ArticleDetailPage,
+  component: () => <ArticleDetailPage />,
 });
 
 function TagBadge({ tag }: { tag: string }) {

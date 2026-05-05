@@ -16,7 +16,7 @@ export const Route = createFileRoute("/lainnya/peta")({
       },
     ],
   }),
-  component: PetaPage,
+  component: () => <PetaPage />,
 });
 
 export function PetaPage() {

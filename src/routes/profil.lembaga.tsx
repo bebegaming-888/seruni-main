@@ -15,7 +15,7 @@ export const Route = createFileRoute("/profil/lembaga")({
       },
     ],
   }),
-  component: LembagaPage,
+  component: () => <LembagaPage />,
 });
 
 const LEMBAGA = [

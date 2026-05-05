@@ -15,7 +15,7 @@ export const Route = createFileRoute("/profil/karangtaruna")({
       },
     ],
   }),
-  component: KarangTarunaPage,
+  component: () => <KarangTarunaPage />,
 });
 
 const PROGRAM = [

@@ -24,7 +24,7 @@ export const Route = createFileRoute("/profil/pkkrw")({
       },
     ],
   }),
-  component: PKKRWPage,
+  component: () => <PKKRWPage />,
 });
 
 const PROGRAM_PKK = [

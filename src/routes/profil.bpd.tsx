@@ -26,7 +26,7 @@ export const Route = createFileRoute("/profil/bpd")({
       },
     ],
   }),
-  component: BPDPage,
+  component: () => <BPDPage />,
 });
 
 const ANGGOTA = [

@@ -25,7 +25,7 @@ export const Route = createFileRoute("/profil/lpm")({
       },
     ],
   }),
-  component: LPMPage,
+  component: () => <LPMPage />,
 });
 
 const PROGRAM = [

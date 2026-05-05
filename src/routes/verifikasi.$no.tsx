@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Link } from "@/components/Link";
 import { getRecord, type SuratRecord } from "@/lib/esurat-store";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   CheckCircle2,
   XCircle,
@@ -92,14 +93,44 @@ function VerifikasiPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    // Small delay to simulate server lookup
-    const t = setTimeout(() => {
+    async function load() {
+      setLoading(true);
+      setNotFound(false);
+      setRecord(null);
+
+      if (isSupabaseConfigured) {
+        try {
+          const res = await fetch("/api/verify-surat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ no }),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as {
+              ok: boolean;
+              record?: Record<string, unknown>;
+              error?: string;
+            };
+            if (data.ok && data.record) {
+              setRecord(data.record as unknown as SuratRecord);
+              setLoading(false);
+              return;
+            }
+          }
+          // fallback to localStorage if API fails
+        } catch {
+          // fallback to localStorage
+        }
+      }
+
+      // Fallback: localStorage lookup
       const found = getRecord(no);
       if (!found) setNotFound(true);
       else setRecord(found);
       setLoading(false);
-    }, 600);
-    return () => clearTimeout(t);
+    }
+
+    load();
   }, [no]);
 
   return (

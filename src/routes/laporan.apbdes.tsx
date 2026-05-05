@@ -56,7 +56,7 @@ export const Route = createFileRoute("/laporan/apbdes")({
       },
     ],
   }),
-  component: ApbdesPage,
+  component: () => <ApbdesPage />,
 });
 
 const KATEGORI_COLOR: Record<string, string> = {

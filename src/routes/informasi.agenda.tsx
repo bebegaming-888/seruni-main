@@ -16,7 +16,7 @@ export const Route = createFileRoute("/informasi/agenda")({
       },
     ],
   }),
-  component: AgendaPage,
+  component: () => <AgendaPage />,
 });
 
 type AgendaItem = {

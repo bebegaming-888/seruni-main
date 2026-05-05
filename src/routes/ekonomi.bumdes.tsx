@@ -30,7 +30,7 @@ export const Route = createFileRoute("/ekonomi/bumdes")({
       },
     ],
   }),
-  component: BumdesPage,
+  component: () => <BumdesPage />,
 });
 
 const PRODUK = [
