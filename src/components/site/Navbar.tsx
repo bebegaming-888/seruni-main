@@ -118,15 +118,14 @@ export function Navbar() {
           </Link>
           <button
             onClick={() => setOpen((v) => !v)}
-            className={`lg:hidden flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 cursor-pointer active:scale-95 ${
-              scrolled
-                ? "bg-ink/90 text-background shadow-pill backdrop-blur-md opacity-100"
-                : "bg-ink/80 text-background opacity-100"
-            }`}
+            className="lg:hidden flex h-10 w-10 items-center justify-center rounded-full shadow-md active:scale-95 cursor-pointer border border-black/20"
+            style={{ backgroundColor: scrolled ? "rgba(22,25,31,0.95)" : "rgba(30,34,42,0.85)" }}
             aria-label="Menu"
             aria-expanded={open}
           >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <span className="text-white">
+              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </span>
           </button>
         </div>
       </div>
