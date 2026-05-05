@@ -6,8 +6,10 @@ import wisataAir from "@/assets/wisata-airterjun.jpg";
 import wisataPantai from "@/assets/wisata-pantai.jpg";
 import wisataBudaya from "@/assets/wisata-budaya.jpg";
 import gal1 from "@/assets/galeri-1.jpg";
+import { getSettings } from "@/lib/settings-store";
 
-const slides = [
+/** Fallback slides — digunakan jika tidak ada pengaturan di settings */
+const FALLBACK_SLIDES = [
   { id: "s1", image: heroVillage, alt: "Pemandangan Desa Seruni Mumbul" },
   { id: "s2", image: wisataAir, alt: "Air terjun" },
   { id: "s3", image: wisataPantai, alt: "Pantai" },
@@ -15,67 +17,112 @@ const slides = [
   { id: "s5", image: gal1, alt: "Galeri desa" },
 ];
 
-const marqueeText =
-  "Selamat datang di Portal Resmi Desa Seruni Mumbul · Pelayanan publik transparan · Mari membangun desa bersama";
-
 export function HeroSection() {
   const [active, setActive] = useState(0);
+  const settings = getSettings();
+  const hero = settings.hero;
+
+  const slides = (() => {
+    const configured = hero.slides;
+    if (!configured || configured.length === 0) return FALLBACK_SLIDES;
+    // Map settings slides to image sources
+    return configured.map((s, i) => ({
+      id: s.id,
+      // Use the local fallback images as URL
+      image: FALLBACK_SLIDES[i % FALLBACK_SLIDES.length]?.image ?? "",
+      alt: s.alt,
+      enabled: s.enabled,
+    }));
+  })();
+
+  const activeSlides = slides.filter((s) => s.enabled);
+  const hasVideo = !!hero.video_url && hero.video_enabled;
 
   useEffect(() => {
-    const id = setInterval(() => setActive((i) => (i + 1) % slides.length), 5000);
+    if (!activeSlides.length) return;
+    const id = setInterval(() => setActive((i) => (i + 1) % activeSlides.length), 5000);
     return () => clearInterval(id);
-  }, []);
+  }, [activeSlides.length]);
 
   return (
     <section className="relative h-screen min-h-[640px] w-full overflow-hidden">
-      {slides.map((s, i) => (
-        <img
-          key={s.id}
-          src={s.image}
-          alt={s.alt}
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${i === active ? "opacity-100" : "opacity-0"}`}
-          width={1920}
-          height={1280}
+      {/* Video background */}
+      {hasVideo && (
+        <video
+          src={hero.video_url}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+          poster={hero.video_fallback_image}
         />
-      ))}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/75" />
+      )}
 
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-2">
-        {slides.map((s, i) => (
-          <button
+      {/* Image slider (fallback if no video or overlaid) */}
+      {!hasVideo &&
+        slides.map((s, i) => (
+          <img
             key={s.id}
-            onClick={() => setActive(i)}
-            aria-label={`Slide ${i + 1}`}
-            className={`h-1.5 rounded-full transition-all ${i === active ? "w-8 bg-white" : "w-3 bg-white/50"}`}
+            src={s.image}
+            alt={s.alt}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
+              i === active ? "opacity-100" : "opacity-0"
+            }`}
+            width={1920}
+            height={1280}
           />
         ))}
-      </div>
 
-      <div className="absolute right-4 top-24 sm:right-8 sm:top-28 z-30 flex items-center gap-2 rounded-full bg-white/15 backdrop-blur-md px-3.5 py-2 text-white border border-white/20">
-        <Cloud className="h-4 w-4" />
-        <span className="font-ui text-xs font-medium">Pringgabaya · 28°C · Cerah</span>
-      </div>
+      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/75" />
 
-      <div
-        className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-10 overflow-hidden pointer-events-none select-none"
-        aria-hidden
-      >
+      {/* Weather badge */}
+      {hero.weather_enabled && (
+        <div className="absolute right-4 top-24 sm:right-8 sm:top-28 z-30 flex items-center gap-2 rounded-full bg-white/15 backdrop-blur-md px-3.5 py-2 text-white border border-white/20">
+          <Cloud className="h-4 w-4" />
+          <span className="font-ui text-xs font-medium">{hero.weather_label}</span>
+        </div>
+      )}
+
+      {/* Marquee text */}
+      {hero.marquee_enabled && hero.marquee_text && (
         <div
-          className="flex whitespace-nowrap will-change-transform animate-marquee italic font-bold text-white/60"
-          style={{
-            fontFamily: "Fraunces, serif",
-            fontSize: "clamp(80px, 14vw, 240px)",
-            lineHeight: 1,
-            letterSpacing: "-0.02em",
-          }}
+          className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-10 overflow-hidden pointer-events-none select-none"
+          aria-hidden
         >
-          {Array.from({ length: 4 }).map((_, i) => (
-            <span key={i} className="px-12 shrink-0">
-              {marqueeText}
-            </span>
+          <div
+            className="flex whitespace-nowrap will-change-transform animate-marquee italic font-bold text-white/60"
+            style={{
+              fontFamily: "Fraunces, serif",
+              fontSize: "clamp(80px, 14vw, 240px)",
+              lineHeight: 1,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {Array.from({ length: 4 }).map((_, i) => (
+              <span key={i} className="px-12 shrink-0">
+                {hero.marquee_text}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Hero image slider dots */}
+      {hero.slider_enabled && activeSlides.length > 1 && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-2">
+          {slides.map((s, i) => (
+            <button
+              key={s.id}
+              onClick={() => setActive(i)}
+              aria-label={`Slide ${i + 1}`}
+              className={`h-1.5 rounded-full transition-all ${
+                i === active ? "w-8 bg-white" : "w-3 bg-white/50"
+              }`}
+            />
           ))}
         </div>
-      </div>
+      )}
 
       <div className="absolute inset-x-0 bottom-0 z-20 flex justify-center pointer-events-none">
         <img

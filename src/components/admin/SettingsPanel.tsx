@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +31,9 @@ import {
   Plus,
   KeyRound,
   AlertTriangle,
+  Image,
+  LayoutTemplate,
+  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -43,7 +46,9 @@ import {
   listAudit,
   clearAudit,
   logAudit,
+  DEFAULT_SETTINGS,
   type SystemSettings,
+  type PageConfig,
 } from "@/lib/settings-store";
 import {
   listUsers,
@@ -59,6 +64,9 @@ import {
 const SECTIONS = [
   { key: "village", label: "Profil Desa", icon: Building2 },
   { key: "branding", label: "Tampilan & Brand", icon: Palette },
+  { key: "hero", label: "Hero Landing", icon: Image },
+  { key: "kopSurat", label: "Kop Surat", icon: LayoutTemplate },
+  { key: "pages", label: "Konten Halaman", icon: BookOpen },
   { key: "notifications", label: "Notifikasi WA", icon: BellRing },
   { key: "signature", label: "E-Signature", icon: FileSignature },
   { key: "surat", label: "Konfigurasi Surat", icon: FileText },
@@ -232,10 +240,11 @@ export function SettingsPanel() {
                   />
                 </Field>
                 <Field label="URL Logo Desa">
-                  <Input
-                    placeholder="https://…"
+                  <ImageUploadField
+                    label="Logo Desa"
+                    hint="PNG atau JPG, maks 500KB"
                     value={s.village.logo_url}
-                    onChange={(e) => update("village", { logo_url: e.target.value })}
+                    onChange={(v) => update("village", { logo_url: v })}
                   />
                 </Field>
               </Grid2>
@@ -294,6 +303,18 @@ export function SettingsPanel() {
                 />
               </Field>
             </Section>
+          </TabsContent>
+
+          <TabsContent value="hero" className="m-0 space-y-4">
+            <HeroSettings s={s} update={update} />
+          </TabsContent>
+
+          <TabsContent value="kopSurat" className="m-0 space-y-4">
+            <KopSuratSettings s={s} update={update} />
+          </TabsContent>
+
+          <TabsContent value="pages" className="m-0 space-y-4">
+            <PagesCMS s={s} update={update} />
           </TabsContent>
 
           <TabsContent value="notifications" className="m-0 space-y-4">
@@ -1055,5 +1076,590 @@ function ToggleRow({
       </div>
       <Switch checked={checked} onCheckedChange={onChange} />
     </div>
+  );
+}
+
+/* ---------- Image upload helper ---------- */
+function ImageUploadField({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFile = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Hanya file gambar yang diizinkan");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => onChange(e.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label className="font-ui text-xs font-semibold">{label}</Label>
+      <div className="flex gap-3">
+        <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+          <Upload className="h-4 w-4 mr-1.5" /> Pilih Gambar
+        </Button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+        />
+        {value && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => onChange("")}>
+            <Trash2 className="h-4 w-4" /> Hapus
+          </Button>
+        )}
+      </div>
+      {hint && <p className="font-body text-[11px] text-muted-foreground">{hint}</p>}
+      {value && (
+        <div className="relative rounded-xl overflow-hidden border border-border w-full max-w-xs">
+          <img src={value} alt={label} className="h-36 w-full object-cover" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Hero Settings ---------- */
+function HeroSettings({
+  s,
+  update,
+}: {
+  s: SystemSettings;
+  update: <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => void;
+}) {
+  const slides = s.hero.slides;
+
+  const updateSlide = (id: string, patch: Partial<(typeof slides)[0]>) => {
+    update("hero", {
+      slides: slides.map((sl) => (sl.id === id ? { ...sl, ...patch } : sl)),
+    });
+  };
+
+  const addSlide = () => {
+    const newSlide = {
+      id: `s${Date.now()}`,
+      image_url: "",
+      alt: `Slide ${slides.length + 1}`,
+      enabled: true,
+    };
+    update("hero", { slides: [...slides, newSlide] });
+  };
+
+  const removeSlide = (id: string) => {
+    if (slides.length <= 1) {
+      toast.error("Minimal harus ada 1 slide");
+      return;
+    }
+    update("hero", { slides: slides.filter((sl) => sl.id !== id) });
+  };
+
+  const moveSlide = (id: string, dir: -1 | 1) => {
+    const idx = slides.findIndex((sl) => sl.id === id);
+    const next = idx + dir;
+    if (next < 0 || next >= slides.length) return;
+    const arr = [...slides];
+    [arr[idx], arr[next]] = [arr[next], arr[idx]];
+    update("hero", { slides: arr });
+  };
+
+  return (
+    <>
+      {/* Teks Marquee */}
+      <Section title="Teks Marquee" desc="Teks berjalan di tengah hero.">
+        <ToggleRow
+          label="Aktifkan Marquee"
+          checked={s.hero.marquee_enabled}
+          onChange={(v) => update("hero", { marquee_enabled: v })}
+        />
+        <Field label="Teks Marquee" hint="Gunakan · sebagai pemisah antar baris">
+          <Textarea
+            rows={2}
+            value={s.hero.marquee_text}
+            onChange={(e) => update("hero", { marquee_text: e.target.value })}
+          />
+        </Field>
+      </Section>
+
+      {/* Image Slider */}
+      <Section title="Image Slider" desc="Kelola slide gambar hero.">
+        <ToggleRow
+          label="Aktifkan Slider"
+          checked={s.hero.slider_enabled}
+          onChange={(v) => update("hero", { slider_enabled: v })}
+        />
+
+        <div className="space-y-2">
+          {slides.map((sl, i) => (
+            <div key={sl.id} className="rounded-xl border border-border bg-card p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-ui text-xs font-semibold">Slide {i + 1}</span>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => moveSlide(sl.id, -1)}
+                    disabled={i === 0}
+                  >
+                    ←
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => moveSlide(sl.id, 1)}
+                    disabled={i === slides.length - 1}
+                  >
+                    →
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeSlide(sl.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+              <Field label="Alt / Caption">
+                <Input
+                  value={sl.alt}
+                  onChange={(e) => updateSlide(sl.id, { alt: e.target.value })}
+                />
+              </Field>
+              <ImageUploadField
+                label="Gambar Slide"
+                hint="Disarankan rasio 16:9, maks 2MB"
+                value={sl.image_url}
+                onChange={(v) => updateSlide(sl.id, { image_url: v })}
+              />
+              <ToggleRow
+                compact
+                label="Aktifkan slide ini"
+                checked={sl.enabled}
+                onChange={(v) => updateSlide(sl.id, { enabled: v })}
+              />
+            </div>
+          ))}
+          <Button type="button" variant="outline" size="sm" onClick={addSlide}>
+            <Plus className="h-4 w-4 mr-1.5" /> Tambah Slide
+          </Button>
+        </div>
+      </Section>
+
+      {/* Video Background */}
+      <Section
+        title="Video Background"
+        desc="Video diputar otomatis代替 image slider. Fallback image digunakan saat video tidak tersedia."
+      >
+        <ToggleRow
+          label="Aktifkan Video"
+          desc="Video akan diputar di belakang hero. Jika kosong, image slider tetap digunakan."
+          checked={s.hero.video_enabled}
+          onChange={(v) => update("hero", { video_enabled: v })}
+        />
+        <Field label="URL Video" hint="Link langsung ke file video (.mp4) atau YouTube embed">
+          <Input
+            placeholder="https://…/video.mp4"
+            value={s.hero.video_url}
+            onChange={(e) => update("hero", { video_url: e.target.value })}
+          />
+        </Field>
+        <ImageUploadField
+          label="Gambar Fallback Video"
+          hint="Ditampilkan saat video gagal dimuat atau dinonaktifkan"
+          value={s.hero.video_fallback_image}
+          onChange={(v) => update("hero", { video_fallback_image: v })}
+        />
+      </Section>
+
+      {/* Weather Badge */}
+      <Section title="Badge Cuaca" desc="Badge cuaca di pojok kanan atas hero.">
+        <ToggleRow
+          label="Aktifkan Badge Cuaca"
+          checked={s.hero.weather_enabled}
+          onChange={(v) => update("hero", { weather_enabled: v })}
+        />
+        <Field label="Teks Badge" hint="Contoh: Pringgabaya · 28°C · Cerah">
+          <Input
+            value={s.hero.weather_label}
+            onChange={(e) => update("hero", { weather_label: e.target.value })}
+          />
+        </Field>
+      </Section>
+    </>
+  );
+}
+
+/* ---------- Kop Surat Settings ---------- */
+function KopSuratSettings({
+  s,
+  update,
+}: {
+  s: SystemSettings;
+  update: <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => void;
+}) {
+  return (
+    <>
+      <Section title="Logo Kop Surat" desc="Logo muncul di header surat.">
+        <ImageUploadField
+          label="URL / Upload Logo"
+          hint="Disarankan PNG transparan, maks 500KB"
+          value={s.kopSurat.logo_url}
+          onChange={(v) => update("kopSurat", { logo_url: v })}
+        />
+        <Field label="Posisi Logo">
+          <Select
+            value={s.kopSurat.logo_position}
+            onValueChange={(v) =>
+              update("kopSurat", {
+                logo_position: v as SystemSettings["kopSurat"]["logo_position"],
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="left">Kiri</SelectItem>
+              <SelectItem value="center">Tengah</SelectItem>
+              <SelectItem value="right">Kanan</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+      </Section>
+
+      <Section title="Isi Kop Surat" desc="Teks header yang tercetak di bagian atas setiap surat.">
+        <Grid2>
+          <Field label="Baris Institusi">
+            <Input
+              value={s.kopSurat.kop_line}
+              onChange={(e) => update("kopSurat", { kop_line: e.target.value })}
+            />
+          </Field>
+          <Field label="Sub-Institusi">
+            <Textarea
+              rows={2}
+              value={s.kopSurat.kop_sub}
+              onChange={(e) => update("kopSurat", { kop_sub: e.target.value })}
+            />
+          </Field>
+        </Grid2>
+        <Field label="Alamat Lengkap">
+          <Textarea
+            rows={2}
+            value={s.kopSurat.kop_address}
+            onChange={(e) => update("kopSurat", { kop_address: e.target.value })}
+          />
+        </Field>
+        <Grid2>
+          <Field label="Telepon">
+            <Input
+              value={s.kopSurat.kop_phone}
+              onChange={(e) => update("kopSurat", { kop_phone: e.target.value })}
+            />
+          </Field>
+          <Field label="Email">
+            <Input
+              value={s.kopSurat.kop_email}
+              onChange={(e) => update("kopSurat", { kop_email: e.target.value })}
+            />
+          </Field>
+          <Field label="Website">
+            <Input
+              value={s.kopSurat.kop_website}
+              onChange={(e) => update("kopSurat", { kop_website: e.target.value })}
+            />
+          </Field>
+        </Grid2>
+      </Section>
+
+      <Section title="Warna & Style" desc="Pengaturan visual kop surat.">
+        <Field label="Warna Bar Header">
+          <div className="flex gap-2">
+            <input
+              type="color"
+              value={s.kopSurat.header_bar_color}
+              onChange={(e) => update("kopSurat", { header_bar_color: e.target.value })}
+              className="h-10 w-14 rounded border border-border bg-card cursor-pointer"
+            />
+            <Input
+              value={s.kopSurat.header_bar_color}
+              onChange={(e) => update("kopSurat", { header_bar_color: e.target.value })}
+            />
+          </div>
+        </Field>
+        <Field label="Style Tanda Tangan">
+          <Select
+            value={s.kopSurat.signature_style}
+            onValueChange={(v) =>
+              update("kopSurat", {
+                signature_style: v as SystemSettings["kopSurat"]["signature_style"],
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="text">Teks (Nama + Jabatan)</SelectItem>
+              <SelectItem value="image">Gambar Spesimen TTD</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <ImageUploadField
+          label="Gambar Spesimen TTD"
+          hint="Jika style TTD = Gambar, gambar ini dipakai"
+          value={s.signature.sign_image_url}
+          onChange={(v) => update("signature", { sign_image_url: v })}
+        />
+      </Section>
+
+      <Section title="Footer Surat" desc="Teks di bagian bawah setiap surat.">
+        <ToggleRow
+          label="Aktifkan Footer"
+          checked={s.kopSurat.footer_enabled}
+          onChange={(v) => update("kopSurat", { footer_enabled: v })}
+        />
+        <Field label="Teks Footer" hint="Muncul di setiap surat">
+          <Textarea
+            rows={2}
+            value={s.kopSurat.footer_text}
+            onChange={(e) => update("kopSurat", { footer_text: e.target.value })}
+          />
+        </Field>
+      </Section>
+
+      <Section title="Preview Kop Surat" desc="Pratinjau kop surat sesuai pengaturan.">
+        <div className="rounded-xl border border-border overflow-hidden bg-white">
+          {/* Bar header */}
+          <div className="h-2 w-full" style={{ backgroundColor: s.kopSurat.header_bar_color }} />
+          <div className="flex items-center gap-4 p-4">
+            {s.kopSurat.logo_url && (
+              <img
+                src={s.kopSurat.logo_url}
+                alt="logo"
+                className={`h-16 w-auto object-contain ${
+                  s.kopSurat.logo_position === "right"
+                    ? "order-2 ml-auto"
+                    : s.kopSurat.logo_position === "center"
+                      ? "order-1 mx-auto"
+                      : "order-1"
+                }`}
+              />
+            )}
+            <div className="flex-1 text-center">
+              <p className="font-bold text-sm">{s.kopSurat.kop_line}</p>
+              <p className="text-xs font-semibold whitespace-pre-line">{s.kopSurat.kop_sub}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{s.kopSurat.kop_address}</p>
+            </div>
+          </div>
+          <div className="border-t border-border mt-1" />
+        </div>
+      </Section>
+    </>
+  );
+}
+
+/* ---------- Pages CMS ---------- */
+const PAGE_GROUPS = [
+  {
+    group: "Profil",
+    pages: [
+      { path: "/profil/desa", label: "Profil Desa" },
+      { path: "/profil/perangkat", label: "Perangkat Desa" },
+      { path: "/profil/lembaga", label: "Lembaga Desa" },
+    ],
+  },
+  {
+    group: "Informasi",
+    pages: [
+      { path: "/informasi/berita", label: "Berita" },
+      { path: "/informasi/agenda", label: "Agenda" },
+      { path: "/informasi/galeri", label: "Galeri" },
+      { path: "/informasi/idm", label: "IDM" },
+      { path: "/informasi/pengumuman", label: "Pengumuman" },
+    ],
+  },
+  {
+    group: "Laporan",
+    pages: [
+      { path: "/laporan/rpjmdes", label: "RPJMDes" },
+      { path: "/laporan/rkpdes", label: "RKPDes" },
+      { path: "/laporan/apbdes", label: "APBDes" },
+      { path: "/laporan/realisasi", label: "Realisasi" },
+      { path: "/laporan/pbb", label: "PBB-P2" },
+    ],
+  },
+  {
+    group: "Wisata & Ekonomi",
+    pages: [
+      { path: "/ekonomi/bumdes", label: "BUMDes" },
+      { path: "/lainnya/monografi", label: "Monografi" },
+    ],
+  },
+];
+
+function PagesCMS({
+  s,
+  update,
+}: {
+  s: SystemSettings;
+  update: <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => void;
+}) {
+  const [selectedPage, setSelectedPage] = useState<string>("/profil/desa");
+
+  const allPages = s.pages ?? DEFAULT_SETTINGS.pages;
+
+  const pageConfig = allPages[selectedPage] ?? allPages["/profil/desa"];
+
+  const updatePage = (patch: Partial<PageConfig>) => {
+    update("pages", {
+      [selectedPage]: { ...pageConfig, ...patch },
+    });
+  };
+
+  return (
+    <Section
+      title="Konten Halaman"
+      desc="Kelola judul, deskripsi, gambar cover, dan konten kustom untuk setiap halaman."
+    >
+      <div className="flex gap-4 flex-col sm:flex-row">
+        {/* Sidebar daftar halaman */}
+        <div className="sm:w-48 shrink-0 space-y-1">
+          {PAGE_GROUPS.map((g) => (
+            <div key={g.group}>
+              <p className="font-ui text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 px-1">
+                {g.group}
+              </p>
+              {g.pages.map((p) => {
+                const cfg = allPages[p.path];
+                return (
+                  <button
+                    key={p.path}
+                    onClick={() => setSelectedPage(p.path)}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg font-ui text-xs transition-colors ${
+                      selectedPage === p.path
+                        ? "bg-primary text-primary-foreground font-semibold"
+                        : "hover:bg-muted"
+                    }`}
+                  >
+                    {p.label}
+                    {!cfg?.enabled && (
+                      <span className="ml-1 text-[10px] opacity-60">(nonaktif)</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* Editor panel */}
+        <div className="flex-1 space-y-4">
+          <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-display font-bold">{selectedPage}</h4>
+              <ToggleRow
+                compact
+                label="Halaman Aktif"
+                checked={pageConfig.enabled}
+                onChange={(v) => updatePage({ enabled: v })}
+              />
+            </div>
+            <Grid2>
+              <Field label="Judul Halaman">
+                <Input
+                  value={pageConfig.title}
+                  onChange={(e) => updatePage({ title: e.target.value })}
+                />
+              </Field>
+              <Field label="Gambar Cover">
+                <ImageUploadField
+                  label=""
+                  hint="Gambar utama halaman (disarankan 1200×630px)"
+                  value={pageConfig.image_url}
+                  onChange={(v) => updatePage({ image_url: v })}
+                />
+              </Field>
+            </Grid2>
+            <Field label="Deskripsi Singkat">
+              <Textarea
+                rows={2}
+                value={pageConfig.description}
+                onChange={(e) => updatePage({ description: e.target.value })}
+              />
+            </Field>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <div>
+              <Label className="font-ui text-xs font-semibold">Konten Kustom</Label>
+              <p className="font-body text-[11px] text-muted-foreground mt-0.5">
+                Teks atau konten tambahan yang akan ditampilkan di halaman. Gunakan | untuk
+                memisahkan paragraf.
+              </p>
+            </div>
+            <Textarea
+              rows={6}
+              value={pageConfig.custom_content}
+              onChange={(e) => updatePage({ custom_content: e.target.value })}
+              placeholder="Masukkan konten tambahan di sini…&#10;Gunakan | sebagai pemisah paragraf."
+            />
+          </div>
+
+          {selectedPage === "/profil/desa" && (
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <p className="font-ui text-sm font-semibold">Konten Profil Desa</p>
+              <Field label="Sejarah Singkat">
+                <Textarea
+                  rows={4}
+                  value={pageConfig.extras.sejarah ?? ""}
+                  onChange={(e) =>
+                    updatePage({ extras: { ...pageConfig.extras, sejarah: e.target.value } })
+                  }
+                  placeholder="Tulis sejarah singkat desa…"
+                />
+              </Field>
+              <Field label="Visi">
+                <Textarea
+                  rows={2}
+                  value={pageConfig.extras.visi ?? ""}
+                  onChange={(e) =>
+                    updatePage({ extras: { ...pageConfig.extras, visi: e.target.value } })
+                  }
+                  placeholder="Visi pembangunan desa…"
+                />
+              </Field>
+              <Field label="Misi">
+                <Textarea
+                  rows={3}
+                  value={pageConfig.extras.misi ?? ""}
+                  onChange={(e) =>
+                    updatePage({ extras: { ...pageConfig.extras, misi: e.target.value } })
+                  }
+                  placeholder="1. …&#10;2. …&#10;3. …"
+                />
+              </Field>
+            </div>
+          )}
+        </div>
+      </div>
+    </Section>
   );
 }

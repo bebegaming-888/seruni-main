@@ -117,11 +117,16 @@ export function Navbar() {
             Login
           </Link>
           <button
-            onClick={() => setOpen(true)}
-            className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 ${scrolled ? "bg-ink/90 text-background shadow-pill backdrop-blur-md scale-100" : "lg:hidden bg-ink text-background"}`}
+            onClick={() => setOpen((v) => !v)}
+            className={`lg:hidden flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 cursor-pointer active:scale-95 ${
+              scrolled
+                ? "bg-ink/90 text-background shadow-pill backdrop-blur-md scale-100"
+                : "bg-ink/80 text-background"
+            }`}
             aria-label="Menu"
+            aria-expanded={open}
           >
-            <Menu className="h-5 w-5" />
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>

@@ -3,6 +3,13 @@
 
 const KEY = "admin_settings_v1";
 
+export type HeroSlide = {
+  id: string;
+  image_url: string; // URL atau base64
+  alt: string;
+  enabled: boolean;
+};
+
 export type SystemSettings = {
   village: {
     name: string;
@@ -71,11 +78,47 @@ export type SystemSettings = {
     show_announcement_bar: boolean;
     announcement_text: string;
   };
+  hero: {
+    marquee_text: string;
+    marquee_enabled: boolean;
+    slider_enabled: boolean;
+    video_url: string; // YouTube embed or direct video URL
+    video_enabled: boolean;
+    video_fallback_image: string; // base64 atau URL gambar fallback saat video tidak aktif
+    weather_enabled: boolean;
+    weather_label: string; // contoh "Pringgabaya · 28°C · Cerah"
+    slides: HeroSlide[];
+  };
+  kopSurat: {
+    logo_url: string;
+    logo_position: "left" | "center" | "right";
+    kop_line: string; // nama lengkap institutions
+    kop_sub: string; // sub-institution text
+    kop_address: string;
+    kop_phone: string;
+    kop_email: string;
+    kop_website: string;
+    header_bar_color: string;
+    footer_enabled: boolean;
+    footer_text: string;
+    signature_style: "text" | "image";
+  };
+  pages: Record<string, PageConfig>;
   backup: {
     auto_backup: boolean;
     interval_hours: number;
     last_backup_at?: string;
   };
+};
+
+export type PageConfig = {
+  enabled: boolean;
+  title: string;
+  description: string;
+  image_url: string;
+  custom_content: string; // HTML atau teks bebas
+  /** Kolom ekstra per-halaman */
+  extras: Record<string, string>;
 };
 
 export const DEFAULT_SETTINGS: SystemSettings = {
@@ -144,10 +187,177 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     audit_log: true,
   },
   appearance: {
-    theme: "light",
+    theme: "light" as const,
     sidebar_compact: false,
     show_announcement_bar: false,
     announcement_text: "Pelayanan tatap muka: Senin–Jumat, 08.00–15.00 WITA.",
+  },
+  hero: {
+    marquee_text:
+      "Selamat datang di Portal Resmi Desa Seruni Mumbul · Pelayanan publik transparan · Mari membangun desa bersama",
+    marquee_enabled: true,
+    slider_enabled: true,
+    video_url: "",
+    video_enabled: false,
+    video_fallback_image: "",
+    weather_enabled: true,
+    weather_label: "Pringgabaya · 28°C · Cerah",
+    slides: [
+      { id: "s1", image_url: "/images/hero-village.jpg", alt: "Pemandangan Desa", enabled: true },
+      {
+        id: "s2",
+        image_url: "/images/wisata-airterjun.jpg",
+        alt: "Wisata Air Terjun",
+        enabled: true,
+      },
+      { id: "s3", image_url: "/images/wisata-pantai.jpg", alt: "Pantai", enabled: true },
+      { id: "s4", image_url: "/images/wisata-budaya.jpg", alt: "Budaya Sasak", enabled: true },
+      { id: "s5", image_url: "/images/galeri-1.jpg", alt: "Galeri Desa", enabled: true },
+    ],
+  },
+  kopSurat: {
+    logo_url: "",
+    logo_position: "left" as const,
+    kop_line: "PEMERINTAH KABUPATEN LOMBOK TIMUR",
+    kop_sub: "KECAMATAN PRINGGABAYA\nDESA SERUNI MUMBUL",
+    kop_address: "Jl. Raya Pringgabaya No. 88, Seruni Mumbul, Lombok Timur, NTB 83654",
+    kop_phone: "Telepon: (0376) 123-4567",
+    kop_email: "Email: info@serunimumbul.desa.id",
+    kop_website: "Website: https://serunimumbul.desa.id",
+    header_bar_color: "#0f7a4a",
+    footer_enabled: true,
+    footer_text: "Sistem Informasi Desa Seruni Mumbul · Hak Cipta Dilindungi Undang-Undang",
+    signature_style: "text" as const,
+  },
+  pages: {
+    "/profil/desa": {
+      enabled: true,
+      title: "Profil Desa Seruni Mumbul",
+      description: "Kenali lebih dekat sejarah, visi misi, dan potensi desa kami.",
+      image_url: "",
+      custom_content: "",
+      extras: { sejarah: "", visi: "", misi: "" },
+    },
+    "/profil/perangkat": {
+      enabled: true,
+      title: "Struktur Perangkat Desa",
+      description: "Pengurus dan staff Pemerintah Desa Seruni Mumbul.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/profil/lembaga": {
+      enabled: true,
+      title: "Lembaga Desa",
+      description: "BPD, LPM, PKK, Karang Taruna, dan kelompok lainnya.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/informasi/berita": {
+      enabled: true,
+      title: "Berita Desa",
+      description: "Kabar terkini dari Pemerintah Desa Seruni Mumbul.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/informasi/agenda": {
+      enabled: true,
+      title: "Agenda Kegiatan",
+      description: "Jadwal kegiatan mendatang di Desa Seruni Mumbul.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/informasi/galeri": {
+      enabled: true,
+      title: "Galeri Foto",
+      description: "Dokumentasi kegiatan dan potensi desa.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/informasi/pengumuman": {
+      enabled: true,
+      title: "Pengumuman",
+      description: "Informasi penting untuk warga.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/informasi/idm": {
+      enabled: true,
+      title: "Indeks Desa Membangun",
+      description: "Data dan skor IDM Desa Seruni Mumbul.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/laporan/rpjmdes": {
+      enabled: true,
+      title: "RPJMDes",
+      description: "Rencana Pembangunan Jangka Menengah Desa.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/laporan/rkpdes": {
+      enabled: true,
+      title: "RKPDes",
+      description: "Rencana Kerja Pemerintah Desa.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/laporan/apbdes": {
+      enabled: true,
+      title: "APBDes",
+      description: "Anggaran Pendapatan dan Belanja Desa.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/laporan/realisasi": {
+      enabled: true,
+      title: "Realisasi Anggaran",
+      description: "Laporan realisasi penggunaan APBDes.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/laporan/pbb": {
+      enabled: true,
+      title: "PBB-P2",
+      description: "Pajak Bumi dan Bangunan Pedesaan.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/wisata/destinasi": {
+      enabled: true,
+      title: "Destinasi Wisata",
+      description: "Tempat wisata alam dan budaya di Seruni Mumbul.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/ekonomi/bumdes": {
+      enabled: true,
+      title: "BUMDes Seruni Mumbul",
+      description: "Badan Usaha Milik Desa untuk pemberdayaan ekonomi.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
+    "/lainnya/monografi": {
+      enabled: true,
+      title: "Monografi Desa",
+      description: "Data lengkap profil dan statistik desa.",
+      image_url: "",
+      custom_content: "",
+      extras: {},
+    },
   },
   backup: {
     auto_backup: false,
@@ -172,6 +382,12 @@ export function getSettings(): SystemSettings {
       security: { ...DEFAULT_SETTINGS.security, ...(parsed.security ?? {}) },
       appearance: { ...DEFAULT_SETTINGS.appearance, ...(parsed.appearance ?? {}) },
       backup: { ...DEFAULT_SETTINGS.backup, ...(parsed.backup ?? {}) },
+      hero: { ...DEFAULT_SETTINGS.hero, ...(parsed.hero ?? {}) },
+      kopSurat: { ...DEFAULT_SETTINGS.kopSurat, ...(parsed.kopSurat ?? {}) },
+      pages: {
+        ...DEFAULT_SETTINGS.pages,
+        ...(parsed.pages ?? {}),
+      } as Record<string, PageConfig>,
     };
   } catch {
     return DEFAULT_SETTINGS;

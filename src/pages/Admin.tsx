@@ -226,11 +226,12 @@ export default function AdminPage() {
   };
   const approve = async (r: SuratRecord) => {
     const tahun = new Date().getFullYear();
-    const noSurat = generateNomorSurat(r.kode, tahun);
+    const noSurat = await generateNomorSurat(r.kode, tahun);
     const signed_at = new Date().toISOString();
     const signerName = getSettings().signature.signer_name;
     const updated: SuratRecord = {
       ...r,
+      tracking_no: r.no, // simpan nomor tracking asli sebelum ditimpa
       no: noSurat,
       status: "Disetujui",
       signed_at,
@@ -238,7 +239,7 @@ export default function AdminPage() {
       qr_payload: `SERUNI-MUMBUL|${noSurat}|${r.nik}|${r.kode}|${signed_at}`,
     };
     saveRecord(updated);
-    archiveRecord(r.no);
+    archiveRecord(noSurat); // arsip menggunakan nomor surat resmi, bukan tracking number lama
     const result = await notifySurat(updated, "approve");
     refresh();
     setPreview(updated);
@@ -454,7 +455,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Section tabs */}
+          {/* Section tabs — role-adaptive */}
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
             <div className="inline-flex rounded-full bg-background/10 border border-background/20 p-1 gap-1">
               <SectionTab
@@ -463,12 +464,14 @@ export default function AdminPage() {
                 icon={LayoutDashboard}
                 label="Dashboard"
               />
-              <SectionTab
-                active={view === "templates"}
-                onClick={() => setView("templates")}
-                icon={Files}
-                label="Template Surat"
-              />
+              {can("template.view") && (
+                <SectionTab
+                  active={view === "templates"}
+                  onClick={() => setView("templates")}
+                  icon={Files}
+                  label="Template Surat"
+                />
+              )}
               <SectionTab
                 active={view === "monitoring"}
                 onClick={() => setView("monitoring")}
@@ -481,24 +484,26 @@ export default function AdminPage() {
                 icon={Archive}
                 label="Arsip"
               />
-              <SectionTab
-                active={view === "settings"}
-                onClick={() => setView("settings")}
-                icon={SettingsIcon}
-                label="Pengaturan"
-              />
+              {can("settings.manage") && (
+                <SectionTab
+                  active={view === "settings"}
+                  onClick={() => setView("settings")}
+                  icon={SettingsIcon}
+                  label="Pengaturan"
+                />
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {view === "settings" ? (
+      {view === "settings" && can("settings.manage") ? (
         <section className="py-8 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl">
             <SettingsPanel />
           </div>
         </section>
-      ) : view === "templates" ? (
+      ) : view === "templates" && can("template.view") ? (
         <section className="py-8 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl">
             <TemplateSuratManager />
@@ -1196,7 +1201,9 @@ function ArchiveTable({
     const s = q.trim().toLowerCase();
     if (!s) return archive;
     return archive.filter((r) =>
-      [r.no, r.nama_surat, r.pemohon, r.nik].some((v) => (v ?? "").toLowerCase().includes(s)),
+      [r.no, r.tracking_no, r.nama_surat, r.pemohon, r.nik].some((v) =>
+        (v ?? "").toLowerCase().includes(s),
+      ),
     );
   }, [archive, q]);
 
@@ -1250,7 +1257,7 @@ function ArchiveTable({
               ) : (
                 filtered.map((r) => (
                   <tr key={r.no} className="border-t border-border hover:bg-muted/30 transition">
-                    <td className="px-4 py-3 font-mono text-xs">#{r.no}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{r.no}</td>
                     <td className="px-4 py-3">
                       <div className="font-ui font-semibold">{r.nama_surat}</div>
                       <div className="text-[11px] font-bold text-primary">{r.kode}</div>
