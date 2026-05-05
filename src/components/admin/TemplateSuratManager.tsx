@@ -12,17 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import Papa from "papaparse";
-import {
-  FileText,
-  Plus,
-  Pencil,
-  Trash2,
-  Eye,
-  Download,
-  Upload,
-  Search,
-  Copy,
-} from "lucide-react";
+import { FileText, Plus, Pencil, Trash2, Eye, Download, Upload, Search, Copy } from "lucide-react";
 import {
   listTemplates,
   saveTemplate,
@@ -48,9 +38,7 @@ export function TemplateSuratManager() {
     const s = q.trim().toLowerCase();
     if (!s) return items;
     return items.filter((t) =>
-      [t.code, t.name, t.category, t.description].some((v) =>
-        (v ?? "").toLowerCase().includes(s),
-      ),
+      [t.code, t.name, t.category, t.description].some((v) => (v ?? "").toLowerCase().includes(s)),
     );
   }, [items, q]);
 
