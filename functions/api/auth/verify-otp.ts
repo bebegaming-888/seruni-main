@@ -23,7 +23,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { hashOtp, json, corsOptions } from "../_lib/utils";
+import { hashOtp, json, corsOptions } from "../../_lib/utils";
 
 interface Env {
   SUPABASE_URL: string;

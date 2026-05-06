@@ -31,6 +31,9 @@ function buildHashPlugin() {
   };
 }
 
+// Vite plugin untuk generate index.html saat production build
+// Ini弥补了 @lovable.dev/vite-tanstack-config 的 auto-generated config
+// 不会为 client 环境生成入口 HTML 的特性
 export default defineConfig({
   vite: {
     build: {

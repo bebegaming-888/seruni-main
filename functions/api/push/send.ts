@@ -17,7 +17,7 @@
  *   { ok: false, error: string }
  */
 
-import { base64UrlDecode } from "../_lib/utils";
+import { base64UrlDecode } from "../../_lib/utils";
 
 interface Env {
   VAPID_PRIVATE_KEY: string;
