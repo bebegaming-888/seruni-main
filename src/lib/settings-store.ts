@@ -1,11 +1,13 @@
-// Pusat penyimpanan pengaturan sistem (client-side).
-// Semua pengaturan dapat diekspor / diimpor sebagai JSON.
+// Pusat penyimpanan pengaturan sistem — IndexedDB + in-memory cache.
+// getSettings() tetap sinkron (dari cache), initSettingsStore() async.
 
-const KEY = "admin_settings_v1";
+import { idbGet, idbPut, idbExportAll, idbImportAll } from "@/lib/idb-store";
+
+const KEY = "admin_settings_v1"; // localStorage key (lama — untuk migrasi)
 
 export type HeroSlide = {
   id: string;
-  image_url: string; // URL atau base64
+  image_url: string;
   alt: string;
   enabled: boolean;
 };
@@ -13,9 +15,9 @@ export type HeroSlide = {
 export type SystemSettings = {
   village: {
     name: string;
-    head: string; // Kepala Desa
+    head: string;
     secretary: string;
-    code: string; // kode desa
+    code: string;
     phone: string;
     whatsapp: string;
     email: string;
@@ -27,7 +29,7 @@ export type SystemSettings = {
     logo_url: string;
   };
   branding: {
-    primary_color: string; // hex
+    primary_color: string;
     accent_color: string;
     site_title: string;
     tagline: string;
@@ -46,14 +48,14 @@ export type SystemSettings = {
     template_reject: string;
   };
   signature: {
-    signer_name: string; // Pejabat penandatangan
+    signer_name: string;
     signer_title: string;
     require_qr: boolean;
     qr_secret: string;
     sign_image_url: string;
   };
   surat: {
-    prefix_no: string; // contoh: "470"
+    prefix_no: string;
     use_yearly_reset: boolean;
     auto_archive: boolean;
     auto_archive_days: number;
@@ -61,10 +63,7 @@ export type SystemSettings = {
     allowed_types: string[];
     max_file_mb: number;
   };
-  nomor: {
-    inisialJabatan: string; // contoh: "KDS" (Kepala Desa)
-    inisialDesa: string; // contoh: "SRMB" (Seruni Mumbul)
-  };
+  nomor: { inisialJabatan: string; inisialDesa: string };
   security: {
     session_timeout_min: number;
     require_strong_password: boolean;
@@ -82,18 +81,18 @@ export type SystemSettings = {
     marquee_text: string;
     marquee_enabled: boolean;
     slider_enabled: boolean;
-    video_url: string; // YouTube embed or direct video URL
+    video_url: string;
     video_enabled: boolean;
-    video_fallback_image: string; // base64 atau URL gambar fallback saat video tidak aktif
+    video_fallback_image: string;
     weather_enabled: boolean;
-    weather_label: string; // contoh "Pringgabaya · 28°C · Cerah"
+    weather_label: string;
     slides: HeroSlide[];
   };
   kopSurat: {
     logo_url: string;
     logo_position: "left" | "center" | "right";
-    kop_line: string; // nama lengkap institutions
-    kop_sub: string; // sub-institution text
+    kop_line: string;
+    kop_sub: string;
     kop_address: string;
     kop_phone: string;
     kop_email: string;
@@ -104,11 +103,7 @@ export type SystemSettings = {
     signature_style: "text" | "image";
   };
   pages: Record<string, PageConfig>;
-  backup: {
-    auto_backup: boolean;
-    interval_hours: number;
-    last_backup_at?: string;
-  };
+  backup: { auto_backup: boolean; interval_hours: number; last_backup_at?: string };
 };
 
 export type PageConfig = {
@@ -116,8 +111,7 @@ export type PageConfig = {
   title: string;
   description: string;
   image_url: string;
-  custom_content: string; // HTML atau teks bebas
-  /** Kolom ekstra per-halaman */
+  custom_content: string;
   extras: Record<string, string>;
 };
 
@@ -146,18 +140,15 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   },
   notifications: {
     wa_enabled: true,
-    fonnte_token: "", // Token asli dibaca dari VITE_FONNTE_KEY (env var) — tidak disimpan di settings
+    fonnte_token: "",
     sender_name: "Pemdes Seruni Mumbul",
     notify_on_submit: true,
     notify_on_verify: true,
     notify_on_approve: true,
     notify_on_reject: true,
-    template_submit:
-      "Halo {nama}, pengajuan {jenis_surat} ({no}) telah kami terima. Mohon menunggu proses verifikasi.",
-    template_approve:
-      "Halo {nama}, surat {jenis_surat} ({no}) telah disetujui dan ditandatangani digital. Silakan ambil/unduh dokumen Anda.",
-    template_reject:
-      "Halo {nama}, mohon maaf pengajuan {jenis_surat} ({no}) ditolak. Alasan: {alasan}",
+    template_submit: "Halo {nama}, pengajuan {jenis_surat} ({no}) telah kami terima.",
+    template_approve: "Halo {nama}, surat {jenis_surat} ({no}) telah disetujui.",
+    template_reject: "Halo {nama}, pengajuan {jenis_surat} ({no}) ditolak. Alasan: {alasan}",
   },
   signature: {
     signer_name: "H. Sumardi, S.Sos.",
@@ -175,10 +166,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     allowed_types: ["pdf", "jpg", "jpeg", "png"],
     max_file_mb: 5,
   },
-  nomor: {
-    inisialJabatan: "KDS",
-    inisialDesa: "SRMB",
-  },
+  nomor: { inisialJabatan: "KDS", inisialDesa: "SRMB" },
   security: {
     session_timeout_min: 60,
     require_strong_password: true,
@@ -359,106 +347,151 @@ export const DEFAULT_SETTINGS: SystemSettings = {
       extras: {},
     },
   },
-  backup: {
-    auto_backup: false,
-    interval_hours: 24,
-  },
+  backup: { auto_backup: false, interval_hours: 24 },
 };
 
+// ── In-Memory Cache ───────────────────────────────────────────────────────────
+let _cache: SystemSettings | null = null;
+
+function deepMerge(saved: Partial<SystemSettings>): SystemSettings {
+  return {
+    village: { ...DEFAULT_SETTINGS.village, ...(saved.village ?? {}) },
+    branding: { ...DEFAULT_SETTINGS.branding, ...(saved.branding ?? {}) },
+    notifications: { ...DEFAULT_SETTINGS.notifications, ...(saved.notifications ?? {}) },
+    signature: { ...DEFAULT_SETTINGS.signature, ...(saved.signature ?? {}) },
+    surat: { ...DEFAULT_SETTINGS.surat, ...(saved.surat ?? {}) },
+    nomor: { ...DEFAULT_SETTINGS.nomor, ...(saved.nomor ?? {}) },
+    security: { ...DEFAULT_SETTINGS.security, ...(saved.security ?? {}) },
+    appearance: { ...DEFAULT_SETTINGS.appearance, ...(saved.appearance ?? {}) },
+    backup: { ...DEFAULT_SETTINGS.backup, ...(saved.backup ?? {}) },
+    hero: { ...DEFAULT_SETTINGS.hero, ...(saved.hero ?? {}) },
+    kopSurat: { ...DEFAULT_SETTINGS.kopSurat, ...(saved.kopSurat ?? {}) },
+    pages: { ...DEFAULT_SETTINGS.pages, ...(saved.pages ?? {}) } as Record<string, PageConfig>,
+  };
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+/** Sync read — kembalikan cache atau DEFAULT jika belum diinisialisasi (SSR-safe). */
 export function getSettings(): SystemSettings {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
+  return _cache ?? DEFAULT_SETTINGS;
+}
+
+/** Async init — panggil sekali saat app mount. Baca dari IndexedDB → cache. */
+export async function initSettingsStore(): Promise<void> {
+  if (typeof window === "undefined") return;
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    const parsed = JSON.parse(raw) as Partial<SystemSettings>;
-    // Deep merge dengan default supaya field baru tidak hilang.
-    return {
-      village: { ...DEFAULT_SETTINGS.village, ...(parsed.village ?? {}) },
-      branding: { ...DEFAULT_SETTINGS.branding, ...(parsed.branding ?? {}) },
-      notifications: { ...DEFAULT_SETTINGS.notifications, ...(parsed.notifications ?? {}) },
-      signature: { ...DEFAULT_SETTINGS.signature, ...(parsed.signature ?? {}) },
-      surat: { ...DEFAULT_SETTINGS.surat, ...(parsed.surat ?? {}) },
-      nomor: { ...DEFAULT_SETTINGS.nomor, ...(parsed.nomor ?? {}) },
-      security: { ...DEFAULT_SETTINGS.security, ...(parsed.security ?? {}) },
-      appearance: { ...DEFAULT_SETTINGS.appearance, ...(parsed.appearance ?? {}) },
-      backup: { ...DEFAULT_SETTINGS.backup, ...(parsed.backup ?? {}) },
-      hero: { ...DEFAULT_SETTINGS.hero, ...(parsed.hero ?? {}) },
-      kopSurat: { ...DEFAULT_SETTINGS.kopSurat, ...(parsed.kopSurat ?? {}) },
-      pages: {
-        ...DEFAULT_SETTINGS.pages,
-        ...(parsed.pages ?? {}),
-      } as Record<string, PageConfig>,
-    };
-  } catch {
-    return DEFAULT_SETTINGS;
+    // Coba baca dari IndexedDB dulu
+    const saved = await idbGet<{ id: string } & Partial<SystemSettings>>("settings", "main");
+    if (saved) {
+      const { id: _id, ...rest } = saved;
+      _cache = deepMerge(rest);
+      return;
+    }
+    // Fallback: coba localStorage lama
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(KEY) : null;
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<SystemSettings>;
+      _cache = deepMerge(parsed);
+      // Migrate ke IndexedDB
+      await idbPut("settings", { id: "main", ..._cache });
+      return;
+    }
+  } catch (e) {
+    console.warn("[settings] Load gagal, pakai default:", e);
+  }
+  _cache = { ...DEFAULT_SETTINGS };
+}
+
+/** Simpan settings ke cache + IndexedDB. */
+export async function saveSettings(s: SystemSettings): Promise<void> {
+  _cache = s;
+  if (typeof window === "undefined") return;
+  try {
+    await idbPut("settings", { id: "main", ...s });
+  } catch (e) {
+    console.warn("[settings] Gagal simpan ke IndexedDB:", e);
   }
 }
 
-export function saveSettings(s: SystemSettings) {
+export function resetSettings(): void {
+  _cache = { ...DEFAULT_SETTINGS };
   if (typeof window === "undefined") return;
-  localStorage.setItem(KEY, JSON.stringify(s));
-}
-
-export function resetSettings() {
-  if (typeof window !== "undefined") localStorage.removeItem(KEY);
+  import("@/lib/idb-store").then(({ idbDelete }) => {
+    idbDelete("settings", "main").catch(console.warn);
+  });
 }
 
 /* ---------- Backup helpers ---------- */
-const BACKUP_KEYS = [
-  "e_surat_records",
-  "e_surat_archive",
-  "e_surat_penduduk",
-  "admin_users",
-  "admin_settings_v1",
-];
 
-export function exportFullBackup(): string {
-  const data: Record<string, unknown> = {};
-  if (typeof window !== "undefined") {
-    BACKUP_KEYS.forEach((k) => {
-      const v = localStorage.getItem(k);
-      if (v) data[k] = JSON.parse(v);
-    });
-  }
-  return JSON.stringify({ version: 1, exported_at: new Date().toISOString(), data }, null, 2);
+export async function exportFullBackup(): Promise<string> {
+  const data = await idbExportAll();
+  return JSON.stringify({ version: 2, exported_at: new Date().toISOString(), ...data }, null, 2);
 }
 
-export function importFullBackup(json: string): { ok: boolean; message: string } {
+export async function importFullBackup(json: string): Promise<{ ok: boolean; message: string }> {
   try {
-    const parsed = JSON.parse(json) as { data?: Record<string, unknown> };
-    if (!parsed.data) return { ok: false, message: "Format backup tidak dikenali" };
-    if (typeof window === "undefined") return { ok: false, message: "Tidak tersedia di SSR" };
-    Object.entries(parsed.data).forEach(([k, v]) => {
-      if (BACKUP_KEYS.includes(k)) {
-        localStorage.setItem(k, JSON.stringify(v));
-      }
-    });
-    return { ok: true, message: "Backup berhasil dipulihkan" };
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    const result = await idbImportAll(parsed);
+    if (result.ok) {
+      // Reload settings cache
+      await initSettingsStore();
+    }
+    return result;
   } catch (e) {
     return { ok: false, message: `Gagal: ${(e as Error).message}` };
   }
 }
 
-export function clearAllData() {
+export function clearAllData(): void {
   if (typeof window === "undefined") return;
-  BACKUP_KEYS.forEach((k) => {
-    if (k !== "admin_users" && k !== "admin_settings_v1") localStorage.removeItem(k);
+  import("@/lib/idb-store").then(({ idbClear }) => {
+    (["esurat_records", "esurat_archive", "templates"] as const).forEach((s) =>
+      idbClear(s).catch(console.warn),
+    );
   });
 }
 
-/* ---------- Audit log ---------- */
-const AUDIT_KEY = "admin_audit_log";
-export type AuditEntry = { ts: string; user: string; action: string; detail?: string };
-export function logAudit(user: string, action: string, detail?: string) {
+/* ---------- Audit log (IndexedDB) ---------- */
+export type AuditEntry = { id: string; ts: string; user: string; action: string; detail?: string };
+
+export async function logAudit(user: string, action: string, detail?: string): Promise<void> {
   if (typeof window === "undefined") return;
-  const cur = JSON.parse(localStorage.getItem(AUDIT_KEY) ?? "[]") as AuditEntry[];
-  cur.unshift({ ts: new Date().toISOString(), user, action, detail });
-  localStorage.setItem(AUDIT_KEY, JSON.stringify(cur.slice(0, 500)));
+  const entry: AuditEntry = {
+    id: crypto.randomUUID(),
+    ts: new Date().toISOString(),
+    user,
+    action,
+    detail,
+  };
+  try {
+    const {
+      idbPut: put,
+      idbGetAll: getAll,
+      idbReplaceAll: replaceAll,
+    } = await import("@/lib/idb-store");
+    await put("audit_log", entry);
+    // Batasi 500 entry
+    const all = await getAll<AuditEntry>("audit_log");
+    if (all.length > 500) {
+      const sorted = all.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 500);
+      await replaceAll("audit_log", sorted);
+    }
+  } catch {
+    /* non-blocking */
+  }
 }
-export function listAudit(): AuditEntry[] {
+
+export async function listAudit(): Promise<AuditEntry[]> {
   if (typeof window === "undefined") return [];
-  return JSON.parse(localStorage.getItem(AUDIT_KEY) ?? "[]") as AuditEntry[];
+  const { idbGetAll } = await import("@/lib/idb-store");
+  const all = await idbGetAll<AuditEntry>("audit_log");
+  return all.sort((a, b) => b.ts.localeCompare(a.ts));
 }
-export function clearAudit() {
-  if (typeof window !== "undefined") localStorage.removeItem(AUDIT_KEY);
+
+export async function clearAudit(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const { idbClear } = await import("@/lib/idb-store");
+  await idbClear("audit_log");
 }

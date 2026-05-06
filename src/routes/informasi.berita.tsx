@@ -3,14 +3,8 @@ import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { VILLAGE } from "@/data/site";
 import { Link } from "@/components/Link";
-import {
-  ARTICLES,
-  CATEGORIES,
-  getFeaturedArticles,
-  formatDate,
-  formatRelativeDate,
-  type ArticleCategory,
-} from "@/data/berita";
+import { CATEGORIES, formatRelativeDate, type Article, type ArticleCategory } from "@/data/berita";
+import { useBeritaStore } from "@/lib/content-store";
 import { Newspaper, Eye, Clock, ArrowRight, Search } from "lucide-react";
 import { useState } from "react";
 import { useSearch } from "@tanstack/react-router";
@@ -43,7 +37,7 @@ function Badge({
   );
 }
 
-function FeaturedCard({ article }: { article: (typeof ARTICLES)[number] }) {
+function FeaturedCard({ article }: { article: Article }) {
   return (
     <Link
       to="/informasi/berita/$slug"
@@ -90,7 +84,7 @@ function FeaturedCard({ article }: { article: (typeof ARTICLES)[number] }) {
   );
 }
 
-function ArticleCard({ article }: { article: (typeof ARTICLES)[number] }) {
+function ArticleCard({ article }: { article: Article }) {
   return (
     <Link
       to="/informasi/berita/$slug"
@@ -159,6 +153,7 @@ function SearchBar({
 }
 
 export function BeritaPage() {
+  const items = useBeritaStore((state) => state.items);
   const search = useSearch({ from: "/informasi/berita" });
   const navigate = Route.useNavigate();
   const [inputValue, setInputValue] = useState(search.q);
@@ -174,15 +169,15 @@ export function BeritaPage() {
     navigate({ search: { q: val, category: selectedCategory } });
   };
 
-  const featured = getFeaturedArticles();
-  const filtered = ARTICLES.filter((a) => {
+  const featured = items.filter((a) => a.featured);
+  const filtered = items.filter((a) => {
     const matchCategory = selectedCategory === "Semua" || a.category === selectedCategory;
     const q = searchQuery.toLowerCase();
     const matchSearch =
       !q ||
       a.title.toLowerCase().includes(q) ||
       a.excerpt.toLowerCase().includes(q) ||
-      a.tags.some((t) => t.toLowerCase().includes(q));
+      a.tags.some((t: string) => t.toLowerCase().includes(q));
     return matchCategory && matchSearch;
   });
 
@@ -207,7 +202,7 @@ export function BeritaPage() {
             <div className="flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
                 <Newspaper className="h-3.5 w-3.5" />
-                {ARTICLES.length} Artikel
+                {items.length} Artikel
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
                 {featured.length} Featured

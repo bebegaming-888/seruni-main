@@ -36,11 +36,16 @@ import {
   UserCircle,
   LogOut,
   Smartphone,
+  Paperclip,
+  X,
+  FileIcon,
+  Upload,
 } from "lucide-react";
 import { SURAT_KATEGORI } from "@/data/site";
 import { getSuratMaster, SURAT_MASTER, type SuratMaster } from "@/data/surat-master";
 import { type Penduduk, PENDUDUK_MOCK } from "@/data/penduduk";
-import { lookupPendudukLocal, saveRecord, type SuratRecord } from "@/lib/esurat-store";
+import { lookupPenduduk, type SuratRecord, type Lampiran } from "@/lib/esurat-store";
+import { syncSaveRecord } from "@/lib/useSupabaseSync";
 import { notifySurat } from "@/lib/esurat-notif";
 import { isWargaLoggedIn, getWargaSession, logoutWarga } from "@/lib/warga-auth";
 
@@ -75,6 +80,7 @@ export default function ESurat() {
   const [nikError, setNikError] = useState<string | null>(null);
   const [extraData, setExtraData] = useState<Record<string, string>>({});
   const [contactWa, setContactWa] = useState("");
+  const [attachments, setAttachments] = useState<Lampiran[]>([]);
   const [submitted, setSubmitted] = useState<{ no: string; surat: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -104,8 +110,8 @@ export default function ESurat() {
       return;
     }
     setChecking(true);
-    await new Promise((r) => setTimeout(r, 700));
-    const found = lookupPendudukLocal(nik);
+    // Try Supabase first, fallback to localStorage/mock
+    const found = await lookupPenduduk(nik);
     setChecking(false);
     if (!found) {
       setNikError("NIK tidak ditemukan dalam database desa. Silakan hubungi kantor desa.");
@@ -147,10 +153,12 @@ export default function ESurat() {
       nik: penduduk?.nik ?? "",
       kontak: contactWa,
       data: extraData,
+      attachments,
       status: "Menunggu Verifikasi",
       created_at: new Date().toISOString(),
     };
-    saveRecord(record);
+    setSubmitting(true);
+    await syncSaveRecord(record, penduduk?.nama ?? "Warga");
     const result = await notifySurat(record, "submit");
     setSubmitting(false);
     setSubmitted({ no, surat: schema?.name ?? "" });
@@ -319,6 +327,8 @@ export default function ESurat() {
                   schema={schema}
                   data={extraData}
                   setData={setExtraData}
+                  attachments={attachments}
+                  setAttachments={setAttachments}
                   onNext={() => {
                     if (validateExtra()) setStep(4);
                   }}
@@ -330,6 +340,7 @@ export default function ESurat() {
                   penduduk={penduduk}
                   extraData={extraData}
                   contactWa={contactWa}
+                  attachments={attachments}
                   onSubmit={handleSubmit}
                   submitting={submitting}
                 />
@@ -641,14 +652,55 @@ function StepDetail({
   schema,
   data,
   setData,
+  attachments,
+  setAttachments,
   onNext,
 }: {
   schema: SuratMaster;
   data: Record<string, string>;
   setData: (d: Record<string, string>) => void;
+  attachments: Lampiran[];
+  setAttachments: (a: Lampiran[]) => void;
   onNext: () => void;
 }) {
   const update = (k: string, v: string) => setData({ ...data, [k]: v });
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+
+    const remaining = 10 - attachments.length;
+    if (files.length > remaining) {
+      toast.error(`Maksimal 10 lampiran. Anda bisa menambahkan ${remaining} file lagi.`);
+      return;
+    }
+
+    const newFiles: Lampiran[] = [];
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`${file.name} terlalu besar. Maks 5MB per file.`);
+        continue;
+      }
+      const data_url = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target?.result as string);
+        reader.readAsDataURL(file);
+      });
+      newFiles.push({ name: file.name, type: file.type, size: file.size, data_url });
+    }
+
+    setAttachments([...attachments, ...newFiles]);
+    e.target.value = "";
+  };
+
+  const removeAttachment = (index: number) =>
+    setAttachments(attachments.filter((_, i) => i !== index));
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   return (
     <div className="space-y-6">
@@ -706,6 +758,66 @@ function StepDetail({
         </div>
       </div>
 
+      {/* Lampiran section */}
+      <div className="rounded-2xl bg-card border border-border p-6 sm:p-8 shadow-card">
+        <div className="flex items-center gap-2 mb-4">
+          <Paperclip className="h-4 w-4 text-primary" />
+          <h3 className="font-display font-bold text-base">Lampiran Dokumen</h3>
+          <span className="ml-auto font-ui text-xs text-muted-foreground">
+            {attachments.length}/10 file · maks 5MB per file
+          </span>
+        </div>
+
+        {attachments.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {attachments.map((a, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 p-3 rounded-xl bg-muted border border-border"
+              >
+                <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-body text-sm truncate">{a.name}</p>
+                  <p className="font-ui text-[11px] text-muted-foreground">{formatSize(a.size)}</p>
+                </div>
+                <button
+                  onClick={() => removeAttachment(i)}
+                  className="text-muted-foreground hover:text-destructive transition shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <label
+          className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
+            attachments.length >= 10
+              ? "border-muted text-muted-foreground cursor-not-allowed"
+              : "border-border hover:border-primary hover:bg-primary/5 text-muted-foreground hover:text-primary"
+          }`}
+        >
+          <Upload className="h-6 w-6" />
+          <p className="font-body text-sm text-center">
+            {attachments.length >= 10
+              ? "Maksimal 10 lampiran tercapai"
+              : "Klik untuk pilih file atau drag &amp; drop di sini"}
+          </p>
+          <p className="font-ui text-[11px] text-muted-foreground">
+            PDF, JPG, PNG · maks 5MB per file
+          </p>
+          <input
+            type="file"
+            multiple
+            accept=".pdf,.jpg,.jpeg,.png,image/jpeg,image/png,application/pdf"
+            onChange={handleFileChange}
+            disabled={attachments.length >= 10}
+            className="sr-only"
+          />
+        </label>
+      </div>
+
       <div className="flex justify-end">
         <Button onClick={onNext} className="btn-pill bg-primary hover:bg-primary-hover">
           Lanjut Review <ArrowRight className="h-4 w-4 ml-1" />
@@ -720,6 +832,7 @@ function StepReview({
   penduduk,
   extraData,
   contactWa,
+  attachments,
   onSubmit,
   submitting,
 }: {
@@ -727,9 +840,15 @@ function StepReview({
   penduduk: Penduduk;
   extraData: Record<string, string>;
   contactWa: string;
+  attachments: Lampiran[];
   onSubmit: () => void;
   submitting: boolean;
 }) {
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
   return (
     <div className="space-y-6">
       <div>
@@ -782,6 +901,33 @@ function StepReview({
           </div>
         )}
       </div>
+
+      {attachments.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="px-6 py-4 bg-muted border-b border-border">
+            <p className="font-ui text-xs font-bold uppercase tracking-wider">
+              Lampiran ({attachments.length} file)
+            </p>
+          </div>
+          <div>
+            {attachments.map((a, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 px-6 py-3 border-b border-border last:border-b-0"
+              >
+                <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-body text-sm truncate">{a.name}</p>
+                  <p className="font-ui text-[11px] text-muted-foreground">
+                    {a.type.split("/")[1]?.toUpperCase() ?? "FILE"} · {formatSize(a.size)}
+                  </p>
+                </div>
+                <Check className="h-3.5 w-3.5 text-success shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl bg-warning/10 border border-warning/30 p-4 flex gap-3">
         <ShieldCheck className="h-5 w-5 text-warning shrink-0 mt-0.5" />

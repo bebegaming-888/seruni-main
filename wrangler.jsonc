@@ -1,9 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tanstack-start-app",
+  "name": "seruni-mumbul",
   "compatibility_date": "2025-09-24",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
-  // Cloudflare Pages Functions (Edge) — tempat API endpoint seperti /api/send-wa
+  "pages_build_output_dir": "dist/client",
   "dir": "functions",
 }

@@ -36,7 +36,7 @@ export type Database = {
           nama: string;
           tempat_lahir: string;
           tanggal_lahir: string;
-          jenis_kelamin: "Laki-laki" | "Perempuan";
+          jenis_kelamin: "Laki-Laki" | "Perempuan";
           agama: string;
           status_perkawinan: string;
           pekerjaan: string;

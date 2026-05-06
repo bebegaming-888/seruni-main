@@ -271,3 +271,23 @@ export const BELANJA_KATEGORI = [
   "Pemberdayaan",
   "TidakTerduga",
 ] as const;
+
+export const APBDES_DATA = {
+  tahun: TAHUN_2026.tahun,
+  status: TAHUN_2026.status,
+  pendapatan: {
+    total: TAHUN_2026.total_pendapatan,
+    items: PENDAPATAN_2026,
+    realisasi: REALISASI_2026.pendapatan,
+  },
+  belanja: {
+    total: TAHUN_2026.total_belanja,
+    items: BELANJA_2026,
+    realisasi: REALISASI_2026.belanja,
+  },
+  pembiayaan: {
+    netto: TAHUN_2026.total_pembiayaan,
+    sisa: TAHUN_2026.sisa,
+  },
+  history: HISTORY_APBDES,
+};

@@ -5,7 +5,7 @@
  * Alur:
  *   1. Warga masukkan NIK
  *   2. Sistem cek NIK di tabel warga
- *   3. Jika valid → generate OTP 6 digit, simpan di cache, kirim WA
+ *   3. Jika valid → generate OTP 6 digit, kirim WA, simpan hash ke DB
  *   4. Warga masukkan OTP → /api/auth/verify-otp
  *
  * Env vars:
@@ -18,11 +18,11 @@
  *
  * Response:
  *   { ok: true, message: "OTP dikirim ke WA" }
- *   { ok: false, error: "NIK tidak ditemukan" }
+ *   { ok: false, error: string }
  */
 
 import { createClient } from "@supabase/supabase-js";
-import type { LayoutPatch } from "@cloudflare/pages-functions-core";
+import { hashOtp, json, corsOptions } from "../_lib/utils";
 
 interface Env {
   FONNTE_API_KEY: string;
@@ -35,7 +35,10 @@ interface RequestBody {
   nik: string;
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function createAdminClient(env: Env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return null;
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -56,29 +59,47 @@ function maskPhone(phone: string): string {
   return phone.slice(0, 4) + "●".repeat(Math.max(0, phone.length - 8)) + phone.slice(-4);
 }
 
-export const onRequestPost: LayoutPatch = async ({ request, env }) => {
+// ─── CORS preflight ───────────────────────────────────────────────────────────
+export async function onRequestOptions(): Promise<Response> {
+  return corsOptions();
+}
+
+// ─── Main handler ─────────────────────────────────────────────────────────────
+export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
   let body: RequestBody;
   try {
-    body = (await request.json()) as RequestBody;
+    body = (await context.request.json()) as RequestBody;
   } catch {
-    return new Response(JSON.stringify({ ok: false, error: "Invalid JSON" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json({ ok: false, error: "Invalid JSON" }, 400);
   }
 
   const { nik } = body;
 
   if (!nik || !/^\d{16}$/.test(nik)) {
-    return new Response(JSON.stringify({ ok: false, error: "NIK harus 16 digit angka" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json({ ok: false, error: "NIK harus 16 digit angka" }, 400);
   }
 
-  const sb = createAdminClient(env);
+  const sb = createAdminClient(context.env);
+  if (!sb) {
+    return json({ ok: false, error: "Server misconfigured" }, 500);
+  }
 
-  // Cek NIK di tabel warga
+  // ── Rate limiting: maks 3 OTP request per NIK dalam 15 menit ──
+  const windowStart = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const { count } = await sb
+    .from("otp_requests")
+    .select("*", { count: "exact", head: true })
+    .eq("nik", nik)
+    .gte("created_at", windowStart);
+
+  if ((count ?? 0) >= 3) {
+    return json(
+      { ok: false, error: "Terlalu banyak permintaan OTP. Coba lagi dalam 15 menit." },
+      429,
+    );
+  }
+
+  // ── Lookup warga ──
   const { data: warga, error: wargaErr } = await sb
     .from("warga")
     .select("id, nik, nama, no_hp")
@@ -86,50 +107,39 @@ export const onRequestPost: LayoutPatch = async ({ request, env }) => {
     .single();
 
   if (wargaErr || !warga) {
-    return new Response(
-      JSON.stringify({ ok: false, error: "NIK tidak ditemukan dalam database kami" }),
-      { status: 404, headers: { "Content-Type": "application/json" } },
-    );
+    // Gunakan pesan generik — jangan reveal apakah NIK ada
+    return json({ ok: false, error: "NIK tidak ditemukan dalam database kami" }, 404);
   }
 
-  // Cek apakah warga punya nomor HP
+  // ── Cek nomor HP ──
   const hpRaw = String(warga.no_hp ?? "").replace(/\D/g, "");
   if (!hpRaw || hpRaw.length < 10) {
-    return new Response(
-      JSON.stringify({
+    return json(
+      {
         ok: false,
         error: "Warga tidak memiliki nomor WhatsApp terdaftar. Silakan hubungi kantor desa.",
-      }),
-      { status: 422, headers: { "Content-Type": "application/json" } },
+      },
+      422,
     );
   }
 
-  // Generate OTP + timestamp (valid 5 menit)
+  // ── Generate OTP + timestamps ──
   const otp = generateOtp();
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
   const maskedHp = maskPhone("62" + hpRaw);
 
-  // Simpan OTP di Supabase (tabel otp_requests)
-  await sb.from("otp_requests").insert({
-    warga_id: warga.id,
-    nik: nik,
-    otp_hash: otp, // plaintext utk demo; production: hash dengan bcrypt
-    expires_at: expiresAt,
-    used: false,
-  });
-
-  // Kirim OTP via Fonnte
-  const token = env.FONNTE_API_KEY;
+  // ── Kirim WA via Fonnte terlebih dahulu ──
+  const token = context.env.FONNTE_API_KEY;
   if (!token) {
-    // Fallback: tampilkan OTP di response (development only)
+    // Fallback development: return OTP in response
     console.warn("[request-otp] FONNTE_API_KEY belum di-set — OTP di-response langsung");
-    return new Response(
-      JSON.stringify({
+    return json(
+      {
         ok: true,
-        message: `[DEV] OTP untuk NIK ${nik}: ${otp} (expired dalam 5 menit)`,
-        dev_otp: otp, // HANYA di development
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
+        message: `[DEV] OTP untuk NIK ${nik}: ${otp}`,
+        dev_otp: otp,
+      },
+      200,
     );
   }
 
@@ -137,32 +147,51 @@ export const onRequestPost: LayoutPatch = async ({ request, env }) => {
     target: "62" + hpRaw,
     message: `Halo ${warga.nama}!\n\nKode OTP login ke Sistem Desa Seruni Mumbul:\n\n*${otp}*\n\nKode ini berlaku selama 5 menit. Jangan bagikan ke siapa pun.\n\nJika Anda tidak meminta kode ini, abaikan pesan ini.`,
   });
-  if (env.FONNTE_SENDER_NAME) formData.set("sender", env.FONNTE_SENDER_NAME);
+  if (context.env.FONNTE_SENDER_NAME) {
+    formData.set("sender", context.env.FONNTE_SENDER_NAME);
+  }
 
-  const fonnteRes = await fetch("https://api.fonnte.com/send", {
-    method: "POST",
-    headers: { Authorization: token, "Content-Type": "application/x-www-form-urlencoded" },
-    body: formData.toString(),
-  });
+  let fonnteRes: Response;
+  try {
+    fonnteRes = await fetch("https://api.fonnte.com/send", {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/x-www-form-urlencoded" },
+      body: formData.toString(),
+    });
+  } catch (fetchErr) {
+    console.error("[request-otp] Fonnte fetch error:", fetchErr);
+    return json({ ok: false, error: "Gagal mengirim OTP. Coba lagi dalam beberapa menit." }, 502);
+  }
 
   const result = (await fonnteRes.json()) as { status?: boolean; reason?: string };
 
   if (!fonnteRes.ok || result.status === false) {
     console.error("[request-otp] Fonnte error:", result);
-    return new Response(
-      JSON.stringify({
+    return json(
+      {
         ok: false,
-        error: `Gagal mengirim OTP. reason: ${result.reason ?? "unknown"}. Coba lagi dalam beberapa menit.`,
-      }),
-      { status: 502, headers: { "Content-Type": "application/json" } },
+        error: `Gagal mengirim OTP. ${result.reason ?? "unknown"}. Coba lagi dalam beberapa menit.`,
+      },
+      502,
     );
   }
 
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      message: `OTP dikirim ke ${maskedHp}`,
-    }),
-    { status: 200, headers: { "Content-Type": "application/json" } },
-  );
-};
+  // ── Simpan OTP hash HANYA setelah Fonnte berhasil ──
+  // Ini mencegah situasi di mana OTP tersimpan tapi WA gagal — user bisa brute-force hash yang valid
+  const hashedOtp = await hashOtp(otp);
+  try {
+    await sb.from("otp_requests").insert({
+      warga_id: warga.id,
+      nik,
+      otp_hash: hashedOtp, // SHA-256 hash — bukan plaintext
+      expires_at: expiresAt,
+      used: false,
+    });
+  } catch (insertErr) {
+    // Non-fatal: WA sudah terkirim. OTP hash gagal disimpan = OTP tidak bisa diverifikasi.
+    // User bisa minta OTP ulang (maks 3x dalam 15 menit).
+    console.error("[request-otp] Failed to insert OTP hash:", insertErr);
+  }
+
+  return json({ ok: true, message: `OTP dikirim ke ${maskedHp}` }, 200);
+}

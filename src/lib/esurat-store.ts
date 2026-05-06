@@ -1,12 +1,18 @@
-// E-Surat records store (localStorage).
-// Backend will replace this with Supabase later.
+// E-Surat records store — delegates to useSupabaseSync in-memory cache (IndexedDB).
 // Supports full status workflow: Menunggu Verifikasi → Diverifikasi → Menunggu Approval → Disetujui | Ditolak
 
 import { type Penduduk, PENDUDUK_MOCK } from "@/data/penduduk";
-
-const REC_KEY = "e_surat_records";
-const PEND_KEY = "e_surat_penduduk";
-const ARCH_KEY = "e_surat_archive";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import {
+  listPenduduk as _listPenduduk,
+  importPenduduk as _importPenduduk,
+} from "@/lib/penduduk-store";
+import {
+  getLocalRecords,
+  setLocalRecords,
+  getLocalArchive,
+  setLocalArchive,
+} from "@/lib/useSupabaseSync";
 
 export type SuratStatus =
   | "Menunggu Verifikasi"
@@ -50,40 +56,24 @@ export type SuratRecord = {
   updated_at?: string;
 };
 
-/* ---- helpers ---- */
-function read<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const v = localStorage.getItem(key);
-    return v ? (JSON.parse(v) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function write<T>(key: string, value: T) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-/* ---- Records CRUD ---- */
+/* ---- Records CRUD (delegates to IndexedDB cache) ---- */
 export function listRecords(): SuratRecord[] {
-  return read<SuratRecord[]>(REC_KEY, []);
+  return getLocalRecords();
 }
 
 export function saveRecord(r: SuratRecord) {
-  const all = listRecords();
+  const all = [...getLocalRecords()];
   const idx = all.findIndex((x) => x.no === r.no);
   if (idx >= 0) {
     all[idx] = { ...r, updated_at: new Date().toISOString() };
   } else {
     all.unshift(r);
   }
-  write(REC_KEY, all);
+  setLocalRecords(all);
 }
 
 export function getRecord(no: string): SuratRecord | null {
-  return listRecords().find((r) => r.no === no) ?? null;
+  return getLocalRecords().find((r) => r.no === no) ?? null;
 }
 
 /**
@@ -91,7 +81,7 @@ export function getRecord(no: string): SuratRecord | null {
  * Called by admin panel workflow actions.
  */
 export function setStatus(no: string, status: SuratStatus, catatan?: string) {
-  const all = listRecords();
+  const all = [...getLocalRecords()];
   const idx = all.findIndex((r) => r.no === no);
   if (idx < 0) return;
   all[idx] = {
@@ -100,34 +90,40 @@ export function setStatus(no: string, status: SuratStatus, catatan?: string) {
     catatan: catatan ?? all[idx].catatan,
     updated_at: new Date().toISOString(),
   };
-  write(REC_KEY, all);
+  setLocalRecords(all);
 }
 
 /** Pindahkan record ke arsip (setelah disetujui). */
 export function archiveRecord(no: string) {
   const r = getRecord(no);
   if (!r) return;
-  const arch = read<SuratRecord[]>(ARCH_KEY, []);
+  const arch = [...getLocalArchive()];
   arch.unshift(r);
-  write(ARCH_KEY, arch);
+  setLocalArchive(arch);
+  // Hapus dari daftar aktif agar tidak muncul dua kali di UI
+  setLocalRecords(getLocalRecords().filter((rec) => rec.no !== no));
 }
 
 export function listArchive(): SuratRecord[] {
-  return read<SuratRecord[]>(ARCH_KEY, []);
+  return getLocalArchive();
 }
 
 export function getArchive(no: string): SuratRecord | null {
-  return listArchive().find((r) => r.no === no) ?? null;
+  return getLocalArchive().find((r) => r.no === no) ?? null;
 }
 
-/* ---- Penduduk (CSV imported → Supabase) ---- */
+/* ---- Penduduk (delegates to penduduk-store) ---- */
 export function listPenduduk(): Penduduk[] {
-  const stored = read<Penduduk[] | null>(PEND_KEY, null);
-  return stored && stored.length ? stored : PENDUDUK_MOCK;
+  return _listPenduduk();
 }
 
 export function savePenduduk(items: Penduduk[]) {
-  write(PEND_KEY, items);
+  _importPenduduk(items);
+}
+
+/** Fallback lookup dari localStorage/mock — dipanggil bila Supabase tidak tersedia. */
+function lookupPendudukLocal(nik: string): Penduduk | null {
+  return PENDUDUK_MOCK.find((p) => p.nik === nik) ?? null;
 }
 
 /** Lookup penduduk — coba Supabase dulu, fallback ke localStorage/mock. */
@@ -137,35 +133,62 @@ export async function lookupPenduduk(nik: string): Promise<Penduduk | null> {
       const { getSupabase } = await import("./supabase");
       const sb = getSupabase();
       if (sb) {
-        const { data } = await sb
-          .from("warga")
-          .select(
-            "nik,nama,tempat_lahir,tanggal_lahir,jenis_kelamin,agama,status_kawin,pekerjaan,kewarganegaraan,alamat,rt,rw,dusun,desa,kecamatan,kabupaten,provinsi,no_kk,no_hp",
-          )
-          .eq("nik", nik)
-          .single();
-        if (data) {
+        const { data } = await sb.from("warga").select("*").eq("nik", nik).single();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const d = data as any;
+        if (d) {
           return {
-            nik: data.nik,
-            nama: data.nama,
-            tempat_lahir: data.tempat_lahir ?? "",
-            tanggal_lahir: data.tanggal_lahir ? String(data.tanggal_lahir) : "",
-            jenis_kelamin: (data.jenis_kelamin ?? "Laki-laki") as "Laki-laki" | "Perempuan",
-            agama: data.agama ?? "",
-            status_perkawinan: (data.status_kawin ??
-              "Belum Kawin") as Penduduk["status_perkawinan"],
-            pekerjaan: data.pekerjaan ?? "",
-            kewarganegaraan: data.kewarganegaraan ?? "WNI",
-            alamat: data.alamat ?? "",
-            rt: data.rt ?? "",
-            rw: data.rw ?? "",
-            dusun: data.dusun ?? "",
-            desa: data.desa ?? "Seruni Mumbul",
-            kecamatan: data.kecamatan ?? "Pringgabaya",
-            kabupaten: data.kabupaten ?? "Lombok Timur",
-            provinsi: data.provinsi ?? "Nusa Tenggara Barat",
-            no_kk: data.no_kk ?? "",
-            no_hp: data.no_hp,
+            // ── lokasi
+            provinsi: d.provinsi ?? "Nusa Tenggara Barat",
+            kabupaten: d.kabupaten ?? "Lombok Timur",
+            kecamatan: d.kecamatan ?? "Pringgabaya",
+            desa: d.desa ?? "Seruni Mumbul",
+            dusun: d.dusun ?? "",
+            rt: d.rt ?? "",
+            rw: d.rw ?? "",
+            // ── identitas
+            nama: d.nama ?? "",
+            jenis_kelamin: (d.jenis_kelamin ?? "Laki-Laki") as "Laki-Laki" | "Perempuan",
+            status_dalam_kk: d.status_dalam_kk ?? "Anggota",
+            no_kk: d.no_kk ?? "",
+            nik: d.nik,
+            status_perkawinan: (d.status_kawin ?? "Belum Kawin") as Penduduk["status_perkawinan"],
+            tempat_lahir: d.tempat_lahir ?? "",
+            tanggal_lahir: d.tanggal_lahir ? String(d.tanggal_lahir) : "",
+            pendidikan: d.pendidikan ?? "",
+            pekerjaan: d.pekerjaan ?? "",
+            pendapatan_bulan: d.pendapatan_bulan ?? "0",
+            kewarganegaraan: d.kewarganegaraan ?? "Indonesia",
+            agama: d.agama ?? "Islam",
+            suku: d.suku ?? "",
+            // ── perumahan
+            kepemilikan_rumah: d.kepemilikan_rumah ?? "-",
+            luas_rumah: d.luas_rumah ?? "-",
+            jumlah_lantai: d.jumlah_lantai ?? "-",
+            jenis_lantai: d.jenis_lantai ?? "-",
+            jenis_dinding: d.jenis_dinding ?? "-",
+            jenis_atap: d.jenis_atap ?? "-",
+            kepemilikan_tanah: d.kepemilikan_tanah ?? "-",
+            luas_tanah: d.luas_tanah ?? "-",
+            // ── fasilitas
+            penerangan: d.penerangan ?? "-",
+            sumber_energi_masak: d.sumber_energi_masak ?? "-",
+            mck: d.mck ?? "-",
+            sumber_air: d.sumber_air ?? "-",
+            // ── sosial
+            bantuan_sosial: d.bantuan_sosial ?? "Tidak",
+            bantuan_extra: d.bantuan_extra ?? "Tidak",
+            bpjs_kesehatan: d.bpjs_kesehatan ?? "Tidak",
+            bpjs_ketenagakerjaan: d.bpjs_ketenagakerjaan ?? "Tidak",
+            kepemilikan_aset: d.kepemilikan_aset ?? "Tidak",
+            kondisi_fisik: d.kondisi_fisik ?? "Normal",
+            // ── keluarga
+            nama_ibu: d.nama_ibu ?? "",
+            nama_bapak: d.nama_bapak ?? "",
+            golongan_darah: d.golongan_darah ?? "-",
+            // ── opsional
+            no_hp: d.no_hp ?? "",
+            alamat: d.alamat ?? "",
           };
         }
       }
@@ -210,8 +233,9 @@ export async function syncPendudukToSupabase(items: Penduduk[]): Promise<void> {
   }
 }
 
+/** No-op: penduduk data sudah ada di IndexedDB via penduduk-store. */
 export function clearPenduduk() {
-  if (typeof window !== "undefined") localStorage.removeItem(PEND_KEY);
+  // Penduduk kini disimpan di IndexedDB — hapus via clearAll di settings-store
 }
 
 /* ---- Status transition helpers ---- */

@@ -38,6 +38,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { TemplateSuratManager } from "@/components/admin/TemplateSuratManager";
+import { PendudukManager } from "@/components/admin/PendudukManager";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,9 +49,6 @@ import {
 import { getSession, logout } from "@/lib/auth";
 import {
   listRecords,
-  setStatus,
-  saveRecord,
-  archiveRecord,
   listArchive,
   listPenduduk,
   savePenduduk,
@@ -61,6 +59,7 @@ import { generateNomorSurat } from "@/lib/nomor-surat";
 import { sendWaNotification } from "@/lib/fonnte";
 import { suratActionsFor, can } from "@/lib/roles";
 import { getSettings } from "@/lib/settings-store";
+import { syncSetStatus, syncSaveRecord, syncArchive } from "@/lib/useSupabaseSync";
 import Papa from "papaparse";
 import type { Penduduk } from "@/data/penduduk";
 import {
@@ -97,7 +96,7 @@ const STATUS_COLORS: Record<StatusKey, string> = {
 export default function AdminPage() {
   const navigate = useNavigate();
   const [view, setView] = useState<
-    "dashboard" | "monitoring" | "archive" | "templates" | "settings"
+    "dashboard" | "monitoring" | "archive" | "templates" | "penduduk" | "settings"
   >("dashboard");
   const [records, setRecords] = useState<SuratRecord[]>([]);
   const [archive, setArchive] = useState<SuratRecord[]>([]);
@@ -115,6 +114,7 @@ export default function AdminPage() {
   }, [navigate]);
 
   const session = getSession();
+  const username = session?.name ?? "Admin";
 
   const handleLogout = () => {
     logout();
@@ -202,27 +202,36 @@ export default function AdminPage() {
     return list;
   }, [records, tab, q]);
 
-  /* ---------- Actions ---------- */
+  /* ---------- Actions (via sync layer) ---------- */
   const verify = async (r: SuratRecord) => {
-    setStatus(r.no, "Diverifikasi");
+    const result = await syncSetStatus(r.no, "Diverifikasi", undefined, username);
     refresh();
-    const result = await notifySurat(r, "verify");
-    if (result.ok) toast.success("Diverifikasi & notifikasi WA dikirim", { description: r.no });
-    else toast.warning("Diverifikasi OK, WA gagal", { description: result.message });
+    if (result.ok) {
+      const notify = await notifySurat(r, "verify");
+      if (notify.ok) toast.success("Diverifikasi & notifikasi WA dikirim", { description: r.no });
+      else toast.warning("Diverifikasi OK, WA gagal", { description: notify.message });
+    } else {
+      toast.error("Gagal menyimpan", { description: result.error });
+    }
   };
   const reject = async (r: SuratRecord) => {
     const note = window.prompt("Alasan penolakan?") ?? "";
     if (!note) return;
-    setStatus(r.no, "Ditolak", note);
+    const result = await syncSetStatus(r.no, "Ditolak", note, username);
     const updated = { ...r, status: "Ditolak" as const, catatan: note };
     await notifySurat(updated, "reject", note);
     refresh();
-    toast.error("Ditolak", { description: r.no });
+    if (result.ok) toast.error("Ditolak", { description: r.no });
+    else toast.error("Gagal menyimpan", { description: result.error });
   };
-  const lanjutApproval = (r: SuratRecord) => {
-    setStatus(r.no, "Menunggu Approval");
+  const lanjutApproval = async (r: SuratRecord) => {
+    const result = await syncSetStatus(r.no, "Menunggu Approval", undefined, username);
     refresh();
-    setPreview({ ...r, status: "Menunggu Approval" });
+    if (result.ok) {
+      setPreview({ ...r, status: "Menunggu Approval" });
+    } else {
+      toast.error("Gagal menyimpan", { description: result.error });
+    }
   };
   const approve = async (r: SuratRecord) => {
     const tahun = new Date().getFullYear();
@@ -231,20 +240,21 @@ export default function AdminPage() {
     const signerName = getSettings().signature.signer_name;
     const updated: SuratRecord = {
       ...r,
-      tracking_no: r.no, // simpan nomor tracking asli sebelum ditimpa
+      tracking_no: r.no,
       no: noSurat,
       status: "Disetujui",
       signed_at,
       signed_by: signerName,
       qr_payload: `SERUNI-MUMBUL|${noSurat}|${r.nik}|${r.kode}|${signed_at}`,
     };
-    saveRecord(updated);
-    archiveRecord(noSurat); // arsip menggunakan nomor surat resmi, bukan tracking number lama
-    const result = await notifySurat(updated, "approve");
+    // Simpan dengan nomor surat resmi, lalu arsipkan
+    await syncSaveRecord(updated, username);
+    await syncArchive(noSurat, username);
+    const notify = await notifySurat(updated, "approve");
     refresh();
     setPreview(updated);
-    if (result.ok) toast.success("Disetujui & notifikasi WA dikirim");
-    else toast.warning("Disetujui, WA gagal", { description: result.message });
+    if (notify.ok) toast.success("Disetujui & notifikasi WA dikirim");
+    else toast.warning("Disetujui, WA gagal", { description: notify.message });
   };
 
   const onCsv = (file: File) => {
@@ -254,26 +264,58 @@ export default function AdminPage() {
       complete: (res) => {
         const rows: Penduduk[] = res.data
           .map((r) => ({
-            nik: r.nik ?? "",
-            nama: r.nama ?? "",
-            tempat_lahir: r.tempat_lahir ?? "",
-            tanggal_lahir: r.tanggal_lahir ?? "",
-            jenis_kelamin: (r.jenis_kelamin as Penduduk["jenis_kelamin"]) ?? "Laki-laki",
-            agama: r.agama ?? "Islam",
+            // ── lokasi
+            provinsi: r.provinsi || "Nusa Tenggara Barat",
+            kabupaten: r.kabupaten || "Lombok Timur",
+            kecamatan: r.kecamatan || "Pringgabaya",
+            desa: r.desa || "Seruni Mumbul",
+            dusun: r.dusun || "",
+            rt: r.rt || "",
+            rw: r.rw || "",
+            // ── identitas
+            nama: r.nama || "",
+            jenis_kelamin: (r.jenis_kelamin as Penduduk["jenis_kelamin"]) || "Laki-Laki",
+            status_dalam_kk: r.status_dalam_kk || "Anggota",
+            no_kk: r.no_kk || "",
+            nik: r.nik || "",
             status_perkawinan:
-              (r.status_perkawinan as Penduduk["status_perkawinan"]) ?? "Belum Kawin",
-            pekerjaan: r.pekerjaan ?? "-",
-            kewarganegaraan: r.kewarganegaraan ?? "WNI",
-            alamat: r.alamat ?? "",
-            rt: r.rt ?? "",
-            rw: r.rw ?? "",
-            dusun: r.dusun ?? "",
-            desa: r.desa ?? "Seruni Mumbul",
-            kecamatan: r.kecamatan ?? "Pringgabaya",
-            kabupaten: r.kabupaten ?? "Lombok Timur",
-            provinsi: r.provinsi ?? "Nusa Tenggara Barat",
-            no_kk: r.no_kk ?? "",
-            no_hp: r.no_hp ?? "",
+              (r.status_perkawinan as Penduduk["status_perkawinan"]) || "Belum Kawin",
+            tempat_lahir: r.tempat_lahir || "",
+            tanggal_lahir: r.tanggal_lahir || "",
+            pendidikan: r.pendidikan || "",
+            pekerjaan: r.pekerjaan || "Tidak Bekerja",
+            pendapatan_bulan: r.pendapatan_bulan || "0",
+            kewarganegaraan: r.kewarganegaraan || "Indonesia",
+            agama: r.agama || "Islam",
+            suku: r.suku || "",
+            // ── perumahan
+            kepemilikan_rumah: r.kepemilikan_rumah || "-",
+            luas_rumah: r.luas_rumah || "-",
+            jumlah_lantai: r.jumlah_lantai || "-",
+            jenis_lantai: r.jenis_lantai || "-",
+            jenis_dinding: r.jenis_dinding || "-",
+            jenis_atap: r.jenis_atap || "-",
+            kepemilikan_tanah: r.kepemilikan_tanah || "-",
+            luas_tanah: r.luas_tanah || "-",
+            // ── fasilitas
+            penerangan: r.penerangan || "-",
+            sumber_energi_masak: r.sumber_energi_masak || "-",
+            mck: r.mck || "-",
+            sumber_air: r.sumber_air || "-",
+            // ── sosial
+            bantuan_sosial: r.bantuan_sosial || "Tidak",
+            bantuan_extra: r.bantuan_extra || "Tidak",
+            bpjs_kesehatan: r.bpjs_kesehatan || "Tidak",
+            bpjs_ketenagakerjaan: r.bpjs_ketenagakerjaan || "Tidak",
+            kepemilikan_aset: r.kepemilikan_aset || "Tidak",
+            kondisi_fisik: r.kondisi_fisik || "Normal",
+            // ── keluarga
+            nama_ibu: r.nama_ibu || "",
+            nama_bapak: r.nama_bapak || "",
+            golongan_darah: r.golongan_darah || "-",
+            // ── opsional
+            no_hp: r.no_hp || "",
+            alamat: r.alamat || "",
           }))
           .filter((p) => /^\d{16}$/.test(p.nik));
         savePenduduk(rows);
@@ -335,7 +377,9 @@ export default function AdminPage() {
                     ? "Arsip Surat Keluar"
                     : view === "templates"
                       ? "Template Surat"
-                      : "Pengaturan"}
+                      : view === "penduduk"
+                        ? "Data Penduduk"
+                        : "Pengaturan"}
             </span>
           </nav>
 
@@ -370,6 +414,11 @@ export default function AdminPage() {
                     Template <em className="not-italic text-primary">Surat</em>
                   </>
                 )}
+                {view === "penduduk" && (
+                  <>
+                    Data <em className="not-italic text-primary">Penduduk</em>
+                  </>
+                )}
                 {view === "settings" && (
                   <>
                     Pengaturan <em className="not-italic text-primary">Sistem</em>
@@ -385,6 +434,8 @@ export default function AdminPage() {
                   "Inventaris surat keluar yang telah disetujui dan ditandatangani digital."}
                 {view === "templates" &&
                   "Kelola katalog template surat: CRUD, import/export, preview, alur verifikasi & approval, hingga pengiriman dokumen."}
+                {view === "penduduk" &&
+                  "Kelola database kependudukan: CRUD, import CSV massal, export data, dan filter multi-kriteria."}
                 {view === "settings" &&
                   "Atur konfigurasi sistem, branding, integrasi WhatsApp, dan preferensi admin."}
               </p>
@@ -484,6 +535,12 @@ export default function AdminPage() {
                 icon={Archive}
                 label="Arsip"
               />
+              <SectionTab
+                active={view === "penduduk"}
+                onClick={() => setView("penduduk")}
+                icon={Users}
+                label="Penduduk"
+              />
               {can("settings.manage") && (
                 <SectionTab
                   active={view === "settings"}
@@ -501,6 +558,12 @@ export default function AdminPage() {
         <section className="py-8 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl">
             <SettingsPanel />
+          </div>
+        </section>
+      ) : view === "penduduk" ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <PendudukManager />
           </div>
         </section>
       ) : view === "templates" && can("template.view") ? (

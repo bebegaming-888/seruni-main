@@ -1,126 +1,114 @@
 /**
  * Nomor Surat Generator — Format Resmi Desa
  *
- * Pola: [kodeKlasifikasi]/[noUrut]/[inisialJabatan].[inisialDesa]/[bulanRomawi]/[tahun]
- * Contoh: 474/001/KDS.SRMB/V/2026
- *
- * Sumber kodeKlasifikasi: daftar_surat.csv (kolom KODE)
- * Counter per tahun disimpan di localStorage.
+ * Counter per tahun kini disimpan di IndexedDB (store: "nomor_surat").
+ * In-memory cache digunakan untuk pembacaan sinkron — aman dan cepat.
+ * Fallback ke localStorage untuk backward compat jika IDB belum diinit.
  */
 
 import { getSettings } from "@/lib/settings-store";
 import { getSuratMaster } from "@/data/surat-master";
+import { isSupabaseConfigured } from "./supabase";
+import { idbGet, idbPut } from "@/lib/idb-store";
 
 const ROMAWI = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
 export interface FormatNomorSurat {
-  kodeKlasifikasi: string; // "474"
-  noUrut: number; // 1, 2, 3, ...
-  tahun: number; // 2026
+  kodeKlasifikasi: string;
+  noUrut: number;
+  tahun: number;
 }
 
-function toRomawi(month: number): string {
-  return ROMAWI[month] ?? "";
+// ── In-Memory Counter Cache ───────────────────────────────────────────────────
+const _counter: Record<number, number> = {};
+
+/** Async init — baca semua counter tahun dari IndexedDB ke cache. */
+export async function initNomorSuratStore(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const currentYear = new Date().getFullYear();
+  for (let y = currentYear - 2; y <= currentYear + 1; y++) {
+    try {
+      const rec = await idbGet<{ id: string; counter: number }>("nomor_surat", String(y));
+      if (rec) {
+        _counter[y] = rec.counter;
+        continue;
+      }
+      // Fallback: coba localStorage lama
+      const lsVal = localStorage.getItem(`nomor_surat_no_urut_${y}`);
+      if (lsVal) {
+        _counter[y] = parseInt(lsVal, 10);
+        await idbPut("nomor_surat", { id: String(y), counter: _counter[y] });
+      }
+    } catch (e) {
+      console.warn(`[nomor-surat] init tahun ${y}:`, e);
+    }
+  }
 }
 
-/**
- * Konversi angka ke Romawi (untuk nomor surat).
- */
+// ── Helpers ───────────────────────────────────────────────────────────────────
 export function toRomawiNumber(n: number): string {
-  return toRomawi(n);
+  return ROMAWI[n] ?? "";
 }
 
-/**
- * Format nomor surat sesuai pola resmi.
- * [kodeKlasifikasi]/[noUrut]/[inisialJabatan].[inisialDesa]/[bulanRomawi]/[tahun]
- *
- * Contoh: 474/001/KDS.SRMB/V/2026
- */
 export function formatNomorSurat(params: FormatNomorSurat): string {
   const { kodeKlasifikasi, noUrut, tahun } = params;
   const settings = getSettings();
   const cfg = settings.nomor ?? { inisialJabatan: "KDS", inisialDesa: "SRMB" };
-
-  const now = new Date();
-  const bulan = now.getMonth() + 1;
-  const blnRomawi = toRomawi(bulan);
-  const no = String(noUrut).padStart(3, "0");
-
-  return `${kodeKlasifikasi}/${no}/${cfg.inisialJabatan}.${cfg.inisialDesa}/${blnRomawi}/${tahun}`;
+  const bulanRomawi = ROMAWI[new Date().getMonth() + 1];
+  return `${kodeKlasifikasi}/${String(noUrut).padStart(3, "0")}/${cfg.inisialJabatan}.${cfg.inisialDesa}/${bulanRomawi}/${tahun}`;
 }
 
-/**
- * Ambil kodeKlasifikasi dari kode surat (misal "SKD" → "474")
- */
 export function getKodeKlasifikasi(kodeSurat: string): string {
   const entry = getSuratMaster(kodeSurat);
   if (!entry) {
-    console.warn(
-      `[nomor-surat] Kode "${kodeSurat}" tidak ditemukan di SURAT_MASTER. Default "474".`,
-    );
+    console.warn(`[nomor-surat] Kode "${kodeSurat}" tidak ada di SURAT_MASTER. Default "474".`);
     return "474";
   }
   return entry.kodeKlasifikasi;
 }
 
-/**
- * Generate nomor surat baru untuk sebuah pengajuan.
- * Otomatis increment counter per tahun.
- */
-export function generateNomorSurat(kodeSurat: string, tahun?: number): string {
-  const kodeKlasifikasi = getKodeKlasifikasi(kodeSurat);
+export async function generateNomorSurat(kodeSurat: string, tahun?: number): Promise<string> {
   const tahunDipakai = tahun ?? new Date().getFullYear();
-  const noUrut = generateNextNoUrut(tahunDipakai);
-
+  if (isSupabaseConfigured) {
+    try {
+      const res = await fetch("/api/generate-nomor-surat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kode: kodeSurat }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { ok: boolean; nomor?: string };
+        if (data.ok && data.nomor) return data.nomor;
+      }
+    } catch {
+      /* fallback */
+    }
+  }
+  const kodeKlasifikasi = getKodeKlasifikasi(kodeSurat);
+  const noUrut = await generateNextNoUrut(tahunDipakai);
   return formatNomorSurat({ kodeKlasifikasi, noUrut, tahun: tahunDipakai });
 }
 
-/* ==================== COUNTER STORAGE ==================== */
+// ── Counter Storage ───────────────────────────────────────────────────────────
 
-function getCounterKey(tahun: number): string {
-  return `nomor_surat_no_urut_${tahun}`;
-}
-
-function getCounterKeyPrev(tahun: number): string {
-  // previous year key (for migration)
-  return `no_urut_${tahun}`;
-}
-
-/**
- * Baca dan increment counter nomor urut surat per tahun.
- * Bersih dari localStorage — aman untuk multi-instance.
- */
-export function generateNextNoUrut(tahun: number): number {
-  const key = getCounterKey(tahun);
-  const prevKey = getCounterKeyPrev(tahun);
-
-  // Check if old key exists, migrate if needed
-  const oldVal = localStorage.getItem(prevKey);
-  const currentRaw = localStorage.getItem(key);
-  let current = parseInt(currentRaw ?? "0", 10);
-
-  // Migrate from old key
-  if (oldVal && current === 0) {
-    current = parseInt(oldVal, 10);
-    localStorage.setItem(key, String(current));
-    localStorage.removeItem(prevKey);
-  }
-
+/** Increment counter per tahun — tulis ke cache + IndexedDB. */
+export async function generateNextNoUrut(tahun: number): Promise<number> {
+  if (typeof window === "undefined") return 1;
+  const current = _counter[tahun] ?? 0;
   const next = current + 1;
-  localStorage.setItem(key, String(next));
+  _counter[tahun] = next;
+  // Write-behind ke IndexedDB (non-blocking)
+  idbPut("nomor_surat", { id: String(tahun), counter: next }).catch(console.warn);
   return next;
 }
 
-/**
- * Reset counter nomor urut surat per tahun (untuk testing/reset).
- */
-export function resetNoUrut(tahun: number): void {
-  localStorage.removeItem(getCounterKey(tahun));
+/** Reset counter (untuk testing/tahun baru). */
+export async function resetNoUrut(tahun: number): Promise<void> {
+  _counter[tahun] = 0;
+  await idbPut("nomor_surat", { id: String(tahun), counter: 0 });
 }
 
-/**
- * Baca counter saat ini tanpa increment.
- */
+/** Baca counter saat ini tanpa increment. */
 export function getCurrentNoUrut(tahun: number): number {
-  return parseInt(localStorage.getItem(getCounterKey(tahun)) ?? "0", 10);
+  return _counter[tahun] ?? 0;
 }

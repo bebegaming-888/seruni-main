@@ -4,6 +4,7 @@ import type { SuratStatus } from "@/lib/esurat-store";
 import type { TemplateStatus } from "@/lib/template-store";
 
 export type ActionKey =
+  | "template.view"
   | "template.create"
   | "template.edit"
   | "template.delete"
@@ -17,10 +18,12 @@ export type ActionKey =
   | "surat.approve"
   | "surat.reject"
   | "surat.send"
-  | "surat.archive";
+  | "surat.archive"
+  | "settings.manage";
 
 const MATRIX: Record<AdminRole, Set<ActionKey>> = {
   "Super Admin": new Set<ActionKey>([
+    "template.view",
     "template.create",
     "template.edit",
     "template.delete",
@@ -35,8 +38,10 @@ const MATRIX: Record<AdminRole, Set<ActionKey>> = {
     "surat.reject",
     "surat.send",
     "surat.archive",
+    "settings.manage",
   ]),
   Operator: new Set<ActionKey>([
+    "template.view",
     "template.create",
     "template.edit",
     "template.delete",
@@ -45,6 +50,7 @@ const MATRIX: Record<AdminRole, Set<ActionKey>> = {
     "surat.send",
   ]),
   Verifikator: new Set<ActionKey>([
+    "template.view",
     "template.verify",
     "template.reject",
     "surat.verify",
@@ -52,6 +58,7 @@ const MATRIX: Record<AdminRole, Set<ActionKey>> = {
     "surat.reject",
   ]),
   "Kepala Desa": new Set<ActionKey>([
+    "template.view",
     "template.approve",
     "template.reject",
     "surat.approve",

@@ -4,17 +4,19 @@ import { Footer } from "@/components/site/Footer";
 import { VILLAGE } from "@/data/site";
 import { Link } from "@/components/Link";
 import {
-  TAHUN_2026,
-  PENDAPATAN_2026,
-  BELANJA_2026,
-  REALISASI_2026,
-  HISTORY_APBDES,
   formatRupiah,
   formatRupiahFull,
   pct,
   BELANJA_KATEGORI,
   type BelanjaItem,
+  type PendapatanItem,
+  PENDAPATAN_2026 as MOCK_PENDAPATAN,
+  BELANJA_2026 as MOCK_BELANJA,
+  TAHUN_2026 as MOCK_TAHUN,
+  REALISASI_2026 as MOCK_REALISASI,
+  HISTORY_APBDES as MOCK_HISTORY,
 } from "@/data/apbdes";
+import { useApbdesStore } from "@/lib/content-store";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import {
   TrendingUp,
@@ -49,10 +51,10 @@ import { useState } from "react";
 export const Route = createFileRoute("/laporan/apbdes")({
   head: () => ({
     meta: [
-      { title: `APBDes ${TAHUN_2026.tahun} — ${VILLAGE.name}` },
+      { title: `APBDes 2026 — ${VILLAGE.name}` },
       {
         name: "description",
-        content: `Anggaran Pendapatan dan Belanja Desa ${VILLAGE.name} Tahun ${TAHUN_2026.tahun}. Transparansi anggaran desa secara online.`,
+        content: `Anggaran Pendapatan dan Belanja Desa ${VILLAGE.name} Tahun 2026. Transparansi anggaran desa secara online.`,
       },
     ],
   }),
@@ -82,8 +84,14 @@ function ProgressBar({ value, max = 100, color }: { value: number; max?: number;
   );
 }
 
-function PendapatanRow({ item }: { item: (typeof PENDAPATAN_2026)[number] }) {
-  const realized = Math.round(item.nilai * (REALISASI_2026.pendapatan.percent / 100));
+function PendapatanRow({
+  item,
+  realisasiPercent,
+}: {
+  item: PendapatanItem;
+  realisasiPercent: number;
+}) {
+  const realized = Math.round(item.nilai * (realisasiPercent / 100));
   return (
     <div className="flex items-start gap-3 py-3 border-b border-border/40 last:border-0">
       <div className="flex-1 min-w-0">
@@ -91,24 +99,27 @@ function PendapatanRow({ item }: { item: (typeof PENDAPATAN_2026)[number] }) {
           <span className="font-ui text-xs font-medium text-foreground truncate">{item.label}</span>
           <span className="font-ui text-xs text-muted-foreground shrink-0">{item.kode}</span>
         </div>
-        <ProgressBar value={REALISASI_2026.pendapatan.percent} color={PENDAPATAN_COLOR} />
+        <ProgressBar value={realisasiPercent} color={PENDAPATAN_COLOR} />
         <div className="flex items-center justify-between mt-1">
           <span className="font-body text-[10px] text-muted-foreground">
             {formatRupiah(realized)}/{formatRupiah(item.nilai)}
           </span>
-          <span className="font-ui text-[10px] text-muted-foreground">
-            {REALISASI_2026.pendapatan.percent}%
-          </span>
+          <span className="font-ui text-[10px] text-muted-foreground">{realisasiPercent}%</span>
         </div>
       </div>
     </div>
   );
 }
 
-function BelanjaRow({ item }: { item: BelanjaItem }) {
-  const realized = Math.round(
-    item.nilai * ((REALISASI_2026.belanja[item.kategori]?.percent ?? 0) / 100),
-  );
+function BelanjaRow({
+  item,
+  realisasi,
+}: {
+  item: BelanjaItem;
+  realisasi: Record<string, { percent: number }>;
+}) {
+  const percent = realisasi[item.kategori]?.percent ?? 0;
+  const realized = Math.round(item.nilai * (percent / 100));
   return (
     <div className="flex items-start gap-3 py-3 border-b border-border/40 last:border-0">
       <div className="flex-1 min-w-0">
@@ -118,17 +129,12 @@ function BelanjaRow({ item }: { item: BelanjaItem }) {
           </span>
           <span className="font-ui text-[10px] text-muted-foreground shrink-0">{item.kode}</span>
         </div>
-        <ProgressBar
-          value={REALISASI_2026.belanja[item.kategori]?.percent ?? 0}
-          color={KATEGORI_COLOR[item.kategori]}
-        />
+        <ProgressBar value={percent} color={KATEGORI_COLOR[item.kategori]} />
         <div className="flex items-center justify-between mt-1">
           <span className="font-body text-[10px] text-muted-foreground">
             {formatRupiah(realized)}/{formatRupiah(item.nilai)}
           </span>
-          <span className="font-ui text-[10px] text-muted-foreground">
-            {REALISASI_2026.belanja[item.kategori]?.percent ?? 0}%
-          </span>
+          <span className="font-ui text-[10px] text-muted-foreground">{percent}%</span>
         </div>
       </div>
     </div>
@@ -177,16 +183,23 @@ function SummaryCard({
   );
 }
 
-function KategoriChart() {
-  const data = BELANJA_KATEGORI.map((kat) => ({
-    name: kat,
-    total: BELANJA_2026.filter((b) => b.kategori === kat).reduce((s, b) => s + b.nilai, 0),
-    realized: Math.round(
-      BELANJA_2026.filter((b) => b.kategori === kat).reduce((s, b) => s + b.nilai, 0) *
-        ((REALISASI_2026.belanja[kat]?.percent ?? 0) / 100),
-    ),
-    percent: REALISASI_2026.belanja[kat]?.percent ?? 0,
-  }));
+function KategoriChart({
+  belanja,
+  realisasi,
+}: {
+  belanja: BelanjaItem[];
+  realisasi: Record<string, { percent: number }>;
+}) {
+  const data = BELANJA_KATEGORI.map((kat) => {
+    const total = belanja.filter((b) => b.kategori === kat).reduce((s, b) => s + b.nilai, 0);
+    const percent = realisasi[kat]?.percent ?? 0;
+    return {
+      name: kat,
+      total,
+      realized: Math.round(total * (percent / 100)),
+      percent,
+    };
+  });
 
   const pieData = data.map((d) => ({ name: d.name, value: d.total }));
 
@@ -310,8 +323,8 @@ function KategoriChart() {
   );
 }
 
-function PendapatanChart() {
-  const data = PENDAPATAN_2026.map((p) => ({
+function PendapatanChart({ pendapatan }: { pendapatan: PendapatanItem[] }) {
+  const data = pendapatan.map((p) => ({
     name: p.label.length > 18 ? p.label.slice(0, 18) + "…" : p.label,
     value: p.nilai,
     kategori: p.kategori,
@@ -344,8 +357,12 @@ function PendapatanChart() {
   );
 }
 
-function TrendChart() {
-  const history = HISTORY_APBDES.map((h) => ({
+function TrendChart({
+  history,
+}: {
+  history: { tahun: number; pendapatan: number; belanja: number }[];
+}) {
+  const data = history.map((h) => ({
     tahun: String(h.tahun),
     Pendapatan: h.pendapatan,
     Belanja: h.belanja,
@@ -403,13 +420,20 @@ function TrendChart() {
   );
 }
 
-function BelanjaAccordion({ kategori }: { kategori: string }) {
+function BelanjaAccordion({
+  kategori,
+  belanja,
+  realisasi,
+}: {
+  kategori: string;
+  belanja: BelanjaItem[];
+  realisasi: Record<string, { percent: number }>;
+}) {
   const [open, setOpen] = useState(false);
-  const items = BELANJA_2026.filter((b) => b.kategori === kategori);
-  const realized =
-    items.reduce((s, b) => s + b.nilai, 0) *
-    ((REALISASI_2026.belanja[kategori]?.percent ?? 0) / 100);
+  const items = belanja.filter((b) => b.kategori === kategori);
+  const percent = realisasi[kategori]?.percent ?? 0;
   const total = items.reduce((s, b) => s + b.nilai, 0);
+  const realized = total * (percent / 100);
   const color = KATEGORI_COLOR[kategori];
 
   return (
@@ -457,7 +481,7 @@ function BelanjaAccordion({ kategori }: { kategori: string }) {
             <div
               className="h-full rounded-full transition-all duration-700"
               style={{
-                width: `${REALISASI_2026.belanja[kategori]?.percent ?? 0}%`,
+                width: `${percent}%`,
                 backgroundColor: color,
               }}
             />
@@ -493,12 +517,40 @@ function BelanjaAccordion({ kategori }: { kategori: string }) {
 }
 
 export function ApbdesPage() {
+  const items = useApbdesStore((state) => state.items);
+  const data2026 = items.find((i) => i.year === 2026)?.details;
+
+  // Use dynamic data if available, fallback to mocks
+  const TAHUN_2026 = data2026
+    ? {
+        tahun: data2026.tahun,
+        status: data2026.status,
+        total_pendapatan: data2026.pendapatan.total,
+        total_belanja: data2026.belanja.total,
+        total_pembiayaan: data2026.pembiayaan.netto,
+        sisa: data2026.pembiayaan.sisa,
+      }
+    : MOCK_TAHUN;
+
+  const PENDAPATAN_2026 = data2026?.pendapatan.items ?? MOCK_PENDAPATAN;
+  const BELANJA_2026 = data2026?.belanja.items ?? MOCK_BELANJA;
+  const REALISASI_2026 = data2026
+    ? {
+        pendapatan: data2026.pendapatan.realisasi,
+        belanja: data2026.belanja.realisasi,
+      }
+    : MOCK_REALISASI;
+  const HISTORY_APBDES = data2026?.history ?? MOCK_HISTORY;
+
   const total_pendapatan = TAHUN_2026.total_pendapatan;
   const total_belanja = TAHUN_2026.total_belanja;
   const total_pembiayaan = TAHUN_2026.total_pembiayaan;
   const realized_total = Math.round(
-    Object.values(REALISASI_2026.belanja).reduce((s, v) => s + v.realised, 0),
+    Object.values(REALISASI_2026.belanja).reduce((s, v) => s + (v.realised ?? 0), 0),
   );
+
+  // Define components inside to capture derived data or pass as props
+  // For simplicity here, I'll use the variables defined above.
 
   return (
     <div className="min-h-screen bg-background">
@@ -572,12 +624,12 @@ export function ApbdesPage() {
           <div className="max-w-5xl mx-auto space-y-6">
             {/* Pendapatan chart */}
             <div className="grid lg:grid-cols-2 gap-6">
-              <PendapatanChart />
-              <TrendChart />
+              <PendapatanChart pendapatan={PENDAPATAN_2026} />
+              <TrendChart history={HISTORY_APBDES} />
             </div>
 
             {/* Kategori breakdown */}
-            <KategoriChart />
+            <KategoriChart belanja={BELANJA_2026} realisasi={REALISASI_2026.belanja} />
           </div>
         </section>
 
@@ -607,8 +659,12 @@ export function ApbdesPage() {
                 />
               </div>
               <div className="mt-4 space-y-0">
-                {PENDAPATAN_2026.map((item) => (
-                  <PendapatanRow key={item.kode} item={item} />
+                {PENDAPATAN_2026.map((item: PendapatanItem) => (
+                  <PendapatanRow
+                    key={item.kode}
+                    item={item}
+                    realisasiPercent={REALISASI_2026.pendapatan.percent}
+                  />
                 ))}
               </div>
             </div>
@@ -635,7 +691,12 @@ export function ApbdesPage() {
 
             <div className="space-y-3">
               {BELANJA_KATEGORI.map((kategori) => (
-                <BelanjaAccordion key={kategori} kategori={kategori} />
+                <BelanjaAccordion
+                  key={kategori}
+                  kategori={kategori}
+                  belanja={BELANJA_2026}
+                  realisasi={REALISASI_2026.belanja}
+                />
               ))}
             </div>
           </div>

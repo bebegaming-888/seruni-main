@@ -1,12 +1,14 @@
 import { SectionTitle } from "@/components/site/SectionTitle";
 import { Link } from "@/components/Link";
 import { ArrowUpRight, Clock } from "lucide-react";
-import { ARTICLES, formatRelativeDate } from "@/data/berita";
-
-// Ambil 3 artikel terbaru untuk homepage
-const HOMEPAGE_NEWS = ARTICLES.slice(0, 3);
+import { formatRelativeDate } from "@/data/berita";
+import { useBeritaStore } from "@/lib/content-store";
 
 export function NewsSection() {
+  const items = useBeritaStore((state) => state.items);
+  // Ambil 3 artikel terbaru untuk homepage
+  const homepageNews = items.length > 0 ? items.slice(0, 3) : [];
+
   return (
     <section id="berita" className="py-20 sm:py-28 px-4 sm:px-8 bg-cream">
       <div className="mx-auto max-w-7xl">
@@ -25,7 +27,7 @@ export function NewsSection() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {HOMEPAGE_NEWS.map((n) => (
+          {homepageNews.map((n) => (
             <Link
               to="/informasi/berita/$slug"
               params={{ slug: n.slug }}
@@ -34,12 +36,16 @@ export function NewsSection() {
             >
               {/* Cover placeholder */}
               <div className="aspect-[16/10] overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                <div className="text-center p-4">
-                  <div className="font-display text-4xl font-bold text-primary/30 mb-1">
-                    {n.category[0]}
+                {n.cover_image ? (
+                  <img src={n.cover_image} alt={n.title} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-center p-4">
+                    <div className="font-display text-4xl font-bold text-primary/30 mb-1">
+                      {n.category[0]}
+                    </div>
+                    <div className="font-ui text-xs text-primary/40 font-medium">{n.category}</div>
                   </div>
-                  <div className="font-ui text-xs text-primary/40 font-medium">{n.category}</div>
-                </div>
+                )}
               </div>
               <div className="p-5">
                 <div className="flex items-center gap-2 mb-3">
@@ -47,7 +53,7 @@ export function NewsSection() {
                     {n.category}
                   </span>
                   <span className="font-ui text-xs text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> {n.read_time} menit
+                    <Clock className="h-3 w-3" /> {n.read_time || "5"} menit
                   </span>
                 </div>
                 <h3 className="font-display text-xl font-bold text-ink leading-tight group-hover:text-primary transition-colors">

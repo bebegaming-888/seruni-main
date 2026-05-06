@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { VILLAGE } from "@/data/site";
-import { AGENDA } from "@/data/site";
+import { useAgendaStore } from "@/lib/content-store";
 import { Calendar, MapPin, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useMemo } from "react";
 
@@ -35,63 +35,6 @@ const KATEGORI_CONFIG: Record<string, { color: string; bg: string; icon: string 
   Budaya: { color: "text-purple-600", bg: "bg-purple-50 border-purple-200", icon: "🎭" },
 };
 
-const ALL_AGENDA: AgendaItem[] = [
-  {
-    id: 1,
-    day: "04",
-    month: "JUN",
-    title: "Musrenbangdes 2027",
-    time: "08:30 – 12:00 WITA",
-    location: "Balai Desa Seruni Mumbul",
-    category: "Musyawarah",
-  },
-  {
-    id: 2,
-    day: "11",
-    month: "JUN",
-    title: "Posyandu Balita & Lansia",
-    time: "09:00 – 11:00 WITA",
-    location: "Posyandu Mawar",
-    category: "Kesehatan",
-  },
-  {
-    id: 3,
-    day: "17",
-    month: "JUN",
-    title: "Festival Tenun Sasak 2026",
-    time: "14:00 – 21:00 WITA",
-    location: "Lapangan Desa",
-    category: "Budaya",
-  },
-  {
-    id: 4,
-    day: "20",
-    month: "JUN",
-    title: "Rapat Bulanan BPD",
-    time: "09:00 – 11:00 WITA",
-    location: "Ruang Rapat BPD",
-    category: "Musyawarah",
-  },
-  {
-    id: 5,
-    day: "25",
-    month: "JUN",
-    title: "Pelatihan Digital Marketing UMKM",
-    time: "09:00 – 15:00 WITA",
-    location: "Balai Desa Seruni Mumbul",
-    category: "Musyawarah",
-  },
-  {
-    id: 6,
-    day: "28",
-    month: "JUN",
-    title: "Pemeriksaan Kesehatan Gratis",
-    time: "08:00 – 14:00 WITA",
-    location: "Puskesmas Pringgabaya",
-    category: "Kesehatan",
-  },
-];
-
 const MONTHS = [
   "Januari",
   "Februari",
@@ -117,12 +60,12 @@ function getFirstDayOfMonth(year: number, month: number) {
   return new Date(year, month, 1).getDay();
 }
 
-// Build EVENT_MAP dynamically from ALL_AGENDA using current date reference
-function buildEventMap(): Record<string, AgendaItem[]> {
+// Build EVENT_MAP dynamically from items using current date reference
+function buildEventMap(items: AgendaItem[]): Record<string, AgendaItem[]> {
   const now = new Date();
   const year = now.getFullYear();
   const map: Record<string, AgendaItem[]> = {};
-  ALL_AGENDA.forEach((item) => {
+  items.forEach((item) => {
     const monthIdx = MONTHS.findIndex((m) => m === item.month);
     if (monthIdx === -1) return;
     const dateStr = `${year}-${String(monthIdx + 1).padStart(2, "0")}-${item.day.padStart(2, "0")}`;
@@ -133,14 +76,16 @@ function buildEventMap(): Record<string, AgendaItem[]> {
 }
 
 function CalendarWidget({
+  items,
   onDayClick,
 }: {
+  items: AgendaItem[];
   onDayClick: (date: string, events: AgendaItem[]) => void;
 }) {
   const now = useMemo(() => new Date(), []);
   const [currentMonth, setCurrentMonth] = useState(now.getMonth());
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
-  const eventMap = useMemo(() => buildEventMap(), []);
+  const eventMap = useMemo(() => buildEventMap(items), [items]);
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
@@ -322,12 +267,13 @@ function DayEventsPanel({
 }
 
 export function AgendaPage() {
+  const items = useAgendaStore((state) => state.items);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedEvents, setSelectedEvents] = useState<AgendaItem[]>([]);
   const [filter, setFilter] = useState<string>("Semua");
 
   const categories = ["Semua", ...Object.keys(KATEGORI_CONFIG)];
-  const filtered = ALL_AGENDA.filter((a) => filter === "Semua" || a.category === filter);
+  const filtered = items.filter((a) => filter === "Semua" || a.category === filter);
 
   const handleDayClick = (date: string, events: AgendaItem[]) => {
     setSelectedDate(date);
@@ -355,7 +301,7 @@ export function AgendaPage() {
             <div className="flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
                 <Calendar className="h-3.5 w-3.5" />
-                {ALL_AGENDA.length} Agenda Aktif
+                {items.length} Agenda Aktif
               </span>
             </div>
           </div>
@@ -367,7 +313,7 @@ export function AgendaPage() {
             <div className="grid lg:grid-cols-[280px_1fr] gap-6">
               {/* Sidebar: Calendar + Filters */}
               <div className="space-y-4">
-                <CalendarWidget onDayClick={handleDayClick} />
+                <CalendarWidget items={items} onDayClick={handleDayClick} />
 
                 {/* Filter */}
                 <div className="rounded-2xl border border-border bg-card p-4">

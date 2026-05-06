@@ -3,14 +3,15 @@ import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { VILLAGE } from "@/data/site";
 import { Link } from "@/components/Link";
-import { ARTICLES, getArticleBySlug, formatDate, formatRelativeDate } from "@/data/berita";
+import { formatDate, formatRelativeDate } from "@/data/berita";
+import { useBeritaStore } from "@/lib/content-store";
 import { ArrowLeft, Eye, Clock, Tag, Calendar, Share2, Bookmark, Printer } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/informasi/berita/$slug")({
   head: ({ params }) => {
-    const article = getArticleBySlug(params.slug);
+    const article = useBeritaStore.getState().items.find((a) => a.slug === params.slug);
     return {
       meta: [
         { title: article ? `${article.title} — ${VILLAGE.name}` : "Artikel Tidak Ditemukan" },
@@ -39,7 +40,8 @@ function TagBadge({ tag }: { tag: string }) {
 
 export function ArticleDetailPage() {
   const { slug } = Route.useParams();
-  const article = getArticleBySlug(slug);
+  const items = useBeritaStore((state) => state.items);
+  const article = items.find((a) => a.slug === slug);
 
   if (!article) {
     return (
@@ -72,9 +74,9 @@ export function ArticleDetailPage() {
     );
   }
 
-  const related = ARTICLES.filter(
-    (a) => a.id !== article.id && a.category === article.category,
-  ).slice(0, 3);
+  const related = items
+    .filter((a) => a.id !== article.id && a.category === article.category)
+    .slice(0, 3);
 
   return (
     <div className="min-h-screen bg-background">

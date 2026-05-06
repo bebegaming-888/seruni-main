@@ -1,9 +1,12 @@
 import { SectionTitle } from "@/components/site/SectionTitle";
 import { Link } from "@/components/Link";
 import { ArrowUpRight, Clock, MapPin } from "lucide-react";
-import { AGENDA } from "@/data/site";
+import { useAgendaStore } from "@/lib/content-store";
 
 export function AgendaSection() {
+  const items = useAgendaStore((state) => state.items);
+  const agenda = items.length > 0 ? items.slice(0, 3) : [];
+
   return (
     <section id="agenda" className="py-20 sm:py-28 px-4 sm:px-8">
       <div className="mx-auto max-w-7xl">
@@ -22,7 +25,7 @@ export function AgendaSection() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-5">
-          {AGENDA.map((a) => (
+          {agenda.map((a) => (
             <article
               key={a.id}
               className="group rounded-3xl bg-card border border-border p-6 hover:bg-ink hover:text-background transition-all"

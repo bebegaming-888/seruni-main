@@ -1,0 +1,220 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { Navbar } from "@/components/site/Navbar";
+import { Footer } from "@/components/site/Footer";
+import { VILLAGE } from "@/data/site";
+import { Link } from "@/components/Link";
+import { MessageCircle, Users, Clock, Phone, Calendar, ArrowRight, Star } from "lucide-react";
+
+export const Route = createFileRoute("/pelayanan/konsultasi")({
+  head: () => ({
+    meta: [
+      { title: `Layanan Konsultasi — ${VILLAGE.name}` },
+      {
+        name: "description",
+        content: `Konsultasi langsung dengan perangkat desa ${VILLAGE.name} untuk berbagai keperluan administratif dan sosial.`,
+      },
+    ],
+  }),
+  component: () => <KonsultasiPage />,
+});
+
+function ConsultantCard({
+  name,
+  role,
+  schedule,
+  photo,
+  wa,
+}: {
+  name: string;
+  role: string;
+  schedule: string;
+  photo?: string;
+  wa: string;
+}) {
+  return (
+    <div className="group p-6 rounded-[2rem] bg-card border border-border hover:border-primary/30 hover:shadow-xl transition-all duration-300">
+      <div className="flex items-center gap-4 mb-6">
+        <div className="h-16 w-16 rounded-2xl bg-muted overflow-hidden border border-border">
+          {photo ? (
+            <img src={photo} alt={name} className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center bg-primary/5 text-primary">
+              <Users className="h-8 w-8" />
+            </div>
+          )}
+        </div>
+        <div>
+          <h3 className="font-display text-lg font-bold text-ink leading-tight">{name}</h3>
+          <p className="font-ui text-xs font-bold text-primary uppercase tracking-wider mt-0.5">
+            {role}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3 mb-6">
+        <div className="flex items-center gap-2.5 text-muted-foreground">
+          <Calendar className="h-4 w-4 text-primary/50" />
+          <span className="font-ui text-xs font-medium">Senin – Jumat</span>
+        </div>
+        <div className="flex items-center gap-2.5 text-muted-foreground">
+          <Clock className="h-4 w-4 text-primary/50" />
+          <span className="font-ui text-xs font-medium">{schedule}</span>
+        </div>
+      </div>
+
+      <a
+        href={`https://wa.me/${wa}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-full py-3 rounded-xl bg-ink text-white font-ui text-sm font-bold hover:bg-primary transition-all flex items-center justify-center gap-2"
+      >
+        Mulai Konsultasi
+        <MessageCircle className="h-4 w-4" />
+      </a>
+    </div>
+  );
+}
+
+export function KonsultasiPage() {
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <main>
+        {/* Hero */}
+        <section className="relative pt-32 pb-12 px-4 bg-gradient-to-br from-info/5 via-background to-muted/30 overflow-hidden">
+          <div className="max-w-5xl mx-auto relative">
+            <div className="inline-flex items-center gap-2 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info mb-5">
+              <MessageCircle className="h-3.5 w-3.5" />
+              Layanan Interaktif
+            </div>
+            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
+              Konsultasi Langsung
+            </h1>
+            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed">
+              Punya pertanyaan mengenai layanan desa atau butuh solusi untuk masalah warga? Kami
+              siap membantu Anda secara online maupun tatap muka.
+            </p>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section className="px-4 py-16">
+          <div className="max-w-5xl mx-auto grid sm:grid-cols-3 gap-8">
+            {[
+              {
+                title: "Mudah",
+                desc: "Konsultasi bisa dilakukan dari mana saja via WhatsApp.",
+                icon: MessageCircle,
+              },
+              {
+                title: "Personal",
+                desc: "Berbicara langsung dengan perangkat yang berwenang.",
+                icon: Users,
+              },
+              {
+                title: "Respon Cepat",
+                desc: "Dapatkan jawaban langsung pada jam kerja pelayanan.",
+                icon: Clock,
+              },
+            ].map((f, i) => (
+              <div key={i} className="space-y-3">
+                <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                  <f.icon className="h-6 w-6" />
+                </div>
+                <h3 className="font-display text-lg font-bold text-ink">{f.title}</h3>
+                <p className="font-body text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Consultants */}
+        <section className="px-4 mb-20">
+          <div className="max-w-5xl mx-auto">
+            <div className="mb-10">
+              <h2 className="font-display text-3xl font-bold text-ink">Tim Layanan Kami</h2>
+              <p className="font-body text-muted-foreground mt-2">
+                Pilih bidang konsultasi sesuai dengan kebutuhan Anda.
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <ConsultantCard
+                name="Samsul Bahri"
+                role="Sekretaris Desa"
+                schedule="08:00 – 16:00 WITA"
+                wa="6281234567890"
+              />
+              <ConsultantCard
+                name="Hj. Nurhayati"
+                role="Kaur Keuangan"
+                schedule="08:00 – 14:00 WITA"
+                wa="6281234567891"
+              />
+              <ConsultantCard
+                name="Ahmad Zulfi"
+                role="Kasi Pelayanan"
+                schedule="09:00 – 16:00 WITA"
+                wa="6281234567892"
+              />
+              <ConsultantCard
+                name="Baiq Siti"
+                role="Kasi Pemerintahan"
+                schedule="08:00 – 15:00 WITA"
+                wa="6281234567893"
+              />
+              <ConsultantCard
+                name="Muh. Riza"
+                role="Kaur Umum"
+                schedule="08:00 – 16:00 WITA"
+                wa="6281234567894"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Offline Consultation */}
+        <section className="px-4 mb-24">
+          <div className="max-w-5xl mx-auto p-10 sm:p-16 rounded-[3rem] bg-ink text-background relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-12 opacity-10">
+              <Star className="h-40 w-40" />
+            </div>
+            <div className="relative z-10 grid lg:grid-cols-2 gap-10 items-center">
+              <div>
+                <h2 className="font-display text-3xl sm:text-4xl font-bold mb-4">
+                  Konsultasi Tatap Muka?
+                </h2>
+                <p className="font-body text-lg text-background/70 mb-8 leading-relaxed">
+                  Silakan datang langsung ke Kantor Desa pada jam pelayanan untuk konsultasi yang
+                  lebih mendalam mengenai permasalahan yang Anda hadapi.
+                </p>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-primary">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="font-ui text-sm font-bold">Jam Kerja Pelayanan</div>
+                      <div className="font-body text-xs text-background/60">
+                        Senin – Jumat, 08:00 – 16:00 WITA
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-center lg:justify-end">
+                <Link
+                  to="/lainnya/peta"
+                  className="btn-pill bg-primary text-primary-foreground hover:bg-primary-hover group h-14 px-8"
+                >
+                  Lihat Lokasi Kantor
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </div>
+  );
+}

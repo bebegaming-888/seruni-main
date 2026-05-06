@@ -1,11 +1,13 @@
 import { SectionTitle } from "@/components/site/SectionTitle";
 import { Link } from "@/components/Link";
 import { ArrowUpRight, TrendingUp, TrendingDown, Building2, Users } from "lucide-react";
-import { KOMODITAS } from "@/data/site";
+import { useKomoditasStore } from "@/lib/content-store";
 import { CountUp } from "@/components/site/CountUp";
 import bumdesImg from "@/assets/ekonomi-bumdes.jpg";
 
 export function EconomySection() {
+  const komoditasItems = useKomoditasStore((state) => state.items);
+
   return (
     <section id="ekonomi" className="py-20 sm:py-28 px-4 sm:px-8">
       <div className="mx-auto max-w-7xl">
@@ -94,7 +96,7 @@ export function EconomySection() {
             </span>
             <div className="flex-1 overflow-hidden">
               <div className="flex gap-8 animate-marquee whitespace-nowrap font-ui text-sm text-ink">
-                {[...KOMODITAS, ...KOMODITAS].map((k, i) => (
+                {[...komoditasItems, ...komoditasItems].map((k, i) => (
                   <span key={i} className="inline-flex items-center gap-2">
                     <span className="font-semibold">{k.name}</span>
                     <span>

@@ -10,11 +10,11 @@ import { getSettings } from "@/lib/settings-store";
 
 /** Fallback slides — digunakan jika tidak ada pengaturan di settings */
 const FALLBACK_SLIDES = [
-  { id: "s1", image: heroVillage, alt: "Pemandangan Desa Seruni Mumbul" },
-  { id: "s2", image: wisataAir, alt: "Air terjun" },
-  { id: "s3", image: wisataPantai, alt: "Pantai" },
-  { id: "s4", image: wisataBudaya, alt: "Budaya Sasak" },
-  { id: "s5", image: gal1, alt: "Galeri desa" },
+  { id: "s1", image: heroVillage, alt: "Pemandangan Desa Seruni Mumbul", enabled: true },
+  { id: "s2", image: wisataAir, alt: "Air terjun", enabled: true },
+  { id: "s3", image: wisataPantai, alt: "Pantai", enabled: true },
+  { id: "s4", image: wisataBudaya, alt: "Budaya Sasak", enabled: true },
+  { id: "s5", image: gal1, alt: "Galeri desa", enabled: true },
 ];
 
 export function HeroSection() {
@@ -28,10 +28,9 @@ export function HeroSection() {
     // Map settings slides to image sources
     return configured.map((s, i) => ({
       id: s.id,
-      // Use the local fallback images as URL
       image: FALLBACK_SLIDES[i % FALLBACK_SLIDES.length]?.image ?? "",
       alt: s.alt,
-      enabled: s.enabled,
+      enabled: s.enabled ?? true,
     }));
   })();
 

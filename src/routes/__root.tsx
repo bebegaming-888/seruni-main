@@ -2,16 +2,19 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 import { Toaster } from "@/components/ui/sonner";
 import { VILLAGE } from "@/data/site";
 import { useEffect } from "react";
+import { initAllStores } from "@/lib/store-init";
 
 import appCss from "../styles.css?url";
 
 // Register Service Worker di client-side (bukan di dev mode)
+// Version diinject via ?v= agar setiap deploy punya SW cache berbeda → auto-update
 function useServiceWorker() {
   useEffect(() => {
     if (import.meta.env.DEV) return;
     if (!("serviceWorker" in navigator)) return;
+    const swUrl = `/sw.js?v=${import.meta.env.VITE_BUILD_HASH ?? Date.now()}`;
     navigator.serviceWorker
-      .register("/sw.js")
+      .register(swUrl)
       .then((reg) => console.info("[SW] Registered:", reg.scope))
       .catch((err) => console.warn("[SW] Registration failed:", err));
   }, []);
@@ -91,6 +94,9 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  useEffect(() => {
+    initAllStores().catch(console.warn);
+  }, []);
   return (
     <>
       <Outlet />

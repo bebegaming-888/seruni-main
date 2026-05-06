@@ -9,29 +9,43 @@
  *
  * Aktivasi: didaftarkan di __root.tsx (production only)
  * Untuk development: dinonaktifkan (SW tidak berjalan di dev mode Vite)
+ *
+ * Cache versioning:
+ * - Version di-inject saat registrasi via query param: /sw.js?v=xxxx
+ * - Setiap deploy baru punya version berbeda → old cache otomatis dibuang
  */
 
-const CACHE_VERSION = "v1";
 const STATIC_ASSETS = ["/", "/manifest.json"];
 
-const MAX_IMAGE_CACHE_SIZE = 50; // maks 50 gambar di cache
-const MAX_API_CACHE_SIZE = 100; // maks 100 response API
+const MAX_IMAGE_CACHE_SIZE = 50;
+const MAX_API_CACHE_SIZE = 100;
+
+// ═══════════════════════════════════════════════════════════════
+// NOTE: CACHE_VERSION disetel di event listener install/activate
+// via URL search param ?v= (diinjeksi oleh __root.tsx saat registrasi)
+// ═══════════════════════════════════════════════════════════════
 
 self.addEventListener("install", (event) => {
+  const url = new URL(self.location.href);
+  const version = url.searchParams.get("v") ?? "v1";
+
   event.waitUntil(
     caches
-      .open(CACHE_VERSION)
+      .open(version)
       .then((cache) => cache.addAll(STATIC_ASSETS))
       .then(() => self.skipWaiting()),
   );
 });
 
 self.addEventListener("activate", (event) => {
+  const url = new URL(self.location.href);
+  const currentVersion = url.searchParams.get("v") ?? "v1";
+
   event.waitUntil(
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k))),
+        Promise.all(keys.filter((k) => k !== currentVersion).map((k) => caches.delete(k))),
       )
       .then(() => self.clients.claim()),
   );
@@ -41,10 +55,8 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET
   if (request.method !== "GET") return;
 
-  // Skip chrome-extension, devtools, websocket
   if (
     url.protocol.startsWith("chrome-extension") ||
     url.protocol === "devtools:" ||
@@ -52,19 +64,16 @@ self.addEventListener("fetch", (event) => {
   )
     return;
 
-  // API: network-first
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(networkFirst(request));
     return;
   }
 
-  // Google Fonts (stale-while-revalidate)
   if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") {
     event.respondWith(staleWhileRevalidate(request));
     return;
   }
 
-  // Images: cache-first with size management
   if (
     request.destination === "image" ||
     /\.(jpg|jpeg|png|webp|svg|ico)(\?.*)?$/.test(url.pathname)
@@ -73,14 +82,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Default: cache-first (app shell)
   event.respondWith(cacheFirst(request));
 });
 
 // ---- Strategies ----
 
 async function cacheFirst(request, maxItems) {
-  const cache = await caches.open(CACHE_VERSION);
+  const url = new URL(request.url);
+  const version = url.searchParams.get("v") ?? "v1";
+  const cache = await caches.open(version);
   const cached = await cache.match(request);
   if (cached) return cached;
 
@@ -103,15 +113,18 @@ async function networkFirst(request) {
   try {
     const response = await fetch(request);
     if (response.ok) {
-      const cache = await caches.open(CACHE_VERSION);
+      const url = new URL(request.url);
+      const version = url.searchParams.get("v") ?? "v1";
+      const cache = await caches.open(version);
       await cache.put(request, response.clone());
     }
     return response;
   } catch {
-    const cache = await caches.open(CACHE_VERSION);
+    const url = new URL(request.url);
+    const version = url.searchParams.get("v") ?? "v1";
+    const cache = await caches.open(version);
     const cached = await cache.match(request);
     if (cached) return cached;
-
     return new Response(
       JSON.stringify({ error: "Offline", message: "Tidak ada koneksi internet" }),
       {
@@ -123,7 +136,9 @@ async function networkFirst(request) {
 }
 
 async function staleWhileRevalidate(request) {
-  const cache = await caches.open(CACHE_VERSION);
+  const url = new URL(request.url);
+  const version = url.searchParams.get("v") ?? "v1";
+  const cache = await caches.open(version);
   const cached = await cache.match(request);
 
   const fetchPromise = fetch(request)
@@ -143,7 +158,7 @@ async function trimCache(cache, maxItems) {
   }
 }
 
-// ---- Push notifications (untuk masa depan) ----
+// ---- Push notifications ----
 self.addEventListener("push", (event) => {
   if (!event.data) return;
   const data = event.data.json();
@@ -152,7 +167,7 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(data.title ?? "Sistem Informasi Desa", {
       body: data.body,
       icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      badge: "/icons/badge-72.png",
       data: { url: data.url ?? "/" },
       vibrate: [200, 100, 200],
     }),

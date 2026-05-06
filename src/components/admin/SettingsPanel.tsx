@@ -818,13 +818,13 @@ function ChangePasswordCard() {
   const session = getSession();
   const isFixed = session?.username === FIXED_ADMIN.username;
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPwd !== conf) {
       toast.error("Konfirmasi password tidak cocok");
       return;
     }
-    const r = changePassword(oldPwd, newPwd);
+    const r = await changePassword(oldPwd, newPwd);
     if (r.ok) {
       toast.success(r.message);
     } else {
@@ -871,8 +871,9 @@ function ChangePasswordCard() {
 }
 
 function BackupPanel() {
-  const doExport = () => {
-    const blob = new Blob([exportFullBackup()], { type: "application/json" });
+  const doExport = async () => {
+    const json = await exportFullBackup();
+    const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -884,8 +885,8 @@ function BackupPanel() {
 
   const onImport = (file: File) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      const r = importFullBackup(String(reader.result));
+    reader.onload = async () => {
+      const r = await importFullBackup(String(reader.result));
       if (r.ok) {
         toast.success(r.message);
       } else {
@@ -955,8 +956,12 @@ function BackupPanel() {
 }
 
 function AuditPanel() {
-  const [items, setItems] = useState(listAudit());
-  const refresh = () => setItems(listAudit());
+  type AuditItem = Awaited<ReturnType<typeof listAudit>>[number];
+  const [items, setItems] = useState<AuditItem[]>([]);
+  const refresh = () => {
+    listAudit().then(setItems).catch(console.warn);
+  };
+  useEffect(refresh, []);
   const recent = useMemo(() => items.slice(0, 100), [items]);
 
   return (
@@ -995,16 +1000,18 @@ function AuditPanel() {
                 </td>
               </tr>
             ) : (
-              recent.map((a, i) => (
-                <tr key={i} className="border-t border-border">
-                  <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(a.ts).toLocaleString("id-ID")}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">{a.user}</td>
-                  <td className="px-3 py-2">{a.action}</td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">{a.detail ?? "-"}</td>
-                </tr>
-              ))
+              recent.map(
+                (a: { ts: string; user: string; action: string; detail?: string }, i: number) => (
+                  <tr key={i} className="border-t border-border">
+                    <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                      {new Date(a.ts).toLocaleString("id-ID")}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs">{a.user}</td>
+                    <td className="px-3 py-2">{a.action}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{a.detail ?? "-"}</td>
+                  </tr>
+                ),
+              )
             )}
           </tbody>
         </table>

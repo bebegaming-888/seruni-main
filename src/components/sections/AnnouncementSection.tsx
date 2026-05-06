@@ -1,7 +1,7 @@
 import { SectionTitle } from "@/components/site/SectionTitle";
 import { Link } from "@/components/Link";
 import { ArrowUpRight, AlertCircle, Info, Bell } from "lucide-react";
-import { PENGUMUMAN } from "@/data/site";
+import { usePengumumanStore } from "@/lib/content-store";
 
 const styles = {
   urgent: {
@@ -14,6 +14,9 @@ const styles = {
 };
 
 export function AnnouncementSection() {
+  const items = usePengumumanStore((state) => state.items);
+  const pengumuman = items.length > 0 ? items.slice(0, 3) : [];
+
   return (
     <section id="pengumuman" className="py-20 sm:py-28 px-4 sm:px-8">
       <div className="mx-auto max-w-7xl">
@@ -32,7 +35,7 @@ export function AnnouncementSection() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-5">
-          {PENGUMUMAN.map((p) => {
+          {pengumuman.map((p) => {
             const s = styles[p.priority];
             const Icon = s.icon;
             return (
