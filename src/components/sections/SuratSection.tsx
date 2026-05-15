@@ -1,7 +1,7 @@
 import { SectionTitle } from "@/components/site/SectionTitle";
 import { Link } from "@/components/Link";
 import { ArrowUpRight, FileText, Trophy, Clock, Users } from "lucide-react";
-import { SURAT_KATEGORI } from "@/data/site";
+import { SURAT_KATEGORI } from "@/data/mock-data";
 import { useState } from "react";
 
 export function SuratSection() {
@@ -66,7 +66,7 @@ export function SuratSection() {
                 </div>
               </div>
               <Link
-                to="/pelayanan/e-surat"
+                to={`/pelayanan/e-surat?kode=${s.code}`}
                 className="btn-pill bg-background text-ink hover:bg-primary hover:text-primary-foreground shrink-0"
               >
                 Ajukan

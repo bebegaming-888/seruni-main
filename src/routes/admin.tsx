@@ -1,9 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import Admin from "@/pages/Admin";
+import { getSettings } from "@/lib/settings-store";
+import Admin from "@/pages/admin";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({
-    meta: [{ title: "Admin — Verifikasi E-Surat Desa" }],
-  }),
+  head: () => {
+    const s = getSettings();
+    return {
+      meta: [{ title: `Admin — ${s?.village?.name ?? "Verifikasi E-Surat"}` }],
+    };
+  },
   component: Admin,
 });

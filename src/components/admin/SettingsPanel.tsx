@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,10 +34,29 @@ import {
   Image,
   LayoutTemplate,
   BookOpen,
+  Globe,
+  Share2,
+  Facebook,
+  Instagram,
+  Youtube,
+  Twitter,
+  Megaphone,
+  BarChart3,
+  Heart,
+  Star,
+  MapPin,
+  Map,
+  Home,
+  Trophy,
+  X,
+  Bell,
+  BellOff,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getSettings,
+  useSettings,
   saveSettings,
   resetSettings,
   exportFullBackup,
@@ -50,6 +69,9 @@ import {
   type SystemSettings,
   type PageConfig,
 } from "@/lib/settings-store";
+import { WilayahSettings } from "@/components/admin/WilayahSettings";
+import { PerangkatDesaManager } from "@/components/admin/PerangkatDesaManager";
+import { LembagaManager } from "@/components/admin/LembagaManager";
 import {
   listUsers,
   saveUser,
@@ -60,14 +82,22 @@ import {
   type AdminRole,
   FIXED_ADMIN,
 } from "@/lib/auth";
+import { HeroSettings } from "@/components/admin/HeroSettings";
 
 const SECTIONS = [
+  { key: "wilayah", label: "Wilayah", icon: MapPin },
   { key: "village", label: "Profil Desa", icon: Building2 },
-  { key: "branding", label: "Tampilan & Brand", icon: Palette },
   { key: "hero", label: "Hero Landing", icon: Image },
+  { key: "perangkat", label: "Perangkat Desa", icon: Users2 },
+  { key: "lembaga", label: "Lembaga Desa", icon: Building2 },
+  { key: "branding", label: "Tampilan & Brand", icon: Palette },
+  { key: "cms", label: "Profil Publik (CMS)", icon: Megaphone },
+  { key: "social", label: "Media Sosial", icon: Share2 },
   { key: "kopSurat", label: "Kop Surat", icon: LayoutTemplate },
+  { key: "pdfLayout", label: "Blanko Surat (PDF)", icon: FileText },
   { key: "pages", label: "Konten Halaman", icon: BookOpen },
   { key: "notifications", label: "Notifikasi WA", icon: BellRing },
+  { key: "push", label: "Notifikasi Browser", icon: Bell },
   { key: "signature", label: "E-Signature", icon: FileSignature },
   { key: "surat", label: "Konfigurasi Surat", icon: FileText },
   { key: "security", label: "Keamanan", icon: ShieldCheck },
@@ -79,26 +109,135 @@ const SECTIONS = [
 
 type SectionKey = (typeof SECTIONS)[number]["key"];
 
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+type ConflictStatus = "none" | "external_change" | "resolving";
+
 export function SettingsPanel() {
   const [section, setSection] = useState<SectionKey>("village");
-  const [s, setS] = useState<SystemSettings>(getSettings());
+  // Ambil data DARI ZUSTAND STORE secara reaktif — bukan dari getSettings() sekali jalan.
+  // useSettings() akan re-render component saat store di-update oleh initSettingsStore().
+  const storeSettings = useSettings();
+  const [s, setS] = useState<SystemSettings>(storeSettings);
   const [dirty, setDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [conflictStatus, setConflictStatus] = useState<ConflictStatus>("none");
+  // Track versi data saat pertama load dari store — untuk deteksi perubahan external
+  const storeVersionRef = useRef<string>("");
+  // Track apakah sync sedang aktif ( cegah re-render loop )
+  const isSyncingRef = useRef(false);
 
+  // Sinkronisasi state saat store selesai di-init dari IndexedDB / Supabase.
+  // Hanya update jika: (a) user tidak punya perubahan, atau (b) versi store berubah setelah save.
   useEffect(() => {
-    setS(getSettings());
-  }, []);
+    if (isSyncingRef.current) return;
+    const currentVersion = JSON.stringify(storeSettings);
+    // Jika versi sama, tidak perlu update (avoid overwriting user changes)
+    if (currentVersion === storeVersionRef.current) return;
+    // Jika user punya perubahan DAN versi sama, skip (user sedang editing)
+    if (dirty && storeVersionRef.current !== "") {
+      setConflictStatus("external_change");
+      return;
+    }
+    // Update local state dengan data dari store
+    isSyncingRef.current = true;
+    setS(storeSettings);
+    storeVersionRef.current = currentVersion;
+    setConflictStatus("none");
+    // Reset flag after render
+    setTimeout(() => {
+      isSyncingRef.current = false;
+    }, 0);
+  }, [storeSettings, dirty]);
+
+  // Multi-tab sync listener — re-fetch saat tab lain menyimpan
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    import("@/lib/idb-sync").then(({ addSyncListener, syncFromRemote }) => {
+      cleanup = addSyncListener(async (event) => {
+        if (event.source === "tab" && event.key === "main") {
+          // Tab lain menyimpan — cek apakah user sedang edit
+          if (dirty) {
+            setConflictStatus("external_change");
+            toast.warning("Data berubah di tab lain. Pilih aksi di bawah.", {
+              action: {
+                label: "Gunakan Data Tab Lain",
+                onClick: () => {
+                  const updated = useSettings.getState();
+                  setS(updated);
+                  storeVersionRef.current = JSON.stringify(updated);
+                  setDirty(false);
+                  setConflictStatus("none");
+                  toast.info("Data disinkronisasi dari tab lain");
+                },
+              },
+              duration: 10000,
+            });
+          } else {
+            // Tidak ada local changes — auto sync
+            await syncFromRemote();
+            const updated = useSettings.getState();
+            setS(updated);
+            storeVersionRef.current = JSON.stringify(updated);
+            toast.info("Data disinkronisasi dari tab lain");
+          }
+        }
+      });
+    });
+    return () => {
+      cleanup?.();
+    };
+  }, [dirty]);
+
+  // Accept external change dan keep local edits
+  const handleKeepLocal = () => {
+    setConflictStatus("none");
+    toast.info("Perubahan lokal disimpan — konflik diabaikan");
+  };
+
+  // Accept external change dan discard local edits
+  const handleAcceptExternal = () => {
+    const updated = useSettings.getState();
+    setS(updated);
+    storeVersionRef.current = JSON.stringify(updated);
+    setDirty(false);
+    setConflictStatus("none");
+    toast.info("Data disinkronisasi dari tab lain");
+  };
 
   const session = getSession();
+  type PdfLayoutMargin = { top: string; bottom: string; left: string; right: string };
+  type PdfLayoutFont = { family: string; size: string; lineHeight: string };
+  type PdfLayoutSig = { qrWidth: string; marginY: string };
+  type PdfLayoutPatch = {
+    margin?: PdfLayoutMargin;
+    font?: PdfLayoutFont;
+    signaturePos?: PdfLayoutSig;
+    body_font?: string;
+    body_font_size?: number;
+  };
   const update = <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => {
     setS((prev) => ({ ...prev, [k]: { ...prev[k], ...patch } }));
     setDirty(true);
+    setSaveStatus("idle");
   };
 
-  const handleSave = () => {
-    saveSettings(s);
-    setDirty(false);
-    logAudit(session?.username ?? "system", "Update Settings", section);
-    toast.success("Pengaturan disimpan");
+  const handleSave = async () => {
+    if (saveStatus === "saving") return; // Cegah double-save
+    setSaveStatus("saving");
+    try {
+      await saveSettings(s, session?.username ?? "admin");
+      await logAudit(session?.username ?? "system", "Update Settings", section);
+      setDirty(false);
+      setSaveStatus("saved");
+      toast.success("Pengaturan disimpan");
+      // Reset status after 3s
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    } catch (err) {
+      console.error("[SettingsPanel] Gagal menyimpan:", err);
+      setSaveStatus("error");
+      toast.error("Gagal menyimpan pengaturan. Silakan coba lagi.");
+      setTimeout(() => setSaveStatus("idle"), 5000);
+    }
   };
 
   const handleReset = () => {
@@ -108,6 +247,43 @@ export function SettingsPanel() {
     setDirty(false);
     toast.success("Pengaturan direset ke default");
   };
+
+  // ── Conflict resolution banner ──
+  if (conflictStatus === "external_change") {
+    return (
+      <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/30 p-6 space-y-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-display text-base font-bold text-amber-900 dark:text-amber-100">
+              Data berubah di tab lain
+            </h3>
+            <p className="font-body text-sm text-amber-700 dark:text-amber-300 mt-1">
+              Ada perubahan settings dari tab browser lain. Perubahan lokal Anda tidak hilang —
+              pilih aksi yang ingin dilakukan.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3 ml-9">
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-amber-400 text-amber-700 hover:bg-amber-100"
+            onClick={handleKeepLocal}
+          >
+            Simpan Perubahan Lokal Saya
+          </Button>
+          <Button
+            size="sm"
+            className="bg-amber-600 hover:bg-amber-700 text-white"
+            onClick={handleAcceptExternal}
+          >
+            Gunakan Data Tab Lain
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-card overflow-hidden">
@@ -128,10 +304,27 @@ export function SettingsPanel() {
           <Button
             size="sm"
             onClick={handleSave}
-            disabled={!dirty}
-            className="bg-primary text-primary-foreground hover:bg-primary-hover"
+            disabled={!dirty || saveStatus === "saving"}
+            className="bg-primary text-primary-foreground hover:bg-primary-hover min-w-[140px]"
           >
-            <Save className="h-4 w-4 mr-1.5" /> Simpan Perubahan
+            {saveStatus === "saving" ? (
+              <>
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent mr-1.5" />
+                Menyimpan...
+              </>
+            ) : saveStatus === "saved" ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 mr-1.5" /> Tersimpan
+              </>
+            ) : dirty ? (
+              <>
+                <Save className="h-4 w-4 mr-1.5" /> Simpan Perubahan
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-1.5 opacity-50" /> Tersimpan
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -141,7 +334,7 @@ export function SettingsPanel() {
         onValueChange={(v) => setSection(v as SectionKey)}
         className="flex flex-col lg:flex-row"
       >
-        <TabsList className="h-auto flex-wrap lg:flex-col lg:w-64 lg:rounded-none lg:bg-muted/20 lg:border-r lg:border-border p-2 gap-1 justify-start">
+        <TabsList className="h-auto flex-wrap lg:flex-col lg:w-64 lg:rounded-none lg:bg-muted/20 lg:border-r lg:border-border p-2 gap-1 justify-start overflow-y-auto max-h-[80vh]">
           {SECTIONS.map((sec) => {
             const Icon = sec.icon;
             return (
@@ -157,6 +350,14 @@ export function SettingsPanel() {
         </TabsList>
 
         <div className="flex-1 p-5 sm:p-6 space-y-6 max-w-3xl">
+          <TabsContent value="wilayah" className="m-0">
+            <WilayahSettings />
+          </TabsContent>
+
+          <TabsContent value="hero" className="m-0">
+            <HeroSettings />
+          </TabsContent>
+
           <TabsContent value="village" className="m-0 space-y-4">
             <Section
               title="Identitas Pemerintah Desa"
@@ -244,11 +445,21 @@ export function SettingsPanel() {
                     label="Logo Desa"
                     hint="PNG atau JPG, maks 500KB"
                     value={s.village.logo_url}
+                    storagePath={s.village.logo_storage_path}
                     onChange={(v) => update("village", { logo_url: v })}
+                    onStoragePathChange={(path) => update("village", { logo_storage_path: path })}
                   />
                 </Field>
               </Grid2>
             </Section>
+          </TabsContent>
+
+          <TabsContent value="perangkat" className="m-0">
+            <PerangkatDesaManager username={getSession()?.username ?? "admin"} />
+          </TabsContent>
+
+          <TabsContent value="lembaga" className="m-0">
+            <LembagaManager />
           </TabsContent>
 
           <TabsContent value="branding" className="m-0 space-y-4">
@@ -305,8 +516,12 @@ export function SettingsPanel() {
             </Section>
           </TabsContent>
 
-          <TabsContent value="hero" className="m-0 space-y-4">
-            <HeroSettings s={s} update={update} />
+          <TabsContent value="cms" className="m-0 space-y-4">
+            <CMSContentSettings s={s} update={update} />
+          </TabsContent>
+
+          <TabsContent value="social" className="m-0 space-y-4">
+            <SocialMediaSettings s={s} update={update} />
           </TabsContent>
 
           <TabsContent value="kopSurat" className="m-0 space-y-4">
@@ -403,6 +618,15 @@ export function SettingsPanel() {
               >
                 <BellRing className="h-4 w-4 mr-1.5" /> Kirim Tes Pesan
               </Button>
+            </Section>
+          </TabsContent>
+
+          <TabsContent value="push" className="m-0 space-y-4">
+            <Section
+              title="Notifikasi Browser (Push)"
+              desc="Aktifkan notifikasi push di browser agar warga menerima pemberitahuan status surat secara real-time."
+            >
+              <PushNotificationPanel />
             </Section>
           </TabsContent>
 
@@ -522,6 +746,269 @@ export function SettingsPanel() {
             </Section>
           </TabsContent>
 
+          <TabsContent value="pdfLayout" className="m-0 space-y-4">
+            <Section
+              title="Pengaturan Blanko Surat (PDF)"
+              desc="Atur margin kertas, font (Arial), ukuran teks, dan posisi tanda tangan. Semua bagian BODY menggunakan Arial 11pt."
+            >
+              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                <p className="font-ui text-xs font-bold text-foreground uppercase tracking-wider">
+                  📐 Margin Kertas
+                </p>
+                <Grid2>
+                  <Field label="Margin Atas">
+                    <select
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={s.pdfLayout?.margin.top || "20mm"}
+                      onChange={(e) =>
+                        update("pdfLayout", {
+                          margin: {
+                            ...(s.pdfLayout?.margin || {}),
+                            top: e.target.value,
+                          } as PdfLayoutMargin,
+                        })
+                      }
+                    >
+                      {["15mm", "18mm", "20mm", "22mm", "25mm", "28mm", "30mm"].map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Margin Bawah">
+                    <select
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={s.pdfLayout?.margin.bottom || "20mm"}
+                      onChange={(e) =>
+                        update("pdfLayout", {
+                          margin: {
+                            ...(s.pdfLayout?.margin || {}),
+                            bottom: e.target.value,
+                          } as PdfLayoutMargin,
+                        })
+                      }
+                    >
+                      {["15mm", "18mm", "20mm", "22mm", "25mm", "28mm", "30mm"].map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Margin Kiri">
+                    <select
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={s.pdfLayout?.margin.left || "25mm"}
+                      onChange={(e) =>
+                        update("pdfLayout", {
+                          margin: {
+                            ...(s.pdfLayout?.margin || {}),
+                            left: e.target.value,
+                          } as PdfLayoutMargin,
+                        })
+                      }
+                    >
+                      {["15mm", "18mm", "20mm", "22mm", "25mm", "28mm", "30mm"].map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Margin Kanan">
+                    <select
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={s.pdfLayout?.margin.right || "20mm"}
+                      onChange={(e) =>
+                        update("pdfLayout", {
+                          margin: {
+                            ...(s.pdfLayout?.margin || {}),
+                            right: e.target.value,
+                          } as PdfLayoutMargin,
+                        })
+                      }
+                    >
+                      {["15mm", "18mm", "20mm", "22mm", "25mm", "28mm", "30mm"].map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </Grid2>
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                <p className="font-ui text-xs font-bold text-foreground uppercase tracking-wider">
+                  🔤 Font & Ukuran (Body — Arial 11pt)
+                </p>
+                <div className="flex items-center gap-2 rounded-lg bg-info/10 border border-info/20 px-3 py-2">
+                  <svg
+                    className="h-4 w-4 text-info shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <p className="font-body text-xs text-info">
+                    <strong>Font body terkunci ke Arial.</strong> Ukuran font untuk Kop Surat diatur
+                    di bagian "Kop Surat" di atas.
+                  </p>
+                </div>
+                <Grid2>
+                  <Field label="Font Family (Body)">
+                    <select
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={s.pdfLayout?.font.family || "Arial, sans-serif"}
+                      onChange={(e) =>
+                        update("pdfLayout", {
+                          font: {
+                            ...(s.pdfLayout?.font || {}),
+                            family: e.target.value,
+                          } as PdfLayoutFont,
+                        })
+                      }
+                    >
+                      <option value="Arial, sans-serif">Arial (Sans-Serif) — Default</option>
+                    </select>
+                  </Field>
+                  <Field label="Ukuran Font Body">
+                    <select
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={s.pdfLayout?.font.size || "11pt"}
+                      onChange={(e) =>
+                        update("pdfLayout", {
+                          font: {
+                            ...(s.pdfLayout?.font || {}),
+                            size: e.target.value,
+                          } as PdfLayoutFont,
+                        })
+                      }
+                    >
+                      <option value="10pt">10pt (Kecil)</option>
+                      <option value="11pt">11pt (Normal) — Default</option>
+                      <option value="12pt">12pt (Sedang)</option>
+                      <option value="13pt">13pt (Besar)</option>
+                      <option value="14pt">14pt (Sangat Besar)</option>
+                    </select>
+                  </Field>
+                  <Field label="Line Height">
+                    <select
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={s.pdfLayout?.font.lineHeight || "1.5"}
+                      onChange={(e) =>
+                        update("pdfLayout", {
+                          font: {
+                            ...(s.pdfLayout?.font || {}),
+                            lineHeight: e.target.value,
+                          } as PdfLayoutFont,
+                        })
+                      }
+                    >
+                      <option value="1.0">1.0 (Padat)</option>
+                      <option value="1.2">1.2 (Normal)</option>
+                      <option value="1.5">1.5 (Sedang) — Default</option>
+                      <option value="1.8">1.8 (Luas)</option>
+                      <option value="2.0">2.0 (Sangat Luas)</option>
+                    </select>
+                  </Field>
+                  <Field label="Font Body (Sistem)">
+                    <select
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={s.pdfLayout?.body_font || "Arial, sans-serif"}
+                      onChange={(e) =>
+                        update("pdfLayout", {
+                          body_font: e.target.value,
+                          body_font_size: s.pdfLayout?.body_font_size ?? 11,
+                        } as PdfLayoutPatch)
+                      }
+                    >
+                      <option value="Arial, sans-serif">Arial — Default</option>
+                    </select>
+                  </Field>
+                </Grid2>
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                <p className="font-ui text-xs font-bold text-foreground uppercase tracking-wider">
+                  🔳 QR Code & Tanda Tangan
+                </p>
+                <Grid2>
+                  <Field label="Lebar QR Code">
+                    <select
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={s.pdfLayout?.signaturePos.qrWidth || "80px"}
+                      onChange={(e) =>
+                        update("pdfLayout", {
+                          signaturePos: {
+                            ...(s.pdfLayout?.signaturePos || {}),
+                            qrWidth: e.target.value,
+                          } as PdfLayoutSig,
+                        })
+                      }
+                    >
+                      {["50px", "60px", "70px", "80px", "90px", "100px", "120px"].map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Jarak Vertikal TTD">
+                    <select
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={s.pdfLayout?.signaturePos.marginY || "1rem"}
+                      onChange={(e) =>
+                        update("pdfLayout", {
+                          signaturePos: {
+                            ...(s.pdfLayout?.signaturePos || {}),
+                            marginY: e.target.value,
+                          } as PdfLayoutSig,
+                        })
+                      }
+                    >
+                      {["0.5rem", "1rem", "1.5rem", "2rem", "2.5rem", "3rem"].map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </Grid2>
+              </div>
+
+              <div className="mt-4 p-4 border border-border rounded-lg bg-muted/50">
+                <p className="text-sm font-semibold mb-2 flex items-center gap-2">
+                  <MonitorCog className="h-4 w-4" /> Preview Live (Konfigurasi CSS)
+                </p>
+                <pre className="text-xs text-muted-foreground p-3 bg-card rounded border overflow-x-auto whitespace-pre-wrap">
+                  {`@media print {
+  @page {
+    margin: ${s.pdfLayout?.margin.top || "20mm"} ${s.pdfLayout?.margin.right || "20mm"} ${s.pdfLayout?.margin.bottom || "20mm"} ${s.pdfLayout?.margin.left || "25mm"};
+  }
+}
+
+.pdf-print-container {
+  font-family: ${s.pdfLayout?.font.family || "Arial, sans-serif"};
+  font-size: ${s.pdfLayout?.font.size || "11pt"};
+  line-height: ${s.pdfLayout?.font.lineHeight || "1.5"};
+}
+
+.signature-qr {
+  width: ${s.pdfLayout?.signaturePos.qrWidth || "80px"};
+  margin-top: ${s.pdfLayout?.signaturePos.marginY || "1rem"};
+  margin-bottom: ${s.pdfLayout?.signaturePos.marginY || "1rem"};
+}`}
+                </pre>
+              </div>
+            </Section>
+          </TabsContent>
+
           <TabsContent value="security" className="m-0 space-y-4">
             <Section title="Keamanan Sistem" desc="Kebijakan login, sesi, dan audit.">
               <Grid2>
@@ -633,6 +1120,10 @@ function UsersPanel() {
     email: "",
     role: "Operator",
   });
+  const [confirmTarget, setConfirmTarget] = useState<{
+    message: string;
+    action: () => void;
+  } | null>(null);
   const refresh = () => setUsers(listUsers());
   useEffect(refresh, []);
 
@@ -670,11 +1161,15 @@ function UsersPanel() {
       toast.error("Akun tetap tidak dapat dihapus");
       return;
     }
-    if (!confirm(`Hapus pengguna ${u.username}?`)) return;
-    deleteUser(u.id);
-    refresh();
-    logAudit(getSession()?.username ?? "system", "Delete User", u.username);
-    toast.success("Pengguna dihapus");
+    setConfirmTarget({
+      message: `Hapus pengguna "${u.username}"? Tindakan ini tidak dapat dibatalkan.`,
+      action: () => {
+        deleteUser(u.id);
+        refresh();
+        logAudit(getSession()?.username ?? "system", "Delete User", u.username);
+        toast.success("Pengguna dihapus");
+      },
+    });
   };
 
   return (
@@ -807,6 +1302,40 @@ function UsersPanel() {
           </tbody>
         </table>
       </div>
+
+      {/* ── Confirm Delete User ── */}
+      {confirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setConfirmTarget(null)}
+          />
+          <div className="relative bg-card rounded-3xl shadow-elev border border-border p-6 w-full max-w-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-destructive" />
+              </div>
+              <h3 className="font-display text-lg font-bold">Konfirmasi Hapus</h3>
+            </div>
+            <p className="font-body text-sm text-muted-foreground mb-5">{confirmTarget.message}</p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setConfirmTarget(null)}>
+                Batal
+              </Button>
+              <Button
+                className="bg-destructive hover:bg-destructive/90 text-white"
+                onClick={() => {
+                  const action = confirmTarget.action;
+                  setConfirmTarget(null);
+                  action();
+                }}
+              >
+                Ya, Hapus
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Section>
   );
 }
@@ -871,6 +1400,11 @@ function ChangePasswordCard() {
 }
 
 function BackupPanel() {
+  const [confirmTarget, setConfirmTarget] = useState<{
+    message: string;
+    action: () => void;
+  } | null>(null);
+
   const doExport = async () => {
     const json = await exportFullBackup();
     const blob = new Blob([json], { type: "application/json" });
@@ -898,13 +1432,15 @@ function BackupPanel() {
   };
 
   const doClear = () => {
-    if (
-      !confirm("Hapus SEMUA data surat, arsip, dan penduduk? Tindakan ini tidak dapat dibatalkan.")
-    )
-      return;
-    clearAllData();
-    toast.success("Data dibersihkan");
-    setTimeout(() => window.location.reload(), 600);
+    setConfirmTarget({
+      message:
+        "Hapus SEMUA data surat, arsip, dan penduduk? Tindakan ini tidak dapat dibatalkan dan akan memerlukan reload halaman.",
+      action: () => {
+        clearAllData();
+        toast.success("Data dibersihkan");
+        setTimeout(() => window.location.reload(), 600);
+      },
+    });
   };
 
   return (
@@ -951,6 +1487,40 @@ function BackupPanel() {
           <Trash2 className="h-4 w-4 mr-1.5" /> Hapus Semua Data
         </Button>
       </div>
+
+      {/* ── Confirm Clear All Data ── */}
+      {confirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setConfirmTarget(null)}
+          />
+          <div className="relative bg-card rounded-3xl shadow-elev border border-border p-6 w-full max-w-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-destructive" />
+              </div>
+              <h3 className="font-display text-lg font-bold">Konfirmasi Hapus</h3>
+            </div>
+            <p className="font-body text-sm text-muted-foreground mb-5">{confirmTarget.message}</p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setConfirmTarget(null)}>
+                Batal
+              </Button>
+              <Button
+                className="bg-destructive hover:bg-destructive/90 text-white"
+                onClick={() => {
+                  const action = confirmTarget.action;
+                  setConfirmTarget(null);
+                  action();
+                }}
+              >
+                Ya, Lanjutkan
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Section>
   );
 }
@@ -1086,8 +1656,8 @@ function ToggleRow({
   );
 }
 
-/* ---------- Image upload helper ---------- */
-function ImageUploadField({
+/* ---------- Video upload helper (Perangkat + URL) ---------- */
+function VideoUploadField({
   label,
   hint,
   value,
@@ -1099,23 +1669,252 @@ function ImageUploadField({
   onChange: (v: string) => void;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const [urlInput, setUrlInput] = React.useState("");
+  const [showUrlInput, setShowUrlInput] = React.useState(false);
+  const [videoError, setVideoError] = React.useState(false);
 
   const handleFile = (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Hanya file gambar yang diizinkan");
+    if (!file.type.startsWith("video/")) {
+      toast.error("Hanya file video yang diizinkan");
+      return;
+    }
+    // Check max size 50MB
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Ukuran video maksimal 50MB");
       return;
     }
     const reader = new FileReader();
-    reader.onload = (e) => onChange(e.target?.result as string);
+    reader.onload = (e) => {
+      setVideoError(false);
+      onChange(e.target?.result as string);
+    };
     reader.readAsDataURL(file);
   };
+
+  const handleUrlSubmit = () => {
+    const trimmed = urlInput.trim();
+    if (!trimmed) {
+      toast.error("Masukkan URL video terlebih dahulu");
+      return;
+    }
+    setVideoError(false);
+    onChange(trimmed);
+    setUrlInput("");
+    setShowUrlInput(false);
+  };
+
+  const handleUrlBlur = () => {
+    if (urlInput.trim()) handleUrlSubmit();
+  };
+
+  const isDataUrl = value.startsWith("data:");
+  const videoSrc = videoError ? "" : value;
 
   return (
     <div className="space-y-2">
       <Label className="font-ui text-xs font-semibold">{label}</Label>
-      <div className="flex gap-3">
+      <div className="flex gap-2 flex-wrap">
         <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
-          <Upload className="h-4 w-4 mr-1.5" /> Pilih Gambar
+          <svg
+            className="h-4 w-4 mr-1.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polygon points="23 7 16 12 23 17 23 7" />
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+          </svg>
+          Perangkat
+        </Button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="video/*,.mp4,.webm,.mov,.avi"
+          hidden
+          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+        />
+        <Button
+          type="button"
+          variant={showUrlInput ? "default" : "outline"}
+          size="sm"
+          onClick={() => {
+            setShowUrlInput((v) => !v);
+            if (!showUrlInput && value && value.startsWith("http")) {
+              setUrlInput(value);
+            }
+          }}
+        >
+          <svg
+            className="h-4 w-4 mr-1.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+          URL
+        </Button>
+        {value && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              onChange("");
+              setVideoError(false);
+              setUrlInput("");
+            }}
+          >
+            <Trash2 className="h-4 w-4" /> Hapus
+          </Button>
+        )}
+      </div>
+
+      {/* URL input panel */}
+      {showUrlInput && (
+        <div className="flex gap-2 items-center">
+          <Input
+            placeholder="https://example.com/video.mp4"
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleUrlSubmit();
+              }
+            }}
+            onBlur={handleUrlBlur}
+            className="flex-1"
+          />
+          <Button type="button" size="sm" variant="default" onClick={handleUrlSubmit}>
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setShowUrlInput(false);
+              setUrlInput("");
+            }}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {hint && <p className="font-body text-[11px] text-muted-foreground">{hint}</p>}
+
+      {/* Error state */}
+      {videoError && value && (
+        <p className="font-body text-[11px] text-destructive flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" />
+          Gagal memuat video dari URL ini. Coba URL lain atau upload dari perangkat.
+        </p>
+      )}
+
+      {/* Preview */}
+      {videoSrc && !videoError && (
+        <div className="relative rounded-xl overflow-hidden border border-border w-full max-w-xs">
+          <video
+            src={videoSrc}
+            className="w-full h-36 object-cover"
+            controls
+            onError={() => setVideoError(true)}
+          />
+          <span
+            className={`absolute top-1 right-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${isDataUrl ? "bg-success/90" : "bg-info/90"}`}
+          >
+            {isDataUrl ? "Perangkat" : "URL"}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Image upload helper — Supabase Storage + optional storage_path ---------- */
+function ImageUploadField({
+  label,
+  hint,
+  value,
+  storagePath,
+  onChange,
+  onStoragePathChange,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  storagePath?: string;
+  onChange: (v: string) => void;
+  onStoragePathChange?: (path: string) => void;
+}) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = React.useState(false);
+  const [imgError, setImgError] = React.useState(false);
+
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Hanya file gambar yang diizinkan");
+      return;
+    }
+    setUploading(true);
+    setImgError(false);
+    try {
+      const { uploadMedia } = await import("@/lib/media-upload");
+      const folder = label.toLowerCase().includes("logo")
+        ? "logos"
+        : label.toLowerCase().includes("slide")
+          ? "hero"
+          : label.toLowerCase().includes("cover")
+            ? "covers"
+            : "media";
+      const result = await uploadMedia(file, folder, "public-media");
+      if (result.ok) {
+        onChange(result.publicUrl);
+        if (onStoragePathChange && result.storagePath) {
+          onStoragePathChange(result.storagePath);
+        }
+        toast.success("Gambar berhasil diupload");
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const isDataUrl = value.startsWith("data:");
+
+  return (
+    <div className="space-y-2">
+      <Label className="font-ui text-xs font-semibold">{label}</Label>
+      <div className="flex gap-2 flex-wrap">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="rounded-xl"
+        >
+          {uploading ? (
+            <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-1.5" />
+          ) : (
+            <Upload className="h-4 w-4 mr-1.5" />
+          )}
+          {uploading ? "Mengupload…" : "Ambil dari Perangkat"}
         </Button>
         <input
           ref={inputRef}
@@ -1125,15 +1924,43 @@ function ImageUploadField({
           onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
         />
         {value && (
-          <Button type="button" variant="ghost" size="sm" onClick={() => onChange("")}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              onChange("");
+              setImgError(false);
+            }}
+            className="rounded-xl"
+          >
             <Trash2 className="h-4 w-4" /> Hapus
           </Button>
         )}
       </div>
+
       {hint && <p className="font-body text-[11px] text-muted-foreground">{hint}</p>}
-      {value && (
+
+      {/* Error state */}
+      {imgError && value && (
+        <p className="font-body text-[11px] text-destructive flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" />
+          Gagal memuat gambar. Coba upload ulang.
+        </p>
+      )}
+
+      {/* Preview */}
+      {value && !imgError && (
         <div className="relative rounded-xl overflow-hidden border border-border w-full max-w-xs">
-          <img src={value} alt={label} className="h-36 w-full object-cover" />
+          <img
+            src={value}
+            alt={label}
+            className="h-36 w-full object-cover"
+            onError={() => setImgError(true)}
+          />
+          <span className="absolute top-1 right-1 bg-success/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+            {isDataUrl ? "Lokal" : "Storage"}
+          </span>
         </div>
       )}
     </div>
@@ -1141,177 +1968,6 @@ function ImageUploadField({
 }
 
 /* ---------- Hero Settings ---------- */
-function HeroSettings({
-  s,
-  update,
-}: {
-  s: SystemSettings;
-  update: <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => void;
-}) {
-  const slides = s.hero.slides;
-
-  const updateSlide = (id: string, patch: Partial<(typeof slides)[0]>) => {
-    update("hero", {
-      slides: slides.map((sl) => (sl.id === id ? { ...sl, ...patch } : sl)),
-    });
-  };
-
-  const addSlide = () => {
-    const newSlide = {
-      id: `s${Date.now()}`,
-      image_url: "",
-      alt: `Slide ${slides.length + 1}`,
-      enabled: true,
-    };
-    update("hero", { slides: [...slides, newSlide] });
-  };
-
-  const removeSlide = (id: string) => {
-    if (slides.length <= 1) {
-      toast.error("Minimal harus ada 1 slide");
-      return;
-    }
-    update("hero", { slides: slides.filter((sl) => sl.id !== id) });
-  };
-
-  const moveSlide = (id: string, dir: -1 | 1) => {
-    const idx = slides.findIndex((sl) => sl.id === id);
-    const next = idx + dir;
-    if (next < 0 || next >= slides.length) return;
-    const arr = [...slides];
-    [arr[idx], arr[next]] = [arr[next], arr[idx]];
-    update("hero", { slides: arr });
-  };
-
-  return (
-    <>
-      {/* Teks Marquee */}
-      <Section title="Teks Marquee" desc="Teks berjalan di tengah hero.">
-        <ToggleRow
-          label="Aktifkan Marquee"
-          checked={s.hero.marquee_enabled}
-          onChange={(v) => update("hero", { marquee_enabled: v })}
-        />
-        <Field label="Teks Marquee" hint="Gunakan · sebagai pemisah antar baris">
-          <Textarea
-            rows={2}
-            value={s.hero.marquee_text}
-            onChange={(e) => update("hero", { marquee_text: e.target.value })}
-          />
-        </Field>
-      </Section>
-
-      {/* Image Slider */}
-      <Section title="Image Slider" desc="Kelola slide gambar hero.">
-        <ToggleRow
-          label="Aktifkan Slider"
-          checked={s.hero.slider_enabled}
-          onChange={(v) => update("hero", { slider_enabled: v })}
-        />
-
-        <div className="space-y-2">
-          {slides.map((sl, i) => (
-            <div key={sl.id} className="rounded-xl border border-border bg-card p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-ui text-xs font-semibold">Slide {i + 1}</span>
-                <div className="flex gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => moveSlide(sl.id, -1)}
-                    disabled={i === 0}
-                  >
-                    ←
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => moveSlide(sl.id, 1)}
-                    disabled={i === slides.length - 1}
-                  >
-                    →
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeSlide(sl.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-              <Field label="Alt / Caption">
-                <Input
-                  value={sl.alt}
-                  onChange={(e) => updateSlide(sl.id, { alt: e.target.value })}
-                />
-              </Field>
-              <ImageUploadField
-                label="Gambar Slide"
-                hint="Disarankan rasio 16:9, maks 2MB"
-                value={sl.image_url}
-                onChange={(v) => updateSlide(sl.id, { image_url: v })}
-              />
-              <ToggleRow
-                compact
-                label="Aktifkan slide ini"
-                checked={sl.enabled}
-                onChange={(v) => updateSlide(sl.id, { enabled: v })}
-              />
-            </div>
-          ))}
-          <Button type="button" variant="outline" size="sm" onClick={addSlide}>
-            <Plus className="h-4 w-4 mr-1.5" /> Tambah Slide
-          </Button>
-        </div>
-      </Section>
-
-      {/* Video Background */}
-      <Section
-        title="Video Background"
-        desc="Video diputar otomatis代替 image slider. Fallback image digunakan saat video tidak tersedia."
-      >
-        <ToggleRow
-          label="Aktifkan Video"
-          desc="Video akan diputar di belakang hero. Jika kosong, image slider tetap digunakan."
-          checked={s.hero.video_enabled}
-          onChange={(v) => update("hero", { video_enabled: v })}
-        />
-        <Field label="URL Video" hint="Link langsung ke file video (.mp4) atau YouTube embed">
-          <Input
-            placeholder="https://…/video.mp4"
-            value={s.hero.video_url}
-            onChange={(e) => update("hero", { video_url: e.target.value })}
-          />
-        </Field>
-        <ImageUploadField
-          label="Gambar Fallback Video"
-          hint="Ditampilkan saat video gagal dimuat atau dinonaktifkan"
-          value={s.hero.video_fallback_image}
-          onChange={(v) => update("hero", { video_fallback_image: v })}
-        />
-      </Section>
-
-      {/* Weather Badge */}
-      <Section title="Badge Cuaca" desc="Badge cuaca di pojok kanan atas hero.">
-        <ToggleRow
-          label="Aktifkan Badge Cuaca"
-          checked={s.hero.weather_enabled}
-          onChange={(v) => update("hero", { weather_enabled: v })}
-        />
-        <Field label="Teks Badge" hint="Contoh: Pringgabaya · 28°C · Cerah">
-          <Input
-            value={s.hero.weather_label}
-            onChange={(e) => update("hero", { weather_label: e.target.value })}
-          />
-        </Field>
-      </Section>
-    </>
-  );
-}
 
 /* ---------- Kop Surat Settings ---------- */
 function KopSuratSettings({
@@ -1321,82 +1977,154 @@ function KopSuratSettings({
   s: SystemSettings;
   update: <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => void;
 }) {
+  const kopLines = s.kopSurat.kop_lines ?? [];
+
+  const updateKopLine = (id: string, patch: Partial<(typeof kopLines)[0]>) => {
+    update("kopSurat", {
+      kop_lines: kopLines.map((l) => (l.id === id ? { ...l, ...patch } : l)),
+    });
+  };
+
+  const addKopLine = () => {
+    update("kopSurat", {
+      kop_lines: [
+        ...kopLines,
+        {
+          id: `k${Date.now()}`,
+          label: `Baris ${kopLines.length + 1}`,
+          text: "",
+          font_size: 11,
+          bold: false,
+          italic: false,
+        },
+      ],
+    });
+  };
+
   return (
     <>
-      <Section title="Logo Kop Surat" desc="Logo muncul di header surat.">
-        <ImageUploadField
-          label="URL / Upload Logo"
-          hint="Disarankan PNG transparan, maks 500KB"
-          value={s.kopSurat.logo_url}
-          onChange={(v) => update("kopSurat", { logo_url: v })}
-        />
-        <Field label="Posisi Logo">
-          <Select
+      {/* Dual Logo Upload */}
+      <Section title="Logo Kop Surat" desc="Logo Kabupaten (kiri) dan Logo Desa (kanan).">
+        <div className="grid sm:grid-cols-2 gap-4">
+          <ImageUploadField
+            label="Logo Kabupaten (Kiri)"
+            hint="PNG transparan, maks 500KB"
+            value={s.kopSurat.logo_kab_url}
+            storagePath={s.kopSurat.logo_kab_storage_path}
+            onChange={(v) => update("kopSurat", { logo_kab_url: v })}
+            onStoragePathChange={(path) => update("kopSurat", { logo_kab_storage_path: path })}
+          />
+          <ImageUploadField
+            label="Logo Desa (Kanan)"
+            hint="PNG transparan, maks 500KB"
+            value={s.kopSurat.logo_desa_url}
+            storagePath={s.kopSurat.logo_desa_storage_path}
+            onChange={(v) => update("kopSurat", { logo_desa_url: v })}
+            onStoragePathChange={(path) => update("kopSurat", { logo_desa_storage_path: path })}
+          />
+        </div>
+        <Field label="Tata Letak Logo">
+          <select
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             value={s.kopSurat.logo_position}
-            onValueChange={(v) =>
+            onChange={(e) =>
               update("kopSurat", {
-                logo_position: v as SystemSettings["kopSurat"]["logo_position"],
+                logo_position: e.target.value as SystemSettings["kopSurat"]["logo_position"],
               })
             }
           >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="left">Kiri</SelectItem>
-              <SelectItem value="center">Tengah</SelectItem>
-              <SelectItem value="right">Kanan</SelectItem>
-            </SelectContent>
-          </Select>
+            <option value="separate">Terpisah (Kabupaten Kiri · Desa Kanan)</option>
+            <option value="left">Logo Kabupaten Saja (Kiri)</option>
+            <option value="center">Logo Desa Saja (Tengah)</option>
+            <option value="right">Logo Desa Saja (Kanan)</option>
+          </select>
         </Field>
       </Section>
 
-      <Section title="Isi Kop Surat" desc="Teks header yang tercetak di bagian atas setiap surat.">
-        <Grid2>
-          <Field label="Baris Institusi">
-            <Input
-              value={s.kopSurat.kop_line}
-              onChange={(e) => update("kopSurat", { kop_line: e.target.value })}
-            />
-          </Field>
-          <Field label="Sub-Institusi">
-            <Textarea
-              rows={2}
-              value={s.kopSurat.kop_sub}
-              onChange={(e) => update("kopSurat", { kop_sub: e.target.value })}
-            />
-          </Field>
-        </Grid2>
-        <Field label="Alamat Lengkap">
-          <Textarea
-            rows={2}
-            value={s.kopSurat.kop_address}
-            onChange={(e) => update("kopSurat", { kop_address: e.target.value })}
-          />
-        </Field>
-        <Grid2>
-          <Field label="Telepon">
-            <Input
-              value={s.kopSurat.kop_phone}
-              onChange={(e) => update("kopSurat", { kop_phone: e.target.value })}
-            />
-          </Field>
-          <Field label="Email">
-            <Input
-              value={s.kopSurat.kop_email}
-              onChange={(e) => update("kopSurat", { kop_email: e.target.value })}
-            />
-          </Field>
-          <Field label="Website">
-            <Input
-              value={s.kopSurat.kop_website}
-              onChange={(e) => update("kopSurat", { kop_website: e.target.value })}
-            />
-          </Field>
-        </Grid2>
+      {/* Per-Line Font Settings */}
+      <Section
+        title="Baris Teks Kop Surat"
+        desc="Atur teks, ukuran font, bold, dan italic untuk setiap baris."
+      >
+        <div className="space-y-3">
+          {kopLines.map((line, i) => (
+            <div
+              key={line.id}
+              className="rounded-xl border border-border bg-muted/20 p-3 space-y-2"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-ui text-xs font-bold text-foreground">{line.label}</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    update("kopSurat", {
+                      kop_lines: kopLines.filter((_, idx) => idx !== i),
+                    })
+                  }
+                  className="text-destructive hover:bg-destructive/10 h-7 w-7 rounded-md flex items-center justify-center"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <Input
+                value={line.text}
+                onChange={(e) => updateKopLine(line.id, { text: e.target.value })}
+                placeholder={`Teks untuk ${line.label}…`}
+                className="text-sm"
+              />
+              <div className="grid grid-cols-4 gap-2">
+                <Field label="Ukuran">
+                  <select
+                    className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none"
+                    value={line.font_size}
+                    onChange={(e) => updateKopLine(line.id, { font_size: Number(e.target.value) })}
+                  >
+                    {[8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24].map((sz) => (
+                      <option key={sz} value={sz}>
+                        {sz}pt
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Bold">
+                  <select
+                    className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none"
+                    value={line.bold ? "true" : "false"}
+                    onChange={(e) => updateKopLine(line.id, { bold: e.target.value === "true" })}
+                  >
+                    <option value="true">Ya — Bold</option>
+                    <option value="false">Tidak — Normal</option>
+                  </select>
+                </Field>
+                <Field label="Italic">
+                  <select
+                    className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none"
+                    value={line.italic ? "true" : "false"}
+                    onChange={(e) => updateKopLine(line.id, { italic: e.target.value === "true" })}
+                  >
+                    <option value="true">Ya — Italic</option>
+                    <option value="false">Tidak — Normal</option>
+                  </select>
+                </Field>
+                <Field label="Label Baris">
+                  <Input
+                    value={line.label}
+                    onChange={(e) => updateKopLine(line.id, { label: e.target.value })}
+                    placeholder="Nama baris…"
+                    className="text-xs h-8"
+                  />
+                </Field>
+              </div>
+            </div>
+          ))}
+          <Button type="button" variant="outline" size="sm" onClick={addKopLine}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Tambah Baris
+          </Button>
+        </div>
       </Section>
 
-      <Section title="Warna & Style" desc="Pengaturan visual kop surat.">
+      {/* Warna & Footer */}
+      <Section title="Warna & Footer" desc="Pengaturan visual dan footer kop surat.">
         <Field label="Warna Bar Header">
           <div className="flex gap-2">
             <input
@@ -1411,69 +2139,90 @@ function KopSuratSettings({
             />
           </div>
         </Field>
-        <Field label="Style Tanda Tangan">
-          <Select
-            value={s.kopSurat.signature_style}
-            onValueChange={(v) =>
-              update("kopSurat", {
-                signature_style: v as SystemSettings["kopSurat"]["signature_style"],
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text">Teks (Nama + Jabatan)</SelectItem>
-              <SelectItem value="image">Gambar Spesimen TTD</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-        <ImageUploadField
-          label="Gambar Spesimen TTD"
-          hint="Jika style TTD = Gambar, gambar ini dipakai"
-          value={s.signature.sign_image_url}
-          onChange={(v) => update("signature", { sign_image_url: v })}
-        />
-      </Section>
-
-      <Section title="Footer Surat" desc="Teks di bagian bawah setiap surat.">
         <ToggleRow
           label="Aktifkan Footer"
           checked={s.kopSurat.footer_enabled}
           onChange={(v) => update("kopSurat", { footer_enabled: v })}
         />
-        <Field label="Teks Footer" hint="Muncul di setiap surat">
+        <Field label="Teks Footer" hint="Muncul di bagian bawah setiap surat">
           <Textarea
             rows={2}
             value={s.kopSurat.footer_text}
             onChange={(e) => update("kopSurat", { footer_text: e.target.value })}
           />
         </Field>
+        <Field label="Style Tanda Tangan">
+          <select
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            value={s.kopSurat.signature_style}
+            onChange={(e) =>
+              update("kopSurat", {
+                signature_style: e.target.value as SystemSettings["kopSurat"]["signature_style"],
+              })
+            }
+          >
+            <option value="text">Teks (Nama + Jabatan)</option>
+            <option value="image">Gambar Spesimen TTD</option>
+          </select>
+        </Field>
+        <ImageUploadField
+          label="Gambar Spesimen TTD"
+          hint="Jika style TTD = Gambar, gambar ini dipakai"
+          value={s.signature.sign_image_url}
+          storagePath={s.signature.sign_image_storage_path}
+          onChange={(v) => update("signature", { sign_image_url: v })}
+          onStoragePathChange={(path) => update("signature", { sign_image_storage_path: path })}
+        />
       </Section>
 
+      {/* Preview Kop Surat */}
       <Section title="Preview Kop Surat" desc="Pratinjau kop surat sesuai pengaturan.">
-        <div className="rounded-xl border border-border overflow-hidden bg-white">
+        <div className="rounded-xl border border-border overflow-hidden bg-white font-arial">
           {/* Bar header */}
           <div className="h-2 w-full" style={{ backgroundColor: s.kopSurat.header_bar_color }} />
-          <div className="flex items-center gap-4 p-4">
-            {s.kopSurat.logo_url && (
-              <img
-                src={s.kopSurat.logo_url}
-                alt="logo"
-                className={`h-16 w-auto object-contain ${
-                  s.kopSurat.logo_position === "right"
-                    ? "order-2 ml-auto"
-                    : s.kopSurat.logo_position === "center"
-                      ? "order-1 mx-auto"
-                      : "order-1"
-                }`}
-              />
-            )}
-            <div className="flex-1 text-center">
-              <p className="font-bold text-sm">{s.kopSurat.kop_line}</p>
-              <p className="text-xs font-semibold whitespace-pre-line">{s.kopSurat.kop_sub}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{s.kopSurat.kop_address}</p>
+          <div className="flex items-center gap-3 p-4">
+            {/* Logo Kabupaten (kiri) */}
+            {s.kopSurat.logo_kab_url &&
+              (s.kopSurat.logo_position === "separate" || s.kopSurat.logo_position === "left") && (
+                <img
+                  src={s.kopSurat.logo_kab_url}
+                  alt="Logo Kabupaten"
+                  className="h-16 w-auto object-contain"
+                />
+              )}
+            {/* Logo Desa (kanan) */}
+            {s.kopSurat.logo_desa_url &&
+              (s.kopSurat.logo_position === "separate" ||
+                s.kopSurat.logo_position === "right" ||
+                s.kopSurat.logo_position === "center") && (
+                <img
+                  src={s.kopSurat.logo_desa_url}
+                  alt="Logo Desa"
+                  className={`h-16 w-auto object-contain ${
+                    s.kopSurat.logo_position === "right"
+                      ? "ml-auto"
+                      : s.kopSurat.logo_position === "center"
+                        ? "mx-auto"
+                        : ""
+                  }`}
+                />
+              )}
+            {/* Teks baris kop */}
+            <div className="flex-1 text-center space-y-0.5">
+              {kopLines.map((line) => (
+                <p
+                  key={line.id}
+                  style={{
+                    fontSize: `${line.font_size}pt`,
+                    fontWeight: line.bold ? "bold" : "normal",
+                    fontStyle: line.italic ? "italic" : "normal",
+                    fontFamily: "Arial, sans-serif",
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {line.text}
+                </p>
+              ))}
             </div>
           </div>
           <div className="border-t border-border mt-1" />
@@ -1601,7 +2350,11 @@ function PagesCMS({
                   label=""
                   hint="Gambar utama halaman (disarankan 1200×630px)"
                   value={pageConfig.image_url}
+                  storagePath={(pageConfig as { image_storage_path?: string }).image_storage_path}
                   onChange={(v) => updatePage({ image_url: v })}
+                  onStoragePathChange={(path) =>
+                    updatePage({ image_storage_path: path } as unknown as Partial<PageConfig>)
+                  }
                 />
               </Field>
             </Grid2>
@@ -1668,5 +2421,374 @@ function PagesCMS({
         </div>
       </div>
     </Section>
+  );
+}
+
+/* ---------- CMS Content Settings ---------- */
+function CMSContentSettings({
+  s,
+  update,
+}: {
+  s: SystemSettings;
+  update: <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => void;
+}) {
+  const content = s.content || DEFAULT_SETTINGS.content;
+
+  const updateContent = (patch: Partial<SystemSettings["content"]>) => {
+    update("content", { ...content, ...patch });
+  };
+
+  const addMission = () => {
+    updateContent({ mission: [...(content.mission || []), ""] });
+  };
+
+  const updateMission = (idx: number, val: string) => {
+    const arr = [...(content.mission || [])];
+    arr[idx] = val;
+    updateContent({ mission: arr });
+  };
+
+  const removeMission = (idx: number) => {
+    updateContent({ mission: (content.mission || []).filter((_, i) => i !== idx) });
+  };
+
+  const updateStat = (idx: number, patch: Partial<SystemSettings["content"]["stats"][0]>) => {
+    const arr = [...(content.stats || [])];
+    arr[idx] = { ...arr[idx], ...patch };
+    updateContent({ stats: arr });
+  };
+
+  return (
+    <>
+      <Section
+        title="Visi & Misi"
+        desc="Visi dan misi desa yang ditampilkan di halaman profil dan landing page."
+      >
+        <Field label="Visi Desa" hint="Satu kalimat besar yang menjadi cita-cita desa.">
+          <Textarea
+            rows={2}
+            value={content.vision}
+            onChange={(e) => updateContent({ vision: e.target.value })}
+            placeholder="Terwujudnya desa yang..."
+          />
+        </Field>
+        <div className="space-y-2">
+          <Label className="font-ui text-xs font-semibold">Misi Desa</Label>
+          <div className="space-y-2">
+            {(content.mission || []).map((m, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  value={m}
+                  onChange={(e) => updateMission(i, e.target.value)}
+                  placeholder={`Misi ke-${i + 1}`}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeMission(i)}
+                  className="text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={addMission}>
+              <Plus className="h-4 w-4 mr-1.5" /> Tambah Misi
+            </Button>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Tentang Desa" desc="Teks pengantar desa yang muncul di landing page.">
+        <Field label="Teks 'Tentang Desa'">
+          <Textarea
+            rows={5}
+            value={content.about_text}
+            onChange={(e) => updateContent({ about_text: e.target.value })}
+            placeholder="Deskripsi desa..."
+          />
+        </Field>
+      </Section>
+
+      <Section title="Statistik Desa" desc="Pencapaian atau data cepat desa (Landing Page).">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {(content.stats || []).map((st, i) => (
+            <div key={i} className="rounded-xl border border-border bg-card p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-ui text-xs font-bold">Statistik {i + 1}</span>
+                <Select value={st.icon} onValueChange={(v) => updateStat(i, { icon: v })}>
+                  <SelectTrigger className="h-7 w-24">
+                    <SelectValue placeholder="Icon" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="users">Warga</SelectItem>
+                    <SelectItem value="map">Wilayah</SelectItem>
+                    <SelectItem value="palmtree">Wisata</SelectItem>
+                    <SelectItem value="trophy">Prestasi</SelectItem>
+                    <SelectItem value="home">Rumah</SelectItem>
+                    <SelectItem value="star">Bintang</SelectItem>
+                    <SelectItem value="heart">Sosial</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Grid2>
+                <Field label="Label">
+                  <Input
+                    value={st.label}
+                    onChange={(e) => updateStat(i, { label: e.target.value })}
+                  />
+                </Field>
+                <Field label="Nilai (Value)">
+                  <Input
+                    value={st.value}
+                    onChange={(e) => updateStat(i, { value: e.target.value })}
+                  />
+                </Field>
+              </Grid2>
+            </div>
+          ))}
+        </div>
+      </Section>
+    </>
+  );
+}
+
+/* ---------- Social Media Settings ---------- */
+function SocialMediaSettings({
+  s,
+  update,
+}: {
+  s: SystemSettings;
+  update: <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => void;
+}) {
+  const social = s.social || DEFAULT_SETTINGS.social;
+
+  return (
+    <Section title="Media Sosial" desc="Tautan ke akun media sosial resmi pemerintah desa.">
+      <div className="space-y-4">
+        <Field label="Facebook URL">
+          <div className="flex gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/30">
+              <Facebook className="h-4 w-4 text-[#1877F2]" />
+            </div>
+            <Input
+              value={social.facebook}
+              onChange={(e) => update("social", { facebook: e.target.value })}
+              placeholder="https://facebook.com/..."
+            />
+          </div>
+        </Field>
+        <Field label="Instagram URL">
+          <div className="flex gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/30">
+              <Instagram className="h-4 w-4 text-[#E4405F]" />
+            </div>
+            <Input
+              value={social.instagram}
+              onChange={(e) => update("social", { instagram: e.target.value })}
+              placeholder="https://instagram.com/..."
+            />
+          </div>
+        </Field>
+        <Field label="YouTube URL">
+          <div className="flex gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/30">
+              <Youtube className="h-4 w-4 text-[#FF0000]" />
+            </div>
+            <Input
+              value={social.youtube}
+              onChange={(e) => update("social", { youtube: e.target.value })}
+              placeholder="https://youtube.com/@..."
+            />
+          </div>
+        </Field>
+        <Field label="Twitter / X URL">
+          <div className="flex gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/30">
+              <Twitter className="h-4 w-4 text-black" />
+            </div>
+            <Input
+              value={social.twitter}
+              onChange={(e) => update("social", { twitter: e.target.value })}
+              placeholder="https://twitter.com/..."
+            />
+          </div>
+        </Field>
+      </div>
+    </Section>
+  );
+}
+
+// ── Push Notification Panel ─────────────────────────────────────────────────
+
+function PushNotificationPanel() {
+  const [status, setStatus] = useState<"unsupported" | "denied" | "granted" | "default">("default");
+  const [subscribed, setSubscribed] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Dynamic import to avoid SSR issues
+    import("@/lib/push-notif").then(({ getNotificationPermission, isPushSubscribed }) => {
+      setStatus(getNotificationPermission());
+      isPushSubscribed().then(setSubscribed);
+    });
+  }, []);
+
+  const handleActivate = async () => {
+    setLoading(true);
+    try {
+      const { subscribePush, isPushSupported, requestNotificationPermission } =
+        await import("@/lib/push-notif");
+      if (!isPushSupported()) {
+        toast.error("Browser tidak mendukung push notification");
+        return;
+      }
+      const perm = await requestNotificationPermission();
+      if (!perm) {
+        toast.error("Izin notifikasi ditolak");
+        setStatus("denied");
+        return;
+      }
+      const sub = await subscribePush();
+      if (sub) {
+        setSubscribed(true);
+        setStatus("granted");
+        toast.success("Notifikasi browser aktif!");
+      } else {
+        toast.error("Gagal mengaktifkan. Pastikan VITE_VAPID_PUBLIC_KEY sudah diset.");
+      }
+    } catch (e) {
+      toast.error("Gagal mengaktifkan notifikasi");
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    setLoading(true);
+    try {
+      const { unsubscribePush } = await import("@/lib/push-notif");
+      await unsubscribePush();
+      setSubscribed(false);
+      toast.success("Notifikasi browser dinonaktifkan");
+    } catch {
+      toast.error("Gagal menonaktifkan");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (status === "unsupported") {
+    return (
+      <div className="flex items-start gap-3 p-4 rounded-xl border border-border bg-muted/30">
+        <BellOff className="h-5 w-5 text-muted-foreground mt-0.5" />
+        <div>
+          <p className="font-ui text-sm font-semibold">Tidak Didukung</p>
+          <p className="font-ui text-xs text-muted-foreground mt-0.5">
+            Browser Anda tidak mendukung Web Push Notification.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "denied") {
+    return (
+      <div className="flex items-start gap-3 p-4 rounded-xl border border-destructive/30 bg-destructive/5">
+        <BellOff className="h-5 w-5 text-destructive mt-0.5" />
+        <div>
+          <p className="font-ui text-sm font-semibold text-destructive">Izin Ditolak</p>
+          <p className="font-ui text-xs text-muted-foreground mt-0.5">
+            Untuk mengaktifkan notifikasi, ubah izin di pengaturan browser Anda.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-4">
+        {subscribed ? (
+          <div className="flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success/10">
+              <CheckCircle2 className="h-5 w-5 text-success" />
+            </div>
+            <div>
+              <p className="font-ui text-sm font-semibold text-success">Notifikasi Aktif</p>
+              <p className="font-ui text-xs text-muted-foreground">
+                Anda akan menerima pemberitahuan saat status surat berubah.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+              <Bell className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="font-ui text-sm font-semibold">Belum Aktif</p>
+              <p className="font-ui text-xs text-muted-foreground">
+                Aktifkan untuk menerima notifikasi real-time di browser.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {subscribed ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-destructive/30 text-destructive hover:bg-destructive/10"
+          disabled={loading}
+          onClick={handleDeactivate}
+        >
+          <BellOff className="h-4 w-4 mr-1.5" />
+          Nonaktifkan Notifikasi
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-primary text-primary hover:bg-primary/10"
+          disabled={loading}
+          onClick={handleActivate}
+        >
+          <Bell className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+          {loading ? "Mengaktifkan..." : "Aktifkan Notifikasi Browser"}
+        </Button>
+      )}
+
+      <div className="rounded-xl border border-border bg-muted/20 p-4">
+        <p className="font-ui text-xs font-semibold text-foreground mb-1.5">Setup VAPID Key</p>
+        <p className="font-ui text-xs text-muted-foreground leading-relaxed">
+          Untuk mengaktifkan push notification, Anda perlu:
+        </p>
+        <ol className="mt-2 space-y-1 pl-4 font-ui text-[11px] text-muted-foreground list-decimal list-inside">
+          <li>
+            Generate VAPID keys:
+            <code className="ml-1.5 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+              npx web-push generate-vapid-keys
+            </code>
+          </li>
+          <li>
+            Set{" "}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+              VITE_VAPID_PUBLIC_KEY
+            </code>{" "}
+            di file <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">.env</code>
+          </li>
+          <li>
+            Set{" "}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+              VAPID_PRIVATE_KEY
+            </code>{" "}
+            sebagai secret di deployment (Cloudflare Pages Secrets / Vercel Environment Variables)
+          </li>
+        </ol>
+      </div>
+    </div>
   );
 }

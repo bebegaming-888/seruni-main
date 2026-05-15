@@ -18,6 +18,9 @@ import {
   FileSpreadsheet,
   ShieldAlert,
   ArrowRightLeft,
+  RefreshCw,
+  CloudUpload,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,12 +37,14 @@ import {
   purgeAllPenduduk,
   isUsingMock,
   initPendudukStore,
+  syncAllToSupabase,
+  pullFromSupabase,
   type SmartImportResult,
 } from "@/lib/penduduk-store";
+import { getSettings } from "@/lib/settings-store";
 import { getSession } from "@/lib/auth";
 import {
   type Penduduk,
-  DUSUN_LIST,
   PEKERJAAN_LIST,
   PENDIDIKAN_LIST,
   AGAMA_LIST,
@@ -62,56 +67,85 @@ import * as XLSX from "xlsx";
 
 const PAGE_SIZE = 20;
 
-const EMPTY: Penduduk = {
-  provinsi: "Nusa Tenggara Barat",
-  kabupaten: "Lombok Timur",
-  kecamatan: "Pringgabaya",
-  desa: "Seruni Mumbul",
-  dusun: DUSUN_LIST[0],
-  rt: "",
-  rw: "",
-  nama: "",
-  jenis_kelamin: "Laki-Laki",
-  status_dalam_kk: "Kepala Keluarga",
-  no_kk: "",
-  nik: "",
-  status_perkawinan: "Belum Kawin",
-  tempat_lahir: "",
-  tanggal_lahir: "",
-  pendidikan: "",
-  pekerjaan: "Petani",
-  pendapatan_bulan: "0",
-  kewarganegaraan: "Indonesia",
-  agama: "Islam",
-  suku: "Sasak",
-  kepemilikan_rumah: "-",
-  luas_rumah: "-",
-  jumlah_lantai: "-",
-  jenis_lantai: "-",
-  jenis_dinding: "-",
-  jenis_atap: "-",
-  kepemilikan_tanah: "-",
-  luas_tanah: "-",
-  penerangan: "-",
-  sumber_energi_masak: "-",
-  mck: "-",
-  sumber_air: "-",
-  bantuan_sosial: "Tidak",
-  bantuan_extra: "Tidak",
-  bpjs_kesehatan: "Tidak",
-  bpjs_ketenagakerjaan: "Tidak",
-  kepemilikan_aset: "Tidak",
-  kondisi_fisik: "Normal",
-  nama_ibu: "",
-  nama_bapak: "",
-  golongan_darah: "-",
-  no_hp: "",
-  alamat: "",
-};
+function buildEmptyPenduduk(): Penduduk {
+  // Baca dari settings store — sekarang backed by wilayah-store (database)
+  const fallback = {
+    province: "Nusa Tenggara Barat",
+    regency: "Lombok Timur",
+    district: "Pringgabaya",
+    name: "Desa",
+    default_rt: "001",
+    default_rw: "001",
+    dusun_list: ["Dusun 1", "Dusun 2"],
+  };
+  let loc = fallback;
+  try {
+    const w = getSettings().wilayah;
+    loc = {
+      province: w.province ?? "Nusa Tenggara Barat",
+      regency: w.regency ?? "Lombok Timur",
+      district: w.district ?? "Pringgabaya",
+      name: w.village ?? "Desa",
+      default_rt: w.default_rt,
+      default_rw: w.default_rw,
+      dusun_list:
+        Array.isArray(w.dusun_list) && w.dusun_list.length > 0 ? w.dusun_list : fallback.dusun_list,
+    };
+  } catch {
+    /* SSR — pakai fallback */
+  }
+
+  return {
+    provinsi: loc.province,
+    kabupaten: loc.regency,
+    kecamatan: loc.district,
+    desa: loc.name,
+    dusun: loc.dusun_list[0] ?? "Mandar",
+    rt: loc.default_rt,
+    rw: loc.default_rw,
+    nama: "",
+    jenis_kelamin: "Laki-Laki",
+    status_dalam_kk: "Kepala Keluarga",
+    no_kk: "",
+    nik: "",
+    status_perkawinan: "Belum Kawin",
+    tempat_lahir: "",
+    tanggal_lahir: "",
+    pendidikan: "",
+    pekerjaan: "Petani",
+    pendapatan_bulan: "0",
+    kewarganegaraan: "Indonesia",
+    agama: "Islam",
+    suku: "Sasak",
+    kepemilikan_rumah: "-",
+    luas_rumah: "-",
+    jumlah_lantai: "-",
+    jenis_lantai: "-",
+    jenis_dinding: "-",
+    jenis_atap: "-",
+    kepemilikan_tanah: "-",
+    luas_tanah: "-",
+    penerangan: "-",
+    sumber_energi_masak: "-",
+    mck: "-",
+    sumber_air: "-",
+    bantuan_sosial: "Tidak",
+    bantuan_extra: "Tidak",
+    bpjs_kesehatan: "Tidak",
+    bpjs_ketenagakerjaan: "Tidak",
+    kepemilikan_aset: "Tidak",
+    kondisi_fisik: "Normal",
+    nama_ibu: "",
+    nama_bapak: "",
+    golongan_darah: "-",
+    no_hp: "",
+    alamat: "",
+  };
+}
 
 type ModalMode = "add" | "edit" | "import" | "purge" | null;
 
-export function PendudukManager() {
+export function PendudukManager({ username = "Admin" }: { username?: string }) {
   const session = getSession();
   const isSuperAdmin = session?.role === "Super Admin";
 
@@ -122,11 +156,20 @@ export function PendudukManager() {
   const [filterDusun, setFilterDusun] = useState("");
   const [page, setPage] = useState(1);
   const [modal, setModal] = useState<ModalMode>(null);
-  const [form, setForm] = useState<Penduduk>(EMPTY);
+  // Lazy init — runs during component mount, not module load, safe from HMR
+  const [form, setForm] = useState<Penduduk>(() => buildEmptyPenduduk());
   const [formErr, setFormErr] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [purgeConfirm, setPurgeConfirm] = useState("");
+  const [confirmTarget, setConfirmTarget] = useState<{
+    mode: string;
+    name: string;
+    message: string;
+    action: () => void;
+  } | null>(null);
+  const [infoDialog, setInfoDialog] = useState<{ title: string; messages: string[] } | null>(null);
   const [smartResult, setSmartResult] = useState<SmartImportResult | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [purgeConfirm, setPurgeConfirm] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(() => setData(listPenduduk()), []);
@@ -137,6 +180,16 @@ export function PendudukManager() {
       setLoading(false);
     });
   }, []);
+
+  // ── Scroll to top of table on page change ───────────────────────────────
+  useEffect(() => {
+    const el = document.getElementById("penduduk-table-top");
+    if (el) {
+      const offset = 140;
+      const top = el.offsetTop - offset;
+      window.scrollTo({ top, behavior: "smooth" });
+    }
+  }, [page]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -162,8 +215,23 @@ export function PendudukManager() {
     return String(age);
   }
 
+  /** Format ISO date string (yyyy-mm-dd) → dd/mm/yyyy untuk tampilan Indonesia. */
+  function formatTanggal(iso: string | undefined | null): string {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "-";
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  function showInfoDialog(title: string, messages: string[]) {
+    setInfoDialog({ title, messages });
+  }
+
   function openAdd() {
-    setForm(EMPTY);
+    setForm(buildEmptyPenduduk());
     setFormErr("");
     setModal("add");
   }
@@ -173,31 +241,47 @@ export function PendudukManager() {
     setModal("edit");
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!/^\d{16}$/.test(form.nik)) {
       setFormErr("NIK harus 16 digit angka");
+      showInfoDialog("Data Tidak Lengkap", ["NIK harus 16 digit angka."]);
       return;
     }
     if (!/^\d{16}$/.test(form.no_kk ?? "")) {
       setFormErr("No. KK harus 16 digit angka");
+      showInfoDialog("Data Tidak Lengkap", ["No. KK harus 16 digit angka."]);
       return;
     }
     if (!form.nama.trim()) {
       setFormErr("Nama tidak boleh kosong");
+      showInfoDialog("Data Tidak Lengkap", ["Nama lengkap tidak boleh kosong."]);
       return;
     }
-    const result = modal === "add" ? addPenduduk(form) : updatePenduduk(form);
-    if (!result.ok) {
-      setFormErr(result.message);
-      return;
-    }
-    toast.success(result.message);
-    refresh();
-    setModal(null);
+    const isAdd = modal === "add";
+    setConfirmTarget({
+      mode: isAdd ? "add" : "edit",
+      name: form.nama,
+      message: isAdd
+        ? `Tambah penduduk "${form.nama}" (NIK: ${form.nik}) ke sistem?`
+        : `Simpan perubahan data "${form.nama}" (NIK: ${form.nik})?`,
+      action: async () => {
+        const result = isAdd
+          ? await addPenduduk(form, username)
+          : await updatePenduduk(form, username);
+        if (!result.ok) {
+          setFormErr(result.message);
+          toast.error(result.message);
+          return;
+        }
+        toast.success(result.message);
+        refresh();
+        setModal(null);
+      },
+    });
   }
 
-  function handleDelete(nik: string) {
-    const r = deletePenduduk(nik);
+  async function handleDelete(nik: string) {
+    const r = await deletePenduduk(nik, username);
     if (r.ok) {
       toast.success("Data dihapus");
       refresh();
@@ -205,18 +289,29 @@ export function PendudukManager() {
     setDeleteTarget(null);
   }
 
-  function runSmartImport(rows: Record<string, string>[]) {
-    const result = importPenduduk(rows);
+  async function runSmartImport(rows: Record<string, string>[]) {
+    const result = await importPenduduk(rows, username);
     setSmartResult(result);
     refresh();
-    toast.success(`Import selesai: ${result.berhasil} baru, ${result.diperbarui} diperbarui`);
+    toast.success(`Import selesai: ${result.added} baru, ${result.updated} diperbarui`);
+    if (result.errors.length > 0) {
+      toast.warning(`${result.errors.length} baris gagal diimport`);
+    }
   }
 
-  function handleImportFile(file: File) {
+  async function handlePurge() {
+    await purgeAllPenduduk(username);
+    refresh();
+    setModal(null);
+    setPurgeConfirm("");
+    toast.success("Seluruh data penduduk berhasil dihapus");
+  }
+
+  async function handleImportFile(file: File) {
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext === "xlsx" || ext === "xls") {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const buf = new Uint8Array(e.target!.result as ArrayBuffer);
         const wb = XLSX.read(buf, { type: "array", cellDates: true });
         const ws = wb.Sheets[wb.SheetNames[0]];
@@ -224,24 +319,16 @@ export function PendudukManager() {
           defval: "",
           raw: false,
         });
-        runSmartImport(rows);
+        await runSmartImport(rows);
       };
       reader.readAsArrayBuffer(file);
     } else {
       Papa.parse<Record<string, string>>(file, {
         header: true,
         skipEmptyLines: true,
-        complete: (res) => runSmartImport(res.data),
+        complete: async (res) => await runSmartImport(res.data),
       });
     }
-  }
-
-  function handlePurge() {
-    purgeAllPenduduk();
-    refresh();
-    setModal(null);
-    setPurgeConfirm("");
-    toast.success("Seluruh data penduduk berhasil dihapus");
   }
 
   const F = form as Record<string, string>;
@@ -256,7 +343,7 @@ export function PendudukManager() {
     );
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" id="penduduk-table-top">
       {/* Toolbar */}
       <div className="flex flex-wrap gap-3 items-center justify-between">
         <div className="flex flex-wrap gap-2 flex-1 min-w-0">
@@ -293,21 +380,56 @@ export function PendudukManager() {
             className="rounded-full border border-border bg-card px-3 py-1.5 text-sm font-ui focus:outline-none"
           >
             <option value="">Semua Dusun</option>
-            {DUSUN_LIST.map((d) => (
+            {getSettings().wilayah.dusun_list.map((d) => (
               <option key={d}>{d}</option>
             ))}
           </select>
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap">
-          <Button size="sm" variant="outline" onClick={exportPendudukTemplate}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setConfirmTarget({
+                mode: "template",
+                name: "Template",
+                message: `Unduh template daftar kolom penduduk (${data.length} kolom)?`,
+                action: () => exportPendudukTemplate(),
+              });
+            }}
+          >
             <FileText className="h-4 w-4 mr-1" />
             Template
           </Button>
-          <Button size="sm" variant="outline" onClick={() => exportPendudukCSV()}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const count = filtered.length;
+              setConfirmTarget({
+                mode: "csv",
+                name: "CSV",
+                message: `Ekspor ${count} data penduduk ke file CSV?`,
+                action: () => exportPendudukCSV(),
+              });
+            }}
+          >
             <Download className="h-4 w-4 mr-1" />
             CSV
           </Button>
-          <Button size="sm" variant="outline" onClick={() => exportPendudukXLSX()}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const count = filtered.length;
+              setConfirmTarget({
+                mode: "xlsx",
+                name: "XLSX",
+                message: `Ekspor ${count} data penduduk ke file XLSX?`,
+                action: () => exportPendudukXLSX(),
+              });
+            }}
+          >
             <FileSpreadsheet className="h-4 w-4 mr-1" />
             XLSX
           </Button>
@@ -315,12 +437,71 @@ export function PendudukManager() {
             size="sm"
             variant="outline"
             onClick={() => {
-              setSmartResult(null);
-              setModal("import");
+              setConfirmTarget({
+                mode: "import-info",
+                name: "Import Data",
+                message:
+                  "File akan dibaca dan diproses dengan Smart Import Engine — data duplikat (NIK sama) akan otomatis diperbarui, data baru akan ditambahkan.",
+                action: () => {
+                  setSmartResult(null);
+                  setModal("import");
+                },
+              });
             }}
           >
             <Upload className="h-4 w-4 mr-1" />
             Import
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-info text-info hover:bg-info/10"
+            disabled={isSyncing}
+            onClick={() => {
+              setConfirmTarget({
+                mode: "upload-cloud",
+                name: "Upload ke Cloud",
+                message: `Unggah ${data.length} data penduduk ke Supabase Cloud? Data yang sudah ada akan diperbarui.`,
+                action: async () => {
+                  setIsSyncing(true);
+                  const res = await syncAllToSupabase();
+                  setIsSyncing(false);
+                  if (res.ok) {
+                    toast.success(res.message);
+                    refresh();
+                  } else toast.error(res.message);
+                },
+              });
+            }}
+          >
+            <CloudUpload className={`h-4 w-4 mr-1 ${isSyncing ? "animate-spin" : ""}`} />
+            {isSyncing ? "Mengunggah..." : "Upload ke Cloud"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-primary text-primary hover:bg-primary/10"
+            disabled={isSyncing}
+            onClick={() => {
+              setConfirmTarget({
+                mode: "pull-cloud",
+                name: "Tarik dari Cloud",
+                message:
+                  "Tarik data dari Supabase Cloud? Data lokal yang ada akan diperbarui. Data lokal baru (belum di-cloud) tetap aman.",
+                action: async () => {
+                  setIsSyncing(true);
+                  const res = await pullFromSupabase();
+                  setIsSyncing(false);
+                  if (res.ok) {
+                    toast.success(res.message);
+                    refresh();
+                  } else toast.error(res.message);
+                },
+              });
+            }}
+          >
+            <ArrowRightLeft className={`h-4 w-4 mr-1 ${isSyncing ? "animate-spin" : ""}`} />
+            {isSyncing ? "Menarik..." : "Tarik dari Cloud"}
           </Button>
           <Button size="sm" onClick={openAdd}>
             <Plus className="h-4 w-4 mr-1" />
@@ -369,24 +550,16 @@ export function PendudukManager() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                {[
-                  "No",
-                  "NIK",
-                  "Nama",
-                  "JK",
-                  "Umur",
-                  "Dusun",
-                  "Pekerjaan",
-                  "Status Kawin",
-                  "Aksi",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="px-3 py-3 text-left font-ui text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
+                {["No", "NIK", "Nama", "JK", "Umur", "TTL", "Dusun", "Pekerjaan", "Aksi"].map(
+                  (h) => (
+                    <th
+                      key={h}
+                      className="px-3 py-3 text-left font-ui text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap"
+                    >
+                      {h}
+                    </th>
+                  ),
+                )}
               </tr>
             </thead>
             <tbody>
@@ -417,9 +590,13 @@ export function PendudukManager() {
                       </span>
                     </td>
                     <td className="px-3 py-3 text-xs">{hitungUmur(p.tanggal_lahir)}</td>
+                    <td className="px-3 py-3 text-xs text-muted-foreground">
+                      {p.tempat_lahir
+                        ? `${p.tempat_lahir}, ${formatTanggal(p.tanggal_lahir)}`
+                        : formatTanggal(p.tanggal_lahir)}
+                    </td>
                     <td className="px-3 py-3 text-xs">{p.dusun}</td>
                     <td className="px-3 py-3 text-xs max-w-[120px] truncate">{p.pekerjaan}</td>
-                    <td className="px-3 py-3 text-xs whitespace-nowrap">{p.status_perkawinan}</td>
                     <td className="px-3 py-3">
                       <div className="flex gap-1">
                         <button
@@ -586,14 +763,22 @@ export function PendudukManager() {
                       onChange={(e) => setF("dusun", e.target.value)}
                       className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                     >
-                      {DUSUN_LIST.map((d) => (
+                      {getSettings().wilayah.dusun_list.map((d) => (
                         <option key={d}>{d}</option>
                       ))}
                     </select>
                   </div>
                   {[
-                    { k: "rt", label: "RT", placeholder: "001" },
-                    { k: "rw", label: "RW", placeholder: "001" },
+                    {
+                      k: "rt",
+                      label: "RT",
+                      placeholder: getSettings().wilayah.default_rt || "001",
+                    },
+                    {
+                      k: "rw",
+                      label: "RW",
+                      placeholder: getSettings().wilayah.default_rw || "001",
+                    },
                     { k: "alamat", label: "Alamat", placeholder: "Jl. / Dsn.", sm: true },
                   ].map(({ k, label, placeholder, sm }) => (
                     <div key={k} className={sm ? "sm:col-span-2" : ""}>
@@ -809,10 +994,18 @@ export function PendudukManager() {
                 <p className="font-ui text-sm font-bold text-foreground">Hasil Import</p>
                 <div className="grid grid-cols-4 gap-2 text-center">
                   {[
-                    { label: "Total", val: smartResult.total, color: "text-foreground" },
-                    { label: "Baru", val: smartResult.berhasil, color: "text-success" },
-                    { label: "Diperbarui", val: smartResult.diperbarui, color: "text-info" },
-                    { label: "Gagal", val: smartResult.gagal, color: "text-destructive" },
+                    {
+                      label: "Total",
+                      val:
+                        smartResult.added +
+                        smartResult.updated +
+                        smartResult.skipped +
+                        smartResult.errors.length,
+                      color: "text-foreground",
+                    },
+                    { label: "Baru", val: smartResult.added, color: "text-success" },
+                    { label: "Diperbarui", val: smartResult.updated, color: "text-info" },
+                    { label: "Dilewati", val: smartResult.skipped, color: "text-destructive" },
                   ].map(({ label, val, color }) => (
                     <div key={label} className="rounded-lg bg-card border border-border p-2">
                       <p className={`font-display text-xl font-bold ${color}`}>{val}</p>
@@ -820,37 +1013,11 @@ export function PendudukManager() {
                     </div>
                   ))}
                 </div>
-                {smartResult.inferred > 0 && (
-                  <p className="font-ui text-xs text-info">
-                    🔍 {smartResult.inferred} baris: gender/tgl lahir diinferensikan dari NIK
-                  </p>
-                )}
-                {/* Header map */}
-                {Object.keys(smartResult.headerMap).length > 0 && (
-                  <div>
-                    <p className="font-ui text-xs font-semibold text-muted-foreground mb-1 flex items-center gap-1">
-                      <ArrowRightLeft className="h-3 w-3" />
-                      Pemetaan Header
-                    </p>
-                    <div className="rounded-lg bg-muted/50 p-2 max-h-28 overflow-y-auto space-y-0.5">
-                      {Object.entries(smartResult.headerMap).map(([raw, can]) => (
-                        <p key={raw} className="font-mono text-[10px] text-muted-foreground">
-                          <span className="text-foreground">{raw}</span> → {can}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {smartResult.unmappedHeaders.length > 0 && (
-                  <p className="font-ui text-xs text-warning">
-                    ⚠ Header tidak dikenali: {smartResult.unmappedHeaders.join(", ")}
-                  </p>
-                )}
                 {smartResult.errors.length > 0 && (
                   <div className="rounded-lg bg-destructive/5 border border-destructive/20 p-2 max-h-24 overflow-y-auto">
                     {smartResult.errors.slice(0, 5).map((e, i) => (
                       <p key={i} className="font-mono text-[10px] text-destructive">
-                        {e}
+                        Baris {e.row}: {e.message}
                       </p>
                     ))}
                     {smartResult.errors.length > 5 && (
@@ -930,6 +1097,72 @@ export function PendudukManager() {
                 onClick={handlePurge}
               >
                 Hapus Permanen
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Generic Confirm Dialog (CRUD / Export / Sync) ── */}
+      {confirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setConfirmTarget(null)}
+          />
+          <div className="relative bg-card rounded-3xl shadow-elev border border-border p-6 w-full max-w-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <Info className="h-5 w-5 text-primary" />
+              </div>
+              <h3 className="font-display text-lg font-bold">Konfirmasi — {confirmTarget.name}</h3>
+            </div>
+            <p className="font-body text-sm text-muted-foreground mb-5 leading-relaxed">
+              {confirmTarget.message}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setConfirmTarget(null)}>
+                Batal
+              </Button>
+              <Button
+                onClick={() => {
+                  const action = confirmTarget.action;
+                  setConfirmTarget(null);
+                  action();
+                }}
+              >
+                Ya, Lanjutkan
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Info Dialog (validation errors / incomplete data) ── */}
+      {infoDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setInfoDialog(null)}
+          />
+          <div className="relative bg-card rounded-3xl shadow-elev border border-border p-6 w-full max-w-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-warning" />
+              </div>
+              <h3 className="font-display text-lg font-bold">{infoDialog.title}</h3>
+            </div>
+            <ul className="font-body text-sm text-muted-foreground mb-5 space-y-1.5 pl-1">
+              {infoDialog.messages.map((m, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-warning shrink-0" />
+                  {m}
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setInfoDialog(null)}>
+                Tutup
               </Button>
             </div>
           </div>

@@ -1,18 +1,70 @@
-// Pusat penyimpanan pengaturan sistem — IndexedDB + in-memory cache.
-// getSettings() tetap sinkron (dari cache), initSettingsStore() async.
+// ============================================================
+//
+// settings-store.ts — COMPLETE REBUILD
+//
+// DATA FLOW (Supabase-first, no localStorage persist):
+//
+//   DATABASE TABLE: app_settings (key, value jsonb, updated_at, updated_by)
+//
+//   ┌─── initSettingsStore() [ASYNC, awaited at app start] ───┐
+//   │  1. Supabase → value jsonb                               │
+//   │  2. [fallback] IndexedDB "settings"/"main"              │
+//   │  3. [fallback] DEFAULT_SETTINGS                          │
+//   │  → sets: _settingsData + Zustand + IDB                   │
+//   └─────────────────────────────────────────────────────────┘
+//                          ↓
+//   ┌─── getSettings() [SYNC, instant] ───────────────────────┐
+//   │  returns _settingsData — always correct after init       │
+//   └─────────────────────────────────────────────────────────┘
+//                          ↓
+//   ┌─── saveSettings() ──────────────────────────────────────┐
+//   │  1. IndexedDB  (synchronous write, primary)             │
+//   │  2. Supabase   (upsert, non-blocking)                    │
+//   │  3. _settingsData (update sync — instant for render)     │
+//   │  4. Zustand    (reactive update for SettingsPanel)       │
+//   └─────────────────────────────────────────────────────────┘
+//
+// ============================================================
 
-import { idbGet, idbPut, idbExportAll, idbImportAll } from "@/lib/idb-store";
+import { idbGet, idbPut, idbGetAll, idbDelete, idbExportAll, idbImportAll } from "@/lib/idb-store";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { generateId } from "@/lib/utils";
+import { create } from "zustand";
 
-const KEY = "admin_settings_v1"; // localStorage key (lama — untuk migrasi)
+// ── Types ──────────────────────────────────────────────────────────────────────
 
-export type HeroSlide = {
+export type KopLineConfig = {
   id: string;
-  image_url: string;
-  alt: string;
-  enabled: boolean;
+  label: string;
+  text: string;
+  font_size: number;
+  bold: boolean;
+  italic: boolean;
+};
+
+export type VillageStat = {
+  label: string;
+  value: string;
+  icon: string;
+  color: string;
+};
+
+export type WilayahConfig = {
+  selected_kode: string;
+  address: string;
+  postal_code: string;
+  default_rt: string;
+  default_rw: string;
+  province?: string;
+  regency?: string;
+  district?: string;
+  village: string;
+  village_code: string;
+  dusun_list: string[];
 };
 
 export type SystemSettings = {
+  wilayah: WilayahConfig;
   village: {
     name: string;
     head: string;
@@ -27,6 +79,8 @@ export type SystemSettings = {
     province: string;
     postal_code: string;
     logo_url: string;
+    logo_storage_path?: string;
+    consultants?: Array<{ name: string; role: string; schedule: string; whatsapp: string }>;
   };
   branding: {
     primary_color: string;
@@ -34,6 +88,18 @@ export type SystemSettings = {
     site_title: string;
     tagline: string;
     favicon_url: string;
+  };
+  content: {
+    about_text: string;
+    vision: string;
+    mission: string[];
+    stats: VillageStat[];
+  };
+  social: {
+    facebook: string;
+    instagram: string;
+    youtube: string;
+    twitter: string;
   };
   notifications: {
     wa_enabled: boolean;
@@ -53,6 +119,7 @@ export type SystemSettings = {
     require_qr: boolean;
     qr_secret: string;
     sign_image_url: string;
+    sign_image_storage_path?: string;
   };
   surat: {
     prefix_no: string;
@@ -77,26 +144,13 @@ export type SystemSettings = {
     show_announcement_bar: boolean;
     announcement_text: string;
   };
-  hero: {
-    marquee_text: string;
-    marquee_enabled: boolean;
-    slider_enabled: boolean;
-    video_url: string;
-    video_enabled: boolean;
-    video_fallback_image: string;
-    weather_enabled: boolean;
-    weather_label: string;
-    slides: HeroSlide[];
-  };
   kopSurat: {
-    logo_url: string;
-    logo_position: "left" | "center" | "right";
-    kop_line: string;
-    kop_sub: string;
-    kop_address: string;
-    kop_phone: string;
-    kop_email: string;
-    kop_website: string;
+    logo_kab_url: string;
+    logo_desa_url: string;
+    logo_kab_storage_path?: string;
+    logo_desa_storage_path?: string;
+    logo_position: "separate" | "left" | "center" | "right";
+    kop_lines: KopLineConfig[];
     header_bar_color: string;
     footer_enabled: boolean;
     footer_text: string;
@@ -104,6 +158,13 @@ export type SystemSettings = {
   };
   pages: Record<string, PageConfig>;
   backup: { auto_backup: boolean; interval_hours: number; last_backup_at?: string };
+  pdfLayout: {
+    margin: { top: string; bottom: string; left: string; right: string };
+    font: { family: string; size: string; lineHeight: string };
+    signaturePos: { qrWidth: string; marginY: string };
+    body_font: string;
+    body_font_size: number;
+  };
 };
 
 export type PageConfig = {
@@ -111,25 +172,42 @@ export type PageConfig = {
   title: string;
   description: string;
   image_url: string;
+  image_storage_path?: string;
   custom_content: string;
   extras: Record<string, string>;
 };
 
+// ── Default Settings ──────────────────────────────────────────────────────────
+
 export const DEFAULT_SETTINGS: SystemSettings = {
-  village: {
-    name: "Desa Seruni Mumbul",
-    head: "H. Sumardi, S.Sos.",
-    secretary: "Lalu Ahmad",
-    code: "5203012001",
-    phone: "+62 812-3456-7890",
-    whatsapp: "6281234567890",
-    email: "info@serunimumbul.desa.id",
+  wilayah: {
+    selected_kode: "5203012001",
     address: "Jl. Raya Pringgabaya No. 88",
-    district: "Pringgabaya",
-    regency: "Lombok Timur",
-    province: "Nusa Tenggara Barat",
     postal_code: "83654",
+    default_rt: "001",
+    default_rw: "001",
+    province: "Provinsi",
+    regency: "Kabupaten",
+    district: "Kecamatan",
+    village: "Nama Desa",
+    village_code: "0000000000",
+    dusun_list: ["Dusun 1", "Dusun 2"],
+  },
+  village: {
+    name: "Nama Desa",
+    head: "-",
+    secretary: "-",
+    code: "0000000000",
+    phone: "-",
+    whatsapp: "-",
+    email: "kontak@desa.id",
+    address: "-",
+    district: "Kecamatan",
+    regency: "Kabupaten",
+    province: "Provinsi",
+    postal_code: "00000",
     logo_url: "",
+    consultants: [],
   },
   branding: {
     primary_color: "#0f7a4a",
@@ -138,296 +216,320 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     tagline: "Bersama membangun desa yang mandiri, sejahtera, dan berbudaya.",
     favicon_url: "",
   },
+  content: {
+    about_text: "",
+    vision: "",
+    mission: [],
+    stats: [],
+  },
+  social: { facebook: "", instagram: "", youtube: "", twitter: "" },
   notifications: {
-    wa_enabled: true,
+    wa_enabled: false,
     fonnte_token: "",
-    sender_name: "Pemdes Seruni Mumbul",
+    sender_name: "",
     notify_on_submit: true,
     notify_on_verify: true,
     notify_on_approve: true,
     notify_on_reject: true,
-    template_submit: "Halo {nama}, pengajuan {jenis_surat} ({no}) telah kami terima.",
-    template_approve: "Halo {nama}, surat {jenis_surat} ({no}) telah disetujui.",
-    template_reject: "Halo {nama}, pengajuan {jenis_surat} ({no}) ditolak. Alasan: {alasan}",
+    template_submit: "",
+    template_approve: "",
+    template_reject: "",
   },
   signature: {
-    signer_name: "H. Sumardi, S.Sos.",
-    signer_title: "Kepala Desa Seruni Mumbul",
-    require_qr: true,
-    qr_secret: "SERUNI-MUMBUL-2026",
+    signer_name: "",
+    signer_title: "",
+    require_qr: false,
+    qr_secret: "",
     sign_image_url: "",
   },
   surat: {
-    prefix_no: "470",
+    prefix_no: "474",
     use_yearly_reset: true,
     auto_archive: true,
     auto_archive_days: 30,
     require_attachment: false,
-    allowed_types: ["pdf", "jpg", "jpeg", "png"],
+    allowed_types: ["jpg", "jpeg", "png", "pdf"],
     max_file_mb: 5,
   },
-  nomor: { inisialJabatan: "KDS", inisialDesa: "SRMB" },
+  nomor: { inisialJabatan: "", inisialDesa: "" },
   security: {
-    session_timeout_min: 60,
+    session_timeout_min: 30,
     require_strong_password: true,
     enable_2fa: false,
     login_attempts: 5,
     audit_log: true,
   },
   appearance: {
-    theme: "light" as const,
+    theme: "system",
     sidebar_compact: false,
     show_announcement_bar: false,
-    announcement_text: "Pelayanan tatap muka: Senin–Jumat, 08.00–15.00 WITA.",
-  },
-  hero: {
-    marquee_text:
-      "Selamat datang di Portal Resmi Desa Seruni Mumbul · Pelayanan publik transparan · Mari membangun desa bersama",
-    marquee_enabled: true,
-    slider_enabled: true,
-    video_url: "",
-    video_enabled: false,
-    video_fallback_image: "",
-    weather_enabled: true,
-    weather_label: "Pringgabaya · 28°C · Cerah",
-    slides: [
-      { id: "s1", image_url: "/images/hero-village.jpg", alt: "Pemandangan Desa", enabled: true },
-      {
-        id: "s2",
-        image_url: "/images/wisata-airterjun.jpg",
-        alt: "Wisata Air Terjun",
-        enabled: true,
-      },
-      { id: "s3", image_url: "/images/wisata-pantai.jpg", alt: "Pantai", enabled: true },
-      { id: "s4", image_url: "/images/wisata-budaya.jpg", alt: "Budaya Sasak", enabled: true },
-      { id: "s5", image_url: "/images/galeri-1.jpg", alt: "Galeri Desa", enabled: true },
-    ],
+    announcement_text: "",
   },
   kopSurat: {
-    logo_url: "",
-    logo_position: "left" as const,
-    kop_line: "PEMERINTAH KABUPATEN LOMBOK TIMUR",
-    kop_sub: "KECAMATAN PRINGGABAYA\nDESA SERUNI MUMBUL",
-    kop_address: "Jl. Raya Pringgabaya No. 88, Seruni Mumbul, Lombok Timur, NTB 83654",
-    kop_phone: "Telepon: (0376) 123-4567",
-    kop_email: "Email: info@serunimumbul.desa.id",
-    kop_website: "Website: https://serunimumbul.desa.id",
+    logo_kab_url: "",
+    logo_desa_url: "",
+    logo_position: "separate",
+    kop_lines: [],
     header_bar_color: "#0f7a4a",
-    footer_enabled: true,
-    footer_text: "Sistem Informasi Desa Seruni Mumbul · Hak Cipta Dilindungi Undang-Undang",
-    signature_style: "text" as const,
+    footer_enabled: false,
+    footer_text: "",
+    signature_style: "text",
   },
-  pages: {
-    "/profil/desa": {
-      enabled: true,
-      title: "Profil Desa Seruni Mumbul",
-      description: "Kenali lebih dekat sejarah, visi misi, dan potensi desa kami.",
-      image_url: "",
-      custom_content: "",
-      extras: { sejarah: "", visi: "", misi: "" },
-    },
-    "/profil/perangkat": {
-      enabled: true,
-      title: "Struktur Perangkat Desa",
-      description: "Pengurus dan staff Pemerintah Desa Seruni Mumbul.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/profil/lembaga": {
-      enabled: true,
-      title: "Lembaga Desa",
-      description: "BPD, LPM, PKK, Karang Taruna, dan kelompok lainnya.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/informasi/berita": {
-      enabled: true,
-      title: "Berita Desa",
-      description: "Kabar terkini dari Pemerintah Desa Seruni Mumbul.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/informasi/agenda": {
-      enabled: true,
-      title: "Agenda Kegiatan",
-      description: "Jadwal kegiatan mendatang di Desa Seruni Mumbul.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/informasi/galeri": {
-      enabled: true,
-      title: "Galeri Foto",
-      description: "Dokumentasi kegiatan dan potensi desa.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/informasi/pengumuman": {
-      enabled: true,
-      title: "Pengumuman",
-      description: "Informasi penting untuk warga.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/informasi/idm": {
-      enabled: true,
-      title: "Indeks Desa Membangun",
-      description: "Data dan skor IDM Desa Seruni Mumbul.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/laporan/rpjmdes": {
-      enabled: true,
-      title: "RPJMDes",
-      description: "Rencana Pembangunan Jangka Menengah Desa.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/laporan/rkpdes": {
-      enabled: true,
-      title: "RKPDes",
-      description: "Rencana Kerja Pemerintah Desa.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/laporan/apbdes": {
-      enabled: true,
-      title: "APBDes",
-      description: "Anggaran Pendapatan dan Belanja Desa.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/laporan/realisasi": {
-      enabled: true,
-      title: "Realisasi Anggaran",
-      description: "Laporan realisasi penggunaan APBDes.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/laporan/pbb": {
-      enabled: true,
-      title: "PBB-P2",
-      description: "Pajak Bumi dan Bangunan Pedesaan.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/wisata/destinasi": {
-      enabled: true,
-      title: "Destinasi Wisata",
-      description: "Tempat wisata alam dan budaya di Seruni Mumbul.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/ekonomi/bumdes": {
-      enabled: true,
-      title: "BUMDes Seruni Mumbul",
-      description: "Badan Usaha Milik Desa untuk pemberdayaan ekonomi.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-    "/lainnya/monografi": {
-      enabled: true,
-      title: "Monografi Desa",
-      description: "Data lengkap profil dan statistik desa.",
-      image_url: "",
-      custom_content: "",
-      extras: {},
-    },
-  },
+  pages: {},
   backup: { auto_backup: false, interval_hours: 24 },
+  pdfLayout: {
+    margin: { top: "20mm", bottom: "15mm", left: "20mm", right: "15mm" },
+    font: { family: "Arial, sans-serif", size: "11pt", lineHeight: "1.5" },
+    signaturePos: { qrWidth: "2.5cm", marginY: "3cm" },
+    body_font: "Arial, sans-serif",
+    body_font_size: 11,
+  },
 };
 
-// ── In-Memory Cache ───────────────────────────────────────────────────────────
-let _cache: SystemSettings | null = null;
+// ── Module-Level State (Signal Pattern) ───────────────────────────────────────
+//
+// _settingsData = SINGLE SOURCE OF TRUTH for all synchronous reads.
+// Survives HMR via JS module evaluation order.
+// Updated synchronously inside saveSettings() and _doInit().
+// getSettings() ALWAYS returns this — no timing issues.
+
+let _settingsData: SystemSettings = { ...DEFAULT_SETTINGS };
+let _initialized = false;
+let _initPromise: Promise<void> | null = null;
+
+// ── Deep Merge ────────────────────────────────────────────────────────────────
 
 function deepMerge(saved: Partial<SystemSettings>): SystemSettings {
   return {
+    ...DEFAULT_SETTINGS,
+    ...saved,
+    wilayah: { ...DEFAULT_SETTINGS.wilayah, ...(saved.wilayah ?? {}) },
     village: { ...DEFAULT_SETTINGS.village, ...(saved.village ?? {}) },
     branding: { ...DEFAULT_SETTINGS.branding, ...(saved.branding ?? {}) },
+    content: { ...DEFAULT_SETTINGS.content, ...(saved.content ?? {}) },
+    social: { ...DEFAULT_SETTINGS.social, ...(saved.social ?? {}) },
     notifications: { ...DEFAULT_SETTINGS.notifications, ...(saved.notifications ?? {}) },
     signature: { ...DEFAULT_SETTINGS.signature, ...(saved.signature ?? {}) },
     surat: { ...DEFAULT_SETTINGS.surat, ...(saved.surat ?? {}) },
     nomor: { ...DEFAULT_SETTINGS.nomor, ...(saved.nomor ?? {}) },
     security: { ...DEFAULT_SETTINGS.security, ...(saved.security ?? {}) },
     appearance: { ...DEFAULT_SETTINGS.appearance, ...(saved.appearance ?? {}) },
-    backup: { ...DEFAULT_SETTINGS.backup, ...(saved.backup ?? {}) },
-    hero: { ...DEFAULT_SETTINGS.hero, ...(saved.hero ?? {}) },
     kopSurat: { ...DEFAULT_SETTINGS.kopSurat, ...(saved.kopSurat ?? {}) },
-    pages: { ...DEFAULT_SETTINGS.pages, ...(saved.pages ?? {}) } as Record<string, PageConfig>,
+    pdfLayout: { ...DEFAULT_SETTINGS.pdfLayout, ...(saved.pdfLayout ?? {}) },
+    pages: (() => {
+      const savedPages = saved.pages ?? {};
+      const result: Record<string, PageConfig> = {};
+      for (const [k, def] of Object.entries(DEFAULT_SETTINGS.pages)) {
+        result[k] = { ...def, ...(savedPages[k] ?? {}) };
+      }
+      return result;
+    })(),
+    backup: { ...DEFAULT_SETTINGS.backup, ...(saved.backup ?? {}) },
   };
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+// ── Zustand Store (reactive UI only — NOT source of truth) ─────────────────────
 
-/** Sync read — kembalikan cache atau DEFAULT jika belum diinisialisasi (SSR-safe). */
-export function getSettings(): SystemSettings {
-  if (typeof window === "undefined") return DEFAULT_SETTINGS;
-  return _cache ?? DEFAULT_SETTINGS;
+interface SettingsState extends SystemSettings {
+  selectedVillageKode: string;
+  _isLoaded: boolean; // true after initSettingsStore() completes
+  _syncFromData: (data: SystemSettings) => void;
 }
 
-/** Async init — panggil sekali saat app mount. Baca dari IndexedDB → cache. */
+export const useSettings = create<SettingsState>()((set) => ({
+  // Start with DEFAULT_SETTINGS — will be synced from _settingsData after init
+  ...DEFAULT_SETTINGS,
+  selectedVillageKode: "",
+  _isLoaded: false,
+  _syncFromData: (data) =>
+    set({
+      ...DEFAULT_SETTINGS,
+      ...data,
+      selectedVillageKode: data.wilayah?.village_code ?? "",
+      _isLoaded: true,
+    }),
+}));
+
+function _syncZustand(data: SystemSettings): void {
+  useSettings.getState()._syncFromData(data);
+}
+
+// ── Public API ─────────────────────────────────────────────────────────────────
+
+/**
+ * getSettings() — SYNCHRONOUS, instant access to current settings.
+ *
+ * Used by HeroSection, route head(), Navbar — called on every render.
+ * Always returns _settingsData which is set during initSettingsStore().
+ *
+ * IMPORTANT: initSettingsStore() MUST be awaited before first render.
+ * In this app, it IS awaited via initAllStores() in __root.tsx.
+ */
+export function getSettings(): SystemSettings {
+  return _settingsData;
+}
+
+export function getSettingsSafe(): SystemSettings {
+  return _settingsData;
+}
+
+export function getWilayah(): WilayahConfig {
+  return _settingsData.wilayah;
+}
+
+/**
+ * initSettingsStore() — Call ONCE at app start, AWAITED before first render.
+ * Reads from: Supabase → IndexedDB → DEFAULT_SETTINGS
+ *
+ * After call: _settingsData has real data, getSettings() returns it.
+ */
 export async function initSettingsStore(): Promise<void> {
   if (typeof window === "undefined") return;
-  try {
-    // Coba baca dari IndexedDB dulu
-    const saved = await idbGet<{ id: string } & Partial<SystemSettings>>("settings", "main");
-    if (saved) {
-      const { id: _id, ...rest } = saved;
-      _cache = deepMerge(rest);
-      return;
-    }
-    // Fallback: coba localStorage lama
-    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(KEY) : null;
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<SystemSettings>;
-      _cache = deepMerge(parsed);
-      // Migrate ke IndexedDB
-      await idbPut("settings", { id: "main", ..._cache });
-      return;
-    }
-  } catch (e) {
-    console.warn("[settings] Load gagal, pakai default:", e);
-  }
-  _cache = { ...DEFAULT_SETTINGS };
+  if (_initialized) return;
+  if (_initPromise) return _initPromise;
+
+  _initPromise = _doInit();
+  await _initPromise;
 }
 
-/** Simpan settings ke cache + IndexedDB. */
-export async function saveSettings(s: SystemSettings): Promise<void> {
-  _cache = s;
-  if (typeof window === "undefined") return;
+async function _doInit(): Promise<void> {
   try {
-    await idbPut("settings", { id: "main", ...s });
+    // ── 1. Try IndexedDB first (fast offline cache) ─────────────────────────
+    let fromIDB = false;
+    let raw = await idbGet<{ id: string } & Partial<SystemSettings>>("settings", "main");
+
+    // ── 2. Supabase — override with latest cloud data ───────────────────────
+    if (isSupabaseConfigured) {
+      const sb = getSupabase();
+      if (sb) {
+        const { data: remote, error } = await sb
+          .from("app_settings")
+          .select("value")
+          .eq("key", "main_settings")
+          .maybeSingle();
+
+        if (!error && remote?.value) {
+          // Cloud data takes priority over IndexedDB
+          raw = { id: "main", ...(remote.value as Partial<SystemSettings>) };
+          console.info("[settings] Loaded from Supabase");
+        } else if (!raw) {
+          // No cloud, no IDB → load IDB
+          console.info("[settings] Loaded from IndexedDB (no cloud data)");
+          fromIDB = true;
+        }
+      }
+    }
+
+    // ── 3. Resolve settings data ───────────────────────────────────────────
+    const data = raw ? deepMerge(raw as Partial<SystemSettings>) : { ...DEFAULT_SETTINGS };
+
+    // Set synchronous — HeroSection reads this on next render
+    _settingsData = data;
+    _initialized = true;
+
+    // Sync Zustand so SettingsPanel sees real data
+    _syncZustand(data);
+
+    console.info(`[settings] Ready — loaded=${!fromIDB ? "Supabase" : "IDB"}`);
   } catch (e) {
-    console.warn("[settings] Gagal simpan ke IndexedDB:", e);
+    console.warn("[settings] Init failed, using defaults:", e);
+    _settingsData = { ...DEFAULT_SETTINGS };
+    _initialized = true;
+    _syncZustand(_settingsData);
   }
+}
+
+/**
+ * saveSettings() — Save to IndexedDB (primary) + Supabase (cloud).
+ *
+ * Writes _settingsData SYNCHRONOUSLY so HeroSection renders correctly
+ * on the SAME tick as the save completes (no await needed for render).
+ */
+export async function saveSettings(s: SystemSettings, updatedBy?: string): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  // 1. Write to IndexedDB (synchronous, primary)
+  const clean = JSON.parse(JSON.stringify(s)) as SystemSettings;
+  await idbPut("settings", { id: "main", ...clean });
+  console.info("[settings] Written to IndexedDB — idbPut done");
+
+  // 2. Update _settingsData SYNCHRONOUSLY
+  // This is critical — HeroSection reads this on next render without any await
+  _settingsData = clean;
+  _syncZustand(clean);
+
+  // 3. Supabase write-behind (non-blocking)
+  if (isSupabaseConfigured) {
+    const sb = getSupabase();
+    if (sb) {
+      sb.from("app_settings")
+        .upsert({
+          key: "main_settings",
+          value: clean,
+          updated_by: updatedBy || "system",
+          updated_at: new Date().toISOString(),
+        })
+        .then(({ error }: { error: unknown }) => {
+          if (error) console.warn("[settings] Cloud upsert failed:", error);
+          else console.info("[settings] Cloud upsert done");
+        });
+    }
+  }
+
+  // 4. Broadcast to other tabs
+  try {
+    const { broadcastSettingsSave } = await import("@/lib/idb-sync");
+    broadcastSettingsSave();
+  } catch {
+    // non-critical
+  }
+
+  console.info("[settings] Saved successfully");
 }
 
 export function resetSettings(): void {
-  _cache = { ...DEFAULT_SETTINGS };
-  if (typeof window === "undefined") return;
-  import("@/lib/idb-store").then(({ idbDelete }) => {
-    idbDelete("settings", "main").catch(console.warn);
-  });
+  _settingsData = { ...DEFAULT_SETTINGS };
+  _initialized = false;
+  _initPromise = null;
+  _syncZustand(_settingsData);
+  idbDelete("settings", "main").catch(console.warn);
 }
 
-/* ---------- Backup helpers ---------- */
+// ── Backup helpers ─────────────────────────────────────────────────────────────
+
+export async function getBackupList(): Promise<{ key: string; timestamp: number }[]> {
+  const all = await idbGetAll<{ id: string } & Partial<SystemSettings>>("settings");
+  return all
+    .filter((r) => r.id.startsWith("backup_"))
+    .map((r) => ({
+      key: r.id,
+      timestamp: parseInt(r.id.replace("backup_", ""), 10) || 0,
+    }))
+    .sort((a, b) => b.timestamp - a.timestamp);
+}
+
+export async function restoreBackup(backupKey: string): Promise<void> {
+  const backup = await idbGet<{ id: string } & Partial<SystemSettings>>("settings", backupKey);
+  if (!backup) throw new Error(`Backup "${backupKey}" tidak ditemukan`);
+  const { id: _id, ...rest } = backup;
+  const merged = deepMerge(rest);
+  await saveSettings(merged);
+}
+
+export async function cleanupOldBackups(): Promise<void> {
+  const all = await idbGetAll<{ id: string } & Partial<SystemSettings>>("settings");
+  const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+  for (const record of all) {
+    if (record.id.startsWith("backup_")) {
+      const ts = parseInt(record.id.replace("backup_", ""), 10);
+      if (ts < oneDayAgo) await idbDelete("settings", record.id);
+    }
+  }
+}
 
 export async function exportFullBackup(): Promise<string> {
   const data = await idbExportAll();
-  return JSON.stringify({ version: 2, exported_at: new Date().toISOString(), ...data }, null, 2);
+  return JSON.stringify({ version: 3, exported_at: new Date().toISOString(), ...data }, null, 2);
 }
 
 export async function importFullBackup(json: string): Promise<{ ok: boolean; message: string }> {
@@ -435,7 +537,8 @@ export async function importFullBackup(json: string): Promise<{ ok: boolean; mes
     const parsed = JSON.parse(json) as Record<string, unknown>;
     const result = await idbImportAll(parsed);
     if (result.ok) {
-      // Reload settings cache
+      _initialized = false;
+      _initPromise = null;
       await initSettingsStore();
     }
     return result;
@@ -447,36 +550,61 @@ export async function importFullBackup(json: string): Promise<{ ok: boolean; mes
 export function clearAllData(): void {
   if (typeof window === "undefined") return;
   import("@/lib/idb-store").then(({ idbClear }) => {
-    (["esurat_records", "esurat_archive", "templates"] as const).forEach((s) =>
+    (["penduduk", "users", "esurat_records", "esurat_archive", "templates"] as const).forEach((s) =>
       idbClear(s).catch(console.warn),
     );
   });
 }
 
-/* ---------- Audit log (IndexedDB) ---------- */
-export type AuditEntry = { id: string; ts: string; user: string; action: string; detail?: string };
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+
+export type AuditEntry = {
+  id: string;
+  ts: string;
+  user: string;
+  action: string;
+  detail?: string;
+};
 
 export async function logAudit(user: string, action: string, detail?: string): Promise<void> {
   if (typeof window === "undefined") return;
-  const entry: AuditEntry = {
-    id: crypto.randomUUID(),
-    ts: new Date().toISOString(),
-    user,
-    action,
-    detail,
-  };
   try {
-    const {
-      idbPut: put,
-      idbGetAll: getAll,
-      idbReplaceAll: replaceAll,
-    } = await import("@/lib/idb-store");
-    await put("audit_log", entry);
-    // Batasi 500 entry
-    const all = await getAll<AuditEntry>("audit_log");
+    const entry: AuditEntry = {
+      id: generateId(),
+      ts: new Date().toISOString(),
+      user,
+      action,
+      detail,
+    };
+
+    const { idbPut, idbGetAll, idbReplaceAll } = await import("@/lib/idb-store");
+    await idbPut("audit_log", entry);
+
+    if (isSupabaseConfigured) {
+      const sb = getSupabase();
+      if (sb) {
+        sb.from("audit_log")
+          .insert({
+            id: entry.id,
+            username: entry.user,
+            action: entry.action,
+            detail: entry.detail || null,
+            // user_id: uuid FK → admin_users(id). Insert as null explicitly
+            // agar tidak violates FK constraint. RLS policy mengizinkan public insert.
+            user_id: undefined,
+            ip_address: null,
+            created_at: entry.ts,
+          })
+          .then(({ error }: { error: unknown }) => {
+            if (error) console.warn("[settings] Audit insert error:", error);
+          });
+      }
+    }
+
+    const all = await idbGetAll<AuditEntry>("audit_log");
     if (all.length > 500) {
       const sorted = all.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 500);
-      await replaceAll("audit_log", sorted);
+      await idbReplaceAll("audit_log", sorted);
     }
   } catch {
     /* non-blocking */
@@ -486,12 +614,10 @@ export async function logAudit(user: string, action: string, detail?: string): P
 export async function listAudit(): Promise<AuditEntry[]> {
   if (typeof window === "undefined") return [];
   const { idbGetAll } = await import("@/lib/idb-store");
-  const all = await idbGetAll<AuditEntry>("audit_log");
-  return all.sort((a, b) => b.ts.localeCompare(a.ts));
+  return (await idbGetAll<AuditEntry>("audit_log")).sort((a, b) => b.ts.localeCompare(a.ts));
 }
 
 export async function clearAudit(): Promise<void> {
-  if (typeof window === "undefined") return;
   const { idbClear } = await import("@/lib/idb-store");
   await idbClear("audit_log");
 }

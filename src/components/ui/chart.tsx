@@ -39,8 +39,11 @@ const ChartContainer = React.forwardRef<
     children: React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>["children"];
   }
 >(({ id, className, children, config, ...props }, ref) => {
-  const uniqueId = React.useId();
-  const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`;
+  // CRITICAL: Sanitize id prop — alphanumeric + dash + underscore only.
+  // Mencegah XSS via CSS selector injection (e.g. `" onload=alert(1)//`).
+  // CSS attribute selector: [data-chart="..."] — special chars bisa break CSS parsing.
+  const safeId = (id ?? uniqueId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+  const chartId = `chart-${safeId}`;
 
   return (
     <ChartContext.Provider value={{ config }}>

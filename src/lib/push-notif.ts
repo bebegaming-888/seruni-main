@@ -134,9 +134,11 @@ export async function isPushSubscribed(): Promise<boolean> {
 }
 
 /** Kirim push notification via Edge Function /api/push/send */
-export async function sendPushNotification(payload: PushPayload): Promise<boolean> {
+export async function sendPushNotification(
+  payload: PushPayload,
+): Promise<{ ok: boolean; expired?: boolean }> {
   const subRaw = localStorage.getItem(PUSH_SUB_KEY);
-  if (!subRaw) return false;
+  if (!subRaw) return { ok: false };
 
   try {
     const res = await fetch("/api/push/send", {
@@ -144,9 +146,10 @@ export async function sendPushNotification(payload: PushPayload): Promise<boolea
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...payload, subscription: JSON.parse(subRaw) }),
     });
-    return res.ok;
+    if (res.status === 410) return { ok: false, expired: true }; // Subscription perlu di-unsub
+    return { ok: res.ok };
   } catch {
-    return false;
+    return { ok: false };
   }
 }
 
@@ -167,12 +170,16 @@ export async function triggerSuratPush(
     Ditolak: "ditolak. Mohon cek catatan dari admin.",
   };
 
-  await sendPushNotification({
+  const result = await sendPushNotification({
     title: `Status Surat: ${namaSurat}`,
     body: `Yth. ${namaWarga}, pengajuan surat Anda ${statusMessage[status] ?? status}`,
     url: `/pelayanan/monitoring?no=${no}`,
     tag: `surat-${no}`,
   });
+  if (!result.ok && result.expired) {
+    // Subscription expired — clean up local storage
+    localStorage.removeItem(PUSH_SUB_KEY);
+  }
 }
 
 // ---- Helpers ----

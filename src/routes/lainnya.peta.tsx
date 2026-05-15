@@ -1,25 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { getSettings, useSettings } from "@/lib/settings-store";
 import { MapLeaflet } from "@/components/ui/map-leaflet";
 import { FACILITIES } from "@/data/map-facilities";
 import { MapPin, Info, Navigation } from "lucide-react";
 
 export const Route = createFileRoute("/lainnya/peta")({
-  head: () => ({
-    meta: [
-      { title: `Peta Desa — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Peta interaktif wilayah Desa ${VILLAGE.name}. Lokasi kantor desa, fasilitas umum, dan objek wisata.`,
-      },
-    ],
-  }),
+  head: () => {
+    const { village } = getSettings();
+    return {
+      meta: [
+        { title: `Peta Desa — ${village.name}` },
+        {
+          name: "description",
+          content: `Peta interaktif wilayah Desa ${village.name}. Lokasi kantor desa, fasilitas umum, dan objek wisata.`,
+        },
+      ],
+    };
+  },
   component: () => <PetaPage />,
 });
 
 export function PetaPage() {
+  const { village } = useSettings();
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -34,10 +38,10 @@ export function PetaPage() {
             <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
               Peta Interaktif
               <br />
-              <span className="text-primary">{VILLAGE.name}</span>
+              <span className="text-primary">{village.name}</span>
             </h1>
             <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              Jelajahi lokasi penting di {VILLAGE.name} secara interaktif. Klik marker untuk melihat
+              Jelajahi lokasi penting di {village.name} secara interaktif. Klik marker untuk melihat
               detail fasilitas.
             </p>
             <div className="flex flex-wrap gap-2">

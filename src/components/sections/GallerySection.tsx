@@ -2,6 +2,7 @@ import { SectionTitle } from "@/components/site/SectionTitle";
 import { Link } from "@/components/Link";
 import { ArrowUpRight } from "lucide-react";
 import { useGaleriStore } from "@/lib/content-store";
+import { getMediaUrl } from "@/lib/media-upload";
 
 export function GallerySection() {
   const galeriItems = useGaleriStore((state) => state.items);
@@ -35,7 +36,7 @@ export function GallerySection() {
                 className={`relative overflow-hidden rounded-3xl group cursor-pointer ${span}`}
               >
                 <img
-                  src={it.url}
+                  src={it.storage_path ? getMediaUrl(it.storage_path, "public-media") : it.url}
                   alt={it.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   loading="lazy"

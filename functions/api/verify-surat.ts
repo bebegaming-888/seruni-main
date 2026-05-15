@@ -17,11 +17,13 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { json, corsOptions } from "../_lib/utils";
+import { json, corsOptions, hmacSha256Hex } from "../_lib/utils";
+import { createRateLimiter, getClientIp } from "../_lib/rate-limit";
 
 interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
+  QR_SECRET: string;
 }
 
 interface RequestBody {
@@ -56,6 +58,11 @@ export async function onRequestOptions(): Promise<Response> {
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
+  const rl = createRateLimiter("public");
+  const ip = getClientIp(context.request);
+  const rlCheck = rl.check(ip);
+  if (!rlCheck.ok && rlCheck.response) return rlCheck.response;
+
   let body: RequestBody;
   try {
     body = (await context.request.json()) as RequestBody;
@@ -85,6 +92,23 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     return json({ ok: false, error: "not_found" }, 404);
   }
 
+  // Verify QR payload HMAC-SHA256 signature (tamper detection)
+  let qrVerified: boolean | null = null;
+  const rawPayload = data.qr_payload ?? null;
+  if (rawPayload && context.env.QR_SECRET) {
+    const parts = rawPayload.split("|");
+    if (parts.length >= 6) {
+      const payloadData = parts.slice(0, 5).join("|"); // SERUNI-MUMBUL|no|nik|kode|timestamp
+      const receivedSig = parts.slice(5).join("|");
+      if (receivedSig !== "unsigned") {
+        const expectedSig = await hmacSha256Hex(payloadData, context.env.QR_SECRET);
+        qrVerified = expectedSig === receivedSig;
+      } else {
+        qrVerified = null; // unsigned — no secret configured at signing time
+      }
+    }
+  }
+
   // Mask sensitive fields before returning publicly
   const record = {
     no: data.no_surat,
@@ -97,7 +121,8 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     catatan: data.catatan ?? null,
     signed_at: data.signed_at ?? null,
     signed_by: data.signed_by ?? null,
-    qr_payload: data.qr_payload ?? null,
+    qr_payload: rawPayload,
+    qr_verified: qrVerified,
     created_at: data.created_at,
     updated_at: data.updated_at ?? null,
   };

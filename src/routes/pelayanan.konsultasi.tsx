@@ -1,20 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { getSettings, useSettings } from "@/lib/settings-store";
+import { getVillage } from "@/lib/village-dynamic";
 import { Link } from "@/components/Link";
 import { MessageCircle, Users, Clock, Phone, Calendar, ArrowRight, Star } from "lucide-react";
 
 export const Route = createFileRoute("/pelayanan/konsultasi")({
-  head: () => ({
-    meta: [
-      { title: `Layanan Konsultasi — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Konsultasi langsung dengan perangkat desa ${VILLAGE.name} untuk berbagai keperluan administratif dan sosial.`,
-      },
-    ],
-  }),
+  head: () => {
+    return {
+      meta: [
+        { title: `Layanan Konsultasi — ${getVillage("village")}` },
+        {
+          name: "description",
+          content: `Konsultasi langsung dengan perangkat desa ${getVillage("village")} untuk berbagai keperluan administratif dan sosial.`,
+        },
+      ],
+    };
+  },
   component: () => <KonsultasiPage />,
 });
 
@@ -76,6 +79,10 @@ function ConsultantCard({
 }
 
 export function KonsultasiPage() {
+  const { village } = useSettings();
+  const consultants = village.consultants ?? [];
+  const hasConsultants = consultants.some((c) => c.whatsapp);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -137,41 +144,30 @@ export function KonsultasiPage() {
                 Pilih bidang konsultasi sesuai dengan kebutuhan Anda.
               </p>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <ConsultantCard
-                name="Samsul Bahri"
-                role="Sekretaris Desa"
-                schedule="08:00 – 16:00 WITA"
-                wa="6281234567890"
-              />
-              <ConsultantCard
-                name="Hj. Nurhayati"
-                role="Kaur Keuangan"
-                schedule="08:00 – 14:00 WITA"
-                wa="6281234567891"
-              />
-              <ConsultantCard
-                name="Ahmad Zulfi"
-                role="Kasi Pelayanan"
-                schedule="09:00 – 16:00 WITA"
-                wa="6281234567892"
-              />
-              <ConsultantCard
-                name="Baiq Siti"
-                role="Kasi Pemerintahan"
-                schedule="08:00 – 15:00 WITA"
-                wa="6281234567893"
-              />
-              <ConsultantCard
-                name="Muh. Riza"
-                role="Kaur Umum"
-                schedule="08:00 – 16:00 WITA"
-                wa="6281234567894"
-              />
-            </div>
+            {hasConsultants ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {consultants
+                  .filter((c) => c.whatsapp)
+                  .map((c, i) => (
+                    <ConsultantCard
+                      key={i}
+                      name={c.name}
+                      role={c.role}
+                      schedule={c.schedule}
+                      wa={c.whatsapp}
+                    />
+                  ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border bg-muted/20 p-8 text-center">
+                <MessageCircle className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                <p className="font-body text-sm text-muted-foreground">
+                  Belum ada data konsultan. Hubungi kami melalui tombol di bawah.
+                </p>
+              </div>
+            )}
           </div>
         </section>
-
         {/* Offline Consultation */}
         <section className="px-4 mb-24">
           <div className="max-w-5xl mx-auto p-10 sm:p-16 rounded-[3rem] bg-ink text-background relative overflow-hidden">

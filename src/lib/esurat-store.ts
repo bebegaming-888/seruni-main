@@ -1,18 +1,14 @@
 // E-Surat records store — delegates to useSupabaseSync in-memory cache (IndexedDB).
 // Supports full status workflow: Menunggu Verifikasi → Diverifikasi → Menunggu Approval → Disetujui | Ditolak
 
-import { type Penduduk, PENDUDUK_MOCK } from "@/data/penduduk";
-import { isSupabaseConfigured } from "@/lib/supabase";
-import {
-  listPenduduk as _listPenduduk,
-  importPenduduk as _importPenduduk,
-} from "@/lib/penduduk-store";
+import { type Penduduk } from "@/data/penduduk";
 import {
   getLocalRecords,
   setLocalRecords,
   getLocalArchive,
   setLocalArchive,
 } from "@/lib/useSupabaseSync";
+import { getPendudukByNik } from "@/lib/penduduk-store";
 
 export type SuratStatus =
   | "Menunggu Verifikasi"
@@ -26,13 +22,16 @@ export type Lampiran = {
   name: string;
   type: string;
   size: number;
-  data_url: string; // base64 data URL
+  data_url?: string; // base64 data URL (optional if storage_path exists)
+  storage_path?: string; // Supabase Storage path (preferred for large files)
 };
 
 export type SuratRecord = {
   no: string;
   /** Nomor tracking awal sebelum disetujui (untuk referensi) */
   tracking_no?: string;
+  /** FK ke warga.id di Supabase — digunakan untuk relasi resmi pemohon */
+  warga_id?: string;
   kode: string;
   nama_surat: string;
   pemohon: string;
@@ -54,6 +53,8 @@ export type SuratRecord = {
   qr_payload?: string;
   created_at: string;
   updated_at?: string;
+  /** Sync status dari operasi save terakhir. undefined = belum diketahui. */
+  cloudSynced?: boolean;
 };
 
 /* ---- Records CRUD (delegates to IndexedDB cache) ---- */
@@ -112,130 +113,10 @@ export function getArchive(no: string): SuratRecord | null {
   return getLocalArchive().find((r) => r.no === no) ?? null;
 }
 
-/* ---- Penduduk (delegates to penduduk-store) ---- */
-export function listPenduduk(): Penduduk[] {
-  return _listPenduduk();
-}
-
-export function savePenduduk(items: Penduduk[]) {
-  _importPenduduk(items);
-}
-
-/** Fallback lookup dari localStorage/mock — dipanggil bila Supabase tidak tersedia. */
-function lookupPendudukLocal(nik: string): Penduduk | null {
-  return PENDUDUK_MOCK.find((p) => p.nik === nik) ?? null;
-}
-
-/** Lookup penduduk — coba Supabase dulu, fallback ke localStorage/mock. */
+/** Lookup penduduk — single source of truth dari penduduk-store.
+ * penduduk-store sudah menangani: Supabase → IndexedDB → PENDUDUK_MOCK fallback. */
 export async function lookupPenduduk(nik: string): Promise<Penduduk | null> {
-  if (isSupabaseConfigured) {
-    try {
-      const { getSupabase } = await import("./supabase");
-      const sb = getSupabase();
-      if (sb) {
-        const { data } = await sb.from("warga").select("*").eq("nik", nik).single();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const d = data as any;
-        if (d) {
-          return {
-            // ── lokasi
-            provinsi: d.provinsi ?? "Nusa Tenggara Barat",
-            kabupaten: d.kabupaten ?? "Lombok Timur",
-            kecamatan: d.kecamatan ?? "Pringgabaya",
-            desa: d.desa ?? "Seruni Mumbul",
-            dusun: d.dusun ?? "",
-            rt: d.rt ?? "",
-            rw: d.rw ?? "",
-            // ── identitas
-            nama: d.nama ?? "",
-            jenis_kelamin: (d.jenis_kelamin ?? "Laki-Laki") as "Laki-Laki" | "Perempuan",
-            status_dalam_kk: d.status_dalam_kk ?? "Anggota",
-            no_kk: d.no_kk ?? "",
-            nik: d.nik,
-            status_perkawinan: (d.status_kawin ?? "Belum Kawin") as Penduduk["status_perkawinan"],
-            tempat_lahir: d.tempat_lahir ?? "",
-            tanggal_lahir: d.tanggal_lahir ? String(d.tanggal_lahir) : "",
-            pendidikan: d.pendidikan ?? "",
-            pekerjaan: d.pekerjaan ?? "",
-            pendapatan_bulan: d.pendapatan_bulan ?? "0",
-            kewarganegaraan: d.kewarganegaraan ?? "Indonesia",
-            agama: d.agama ?? "Islam",
-            suku: d.suku ?? "",
-            // ── perumahan
-            kepemilikan_rumah: d.kepemilikan_rumah ?? "-",
-            luas_rumah: d.luas_rumah ?? "-",
-            jumlah_lantai: d.jumlah_lantai ?? "-",
-            jenis_lantai: d.jenis_lantai ?? "-",
-            jenis_dinding: d.jenis_dinding ?? "-",
-            jenis_atap: d.jenis_atap ?? "-",
-            kepemilikan_tanah: d.kepemilikan_tanah ?? "-",
-            luas_tanah: d.luas_tanah ?? "-",
-            // ── fasilitas
-            penerangan: d.penerangan ?? "-",
-            sumber_energi_masak: d.sumber_energi_masak ?? "-",
-            mck: d.mck ?? "-",
-            sumber_air: d.sumber_air ?? "-",
-            // ── sosial
-            bantuan_sosial: d.bantuan_sosial ?? "Tidak",
-            bantuan_extra: d.bantuan_extra ?? "Tidak",
-            bpjs_kesehatan: d.bpjs_kesehatan ?? "Tidak",
-            bpjs_ketenagakerjaan: d.bpjs_ketenagakerjaan ?? "Tidak",
-            kepemilikan_aset: d.kepemilikan_aset ?? "Tidak",
-            kondisi_fisik: d.kondisi_fisik ?? "Normal",
-            // ── keluarga
-            nama_ibu: d.nama_ibu ?? "",
-            nama_bapak: d.nama_bapak ?? "",
-            golongan_darah: d.golongan_darah ?? "-",
-            // ── opsional
-            no_hp: d.no_hp ?? "",
-            alamat: d.alamat ?? "",
-          };
-        }
-      }
-    } catch {
-      // fallback to localStorage/mock
-    }
-  }
-  return lookupPendudukLocal(nik);
-}
-
-/** Sync localStorage penduduk data to Supabase (admin-only, called from settings). */
-export async function syncPendudukToSupabase(items: Penduduk[]): Promise<void> {
-  if (!isSupabaseConfigured) return;
-  try {
-    const { getSupabase } = await import("./supabase");
-    const sb = getSupabase();
-    if (!sb) return;
-    const rows = items.map((p) => ({
-      nik: p.nik,
-      nama: p.nama,
-      tempat_lahir: p.tempat_lahir,
-      tanggal_lahir: p.tanggal_lahir,
-      jenis_kelamin: p.jenis_kelamin,
-      agama: p.agama,
-      status_kawin: p.status_perkawinan,
-      pekerjaan: p.pekerjaan,
-      kewarganegaraan: p.kewarganegaraan,
-      alamat: p.alamat,
-      rt: p.rt,
-      rw: p.rw,
-      dusun: p.dusun,
-      desa: p.desa,
-      kecamatan: p.kecamatan,
-      kabupaten: p.kabupaten,
-      provinsi: p.provinsi,
-      no_kk: p.no_kk,
-      no_hp: p.no_hp,
-    }));
-    await sb.from("warga").upsert(rows, { onConflict: "nik" });
-  } catch {
-    // non-blocking
-  }
-}
-
-/** No-op: penduduk data sudah ada di IndexedDB via penduduk-store. */
-export function clearPenduduk() {
-  // Penduduk kini disimpan di IndexedDB — hapus via clearAll di settings-store
+  return getPendudukByNik(nik);
 }
 
 /* ---- Status transition helpers ---- */
@@ -280,4 +161,47 @@ export function oldestPending(): SuratRecord[] {
   return listRecords()
     .filter((r) => r.status !== "Disetujui" && r.status !== "Ditolak")
     .sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+}
+
+/* ---- Smart Estimasi Durasi Pemrosesan ---- */
+
+/** Estimasi jam pemrosesan per kode surat, di-cache 5 menit */
+let _estimasi: Record<string, number> | null = null;
+let _estimasiFetched = 0;
+const ESTIMASI_TTL_MS = 5 * 60 * 1000;
+
+function estimasiIsStale() {
+  return !_estimasi || Date.now() - _estimasiFetched > ESTIMASI_TTL_MS;
+}
+
+/** Fetch estimasi dari edge function (dari cache server-side) */
+export async function fetchEstimasi(): Promise<Record<string, number>> {
+  if (!estimasiIsStale() && _estimasi) return _estimasi;
+
+  try {
+    const res = await fetch("/api/surat/estimasi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) throw new Error("Estimasi fetch failed");
+    const json = (await res.json()) as { ok: boolean; estimasi: Record<string, number> };
+    if (json.ok && json.estimasi) {
+      _estimasi = json.estimasi;
+      _estimasiFetched = Date.now();
+    }
+  } catch {
+    // Non-fatal — estimasi tidak tersedia tidak break aplikasi
+  }
+
+  return _estimasi ?? {};
+}
+
+/** Format estimasi jam ke string human-readable */
+export function fmtEstimasi(jam: number): string {
+  if (jam < 1) return "< 1 jam";
+  if (jam < 24) return `~${Math.round(jam)} jam kerja`;
+  const hari = Math.floor(jam / 24);
+  const sisaJam = Math.round(jam % 24);
+  if (sisaJam === 0) return `~${hari} hari kerja`;
+  return `~${hari} hari ${sisaJam} jam kerja`;
 }

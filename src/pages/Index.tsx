@@ -11,26 +11,32 @@ import { AgendaSection } from "@/components/sections/AgendaSection";
 import { GallerySection } from "@/components/sections/GallerySection";
 import { EconomySection } from "@/components/sections/EconomySection";
 import { ContactSection } from "@/components/sections/ContactSection";
+import { useVillage } from "@/hooks/use-village";
 
-const Index = () => (
-  <div className="min-h-screen bg-background overflow-x-hidden">
-    <Navbar />
-    <main>
-      <h1 className="sr-only">Desa Seruni Mumbul — Portal Resmi Pringgabaya, Lombok Timur</h1>
-      <HeroSection />
-      <AboutSection />
-      <NewsSection />
-      <AnnouncementSection />
-      <SuratSection />
-      <WisataSection />
-      <IDMSection />
-      <AgendaSection />
-      <GallerySection />
-      <EconomySection />
-      <ContactSection />
-    </main>
-    <Footer />
-  </div>
-);
+const Index = () => {
+  const { village, district, regency } = useVillage();
+  return (
+    <div className="min-h-screen bg-background overflow-x-hidden">
+      <Navbar />
+      <main>
+        <h1 className="sr-only">
+          Desa {village} — Portal Resmi {district}, {regency}
+        </h1>
+        <HeroSection />
+        <AboutSection />
+        <NewsSection />
+        <AnnouncementSection />
+        <SuratSection />
+        <WisataSection />
+        <IDMSection />
+        <AgendaSection />
+        <GallerySection />
+        <EconomySection />
+        <ContactSection />
+      </main>
+      <Footer />
+    </div>
+  );
+};
 
 export default Index;

@@ -4,8 +4,50 @@
  */
 
 import { create } from "zustand";
-import { idbGet, idbPut, idbDelete, idbGetAll } from "./idb-store";
+import { idbGet, idbPut, idbDelete, idbGetAll, type IDBStoreName } from "./idb-store";
 import { generateId } from "./utils";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { isStoreLocked } from "./settings-lock";
+import { z } from "zod";
+
+// --- Validation Schemas ---
+
+export const ArticleSchema = z.object({
+  title: z.string().min(5, "Judul terlalu pendek"),
+  content: z.string().min(20, "Konten minimal 20 karakter"),
+  excerpt: z.string().optional(),
+  category: z.string().min(1, "Kategori harus dipilih"),
+  slug: z.string().optional(),
+  cover_image: z.string().optional(),
+});
+
+export const PengumumanSchema = z.object({
+  title: z.string().min(5, "Judul pengumuman wajib diisi (min. 5 karakter)"),
+  excerpt: z.string().min(5, "Ringkasan wajib diisi (min. 5 karakter)"),
+  priority: z.enum(["urgent", "important", "normal"]),
+  date: z.string().optional(),
+});
+
+export const AgendaSchema = z.object({
+  title: z.string().min(5, "Judul agenda wajib diisi"),
+  day: z.string().min(1, "Tanggal harus diisi"),
+  month: z.string().min(1, "Bulan harus diisi"),
+  time: z.string().optional(),
+  location: z.string().optional(),
+  category: z.string().optional(),
+});
+
+export const KomoditasSchema = z.object({
+  name: z.string().min(2, "Nama komoditas wajib diisi"),
+  price: z.number().min(0),
+  unit: z.string().min(1, "Satuan wajib diisi"),
+  trend: z.enum(["up", "down", "stable"]).optional().default("stable"),
+  change: z.number().optional().default(0),
+  icon: z.string().optional().default("Sprout"),
+  color: z.string().optional().default("text-success"),
+  status: z.string().optional().default("Tersedia"),
+  area: z.string().optional().default("-"),
+});
 
 // --- Types ---
 
@@ -63,26 +105,35 @@ export type KomoditasItem = {
   unit: string;
   trend: "up" | "down" | "stable";
   change: number;
+  icon?: string;
+  color?: string;
+  status?: string;
+  area?: string;
 };
 
 // 5. Galeri
 export type GaleriItem = {
   id: string;
   url: string;
+  storage_path?: string; // Supabase Storage path (public-media bucket)
   title: string;
   category?: string;
   published_at?: string;
 };
 
-// 6. APBDes (simplified version of apbdes.ts)
-// We'll manage just the summary records for now, or the raw JSON.
+// 6. APBDes (Anggaran Pendapatan & Belanja Desa)
 export type ApbdesItem = {
   id: string;
-  year: number;
-  pendapatan: number;
-  belanja: number;
-  pembiayaan: number;
-  details: unknown; // Flexible JSON structure
+  tahun: number;
+  status: string;
+  total_pendapatan: number;
+  total_belanja: number;
+  total_pembiayaan: number;
+  sisa_cadangan: number;
+  detail: Record<string, unknown>;
+  realization: Record<string, unknown>;
+  history: { tahun: number; pendapatan: number; belanja: number }[];
+  updated_at?: string;
 };
 
 // --- Store Interface ---
@@ -97,41 +148,195 @@ type ContentState<T> = {
   initFromMocks: (mocks: T[]) => Promise<void>;
 };
 
+// --- Supabase Mapping Helpers ---
+function getSupabaseTable(storeName: string) {
+  if (storeName === "komoditas") return "komoditas";
+  if (storeName === "apbdes") return "apbdes_data";
+  return "cms_contents";
+}
+
+function toSupabasePayload(storeName: string, item: Record<string, unknown>) {
+  if (storeName === "komoditas") return item;
+
+  // Polymorphic map for cms_contents
+  return {
+    id: item.id,
+    type: storeName,
+    title: item.title || item.name || storeName,
+    slug: item.slug || null,
+    excerpt: item.excerpt || null,
+    content: item.content || null,
+    category: item.category || null,
+    cover_image: item.cover_image || item.url || null,
+    metadata: item, // Simpan seluruh objek asli untuk lossless restore
+  };
+}
+
 // --- Store Generators ---
 
-function createContentStore<T extends { id: string }>(storeName: string) {
+function createContentStore<T extends { id: string }>(storeName: IDBStoreName) {
+  // Per-store initialization guard — prevents double-init race condition
+  let _storeInitialized = false;
+
   return create<ContentState<T>>((set, get) => ({
     items: [],
     isLoaded: false,
     load: async () => {
-      const data = await idbGetAll<T>(storeName);
+      // Skip if already initialized (prevents double-load during HMR or concurrent calls)
+      if (_storeInitialized) {
+        return;
+      }
+
+      let data = await idbGetAll<T>(storeName);
+
+      // ── Supabase Background Sync ──
+      if (isSupabaseConfigured) {
+        const sb = getSupabase();
+        if (sb) {
+          try {
+            const tableName = getSupabaseTable(storeName);
+            let query = sb.from(tableName).select("*");
+            if (tableName === "cms_contents") {
+              query = query.eq("type", storeName);
+            }
+            const { data: remoteData, error } = await query;
+
+            if (!error && remoteData) {
+              const mappedData = remoteData.map((r) => {
+                if (tableName === "cms_contents") {
+                  return { ...(r.metadata || {}), id: r.id } as T;
+                }
+                if (tableName === "apbdes_data") {
+                  // Rename 'realisasi' (Supabase) → 'realization' (local type)
+                  return {
+                    id: r.id,
+                    tahun: r.tahun,
+                    status: r.status,
+                    total_pendapatan: r.total_pendapatan,
+                    total_belanja: r.total_belanja,
+                    total_pembiayaan: r.total_pembiayaan,
+                    sisa_cadangan: r.sisa_cadangan,
+                    detail: r.detail,
+                    realization: r.realisasi,
+                    history: r.history,
+                    updated_at: r.updated_at,
+                  } as unknown as T;
+                }
+                return r as unknown as T;
+              });
+              // Update local IDB cache
+              for (const item of mappedData) {
+                await idbPut(storeName, item);
+              }
+              data = await idbGetAll<T>(storeName);
+            }
+          } catch (err) {
+            console.warn(`[content-store] Supabase fetch failed for ${storeName}:`, err);
+          }
+        }
+      }
+
+      _storeInitialized = true;
       set({ items: data, isLoaded: true });
     },
     add: async (itemPayload) => {
+      // Guard: ensure store is initialized before mutations
+      if (!_storeInitialized) {
+        await get().load();
+      }
+
+      // 1. Update Local (IDB + Zustand)
       const newItem = { ...itemPayload, id: generateId() } as T;
       await idbPut(storeName, newItem);
       const data = await idbGetAll<T>(storeName);
       set({ items: data });
+
+      // 2. Sync to Supabase (Write-Behind)
+      if (isSupabaseConfigured) {
+        const sb = getSupabase();
+        if (sb) {
+          const tableName = getSupabaseTable(storeName);
+          const payload = toSupabasePayload(storeName, newItem);
+          const { error: insertErr } = await sb.from(tableName).insert(payload);
+          if (insertErr)
+            console.warn(
+              `[content-store] Supabase insert failed for ${storeName}:`,
+              insertErr.message,
+            );
+        }
+      }
     },
     update: async (id, updates) => {
+      // Guard: ensure store is initialized before mutations
+      if (!_storeInitialized) {
+        await get().load();
+      }
+
+      // 1. Update Local
       const existing = await idbGet<T>(storeName, id);
       if (!existing) return;
       const updated = { ...existing, ...updates };
       await idbPut(storeName, updated);
       const data = await idbGetAll<T>(storeName);
       set({ items: data });
+
+      // 2. Sync to Supabase
+      if (isSupabaseConfigured) {
+        const sb = getSupabase();
+        if (sb) {
+          const tableName = getSupabaseTable(storeName);
+          const payload = toSupabasePayload(storeName, updated);
+          const { error: updateErr } = await sb.from(tableName).update(payload).eq("id", id);
+          if (updateErr)
+            console.warn(
+              `[content-store] Supabase update failed for ${storeName}:`,
+              updateErr.message,
+            );
+        }
+      }
     },
     remove: async (id) => {
+      // Guard: ensure store is initialized before mutations
+      if (!_storeInitialized) {
+        await get().load();
+      }
+
+      // 1. Update Local
       await idbDelete(storeName, id);
       const data = await idbGetAll<T>(storeName);
       set({ items: data });
+
+      // 2. Sync to Supabase
+      if (isSupabaseConfigured) {
+        const sb = getSupabase();
+        if (sb) {
+          const tableName = getSupabaseTable(storeName);
+          const { error: deleteErr } = await sb.from(tableName).delete().eq("id", id);
+          if (deleteErr)
+            console.warn(
+              `[content-store] Supabase delete failed for ${storeName}:`,
+              deleteErr.message,
+            );
+        }
+      }
     },
     initFromMocks: async (mocks) => {
+      // Call load() first to sync with Supabase and check for real data.
+      // This prevents race condition where initFromMocks() overwrites data
+      // that exists in Supabase but hasn't finished loading yet.
+      await get().load();
+
+      // After load() completes, check if still empty
       const current = await idbGetAll<T>(storeName);
       if (current.length === 0) {
-        for (const m of mocks) {
-          await idbPut(storeName, { ...m, id: String(m.id) } as T);
+        // Only load mocks if this store is NOT locked (data guard)
+        if (!isStoreLocked(storeName)) {
+          for (const m of mocks) {
+            await idbPut(storeName, { ...m, id: String(m.id) } as T);
+          }
         }
+        // Mark as initialized and reload state
+        _storeInitialized = false; // Reset flag to allow re-load
         await get().load();
       }
     },

@@ -18,17 +18,26 @@ import {
   Clipboard,
   Copy,
 } from "lucide-react";
-import { VILLAGE } from "@/data/site";
+import { useVillage } from "@/hooks/use-village";
+import { getVillage } from "@/lib/village-dynamic";
+import { useSettings, getSettings } from "@/lib/settings-store";
+
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/verifikasi/$no")({
-  head: () => ({
-    meta: [
-      { title: "Verifikasi Surat — " + VILLAGE.name },
-      { name: "description", content: "Cek keabsahan dokumen surat dari Desa " + VILLAGE.name },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
+  head: () => {
+    const v = getVillage();
+    return {
+      meta: [
+        { title: "Verifikasi Surat — " + v.name },
+        {
+          name: "description",
+          content: "Cek keabsahan dokumen surat dari Desa " + v.village,
+        },
+        { name: "robots", content: "noindex" },
+      ],
+    };
+  },
   component: VerifikasiPage,
 });
 
@@ -87,6 +96,8 @@ const STATUS_STEPS = [
 ] as const;
 
 function VerifikasiPage() {
+  const v = useVillage();
+
   const { no } = Route.useParams();
   const [record, setRecord] = useState<SuratRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,10 +151,11 @@ function VerifikasiPage() {
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-display text-base font-bold">
-              {VILLAGE.name[0]}
+              {v.village[0]}
             </div>
             <div>
-              <div className="font-display text-sm font-bold leading-tight">{VILLAGE.name}</div>
+              <div className="font-display text-sm font-bold leading-tight">{v.name}</div>
+
               <div className="font-ui text-[10px] text-muted-foreground">Sistem Informasi Desa</div>
             </div>
           </Link>
@@ -167,7 +179,7 @@ function VerifikasiPage() {
           <div>
             <h1 className="font-display text-2xl font-bold">Verifikasi Dokumen Surat</h1>
             <p className="font-body text-sm text-muted-foreground">
-              Pengecekan keabsahan dokumen dari {VILLAGE.name}
+              Pengecekan keabsahan dokumen dari {v.village}
             </p>
           </div>
         </div>
@@ -374,10 +386,9 @@ function VerifikasiPage() {
             {/* Footer info */}
             <div className="rounded-2xl border border-border bg-muted/30 p-4 text-center">
               <p className="font-ui text-xs text-muted-foreground">
-                Dokumen ini diterbitkan oleh{" "}
-                <strong className="text-foreground">{VILLAGE.name}</strong>. Untuk konfirmasi
-                lanjutan, hubungi kami di{" "}
-                <strong className="text-foreground">{VILLAGE.phone}</strong>.
+                Dokumen ini diterbitkan oleh <strong className="text-foreground">{v.name}</strong>.
+                Untuk konfirmasi lanjutan, hubungi kami di{" "}
+                <strong className="text-foreground">{v.phone}</strong>.
               </p>
             </div>
           </div>
@@ -448,7 +459,27 @@ async function handleDownload(record: SuratRecord) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ no: record.no }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (res.status === 404) {
+      toast.error("Surat tidak ditemukan", { description: "Dokumen belum tersedia di server." });
+      return;
+    }
+    if (res.status === 403) {
+      toast.error("Akses ditolak", {
+        description: "Anda tidak memiliki izin mengunduh dokumen ini.",
+      });
+      return;
+    }
+    if (res.status === 503) {
+      toast.error("Server belum dikonfigurasi", {
+        description: "Fitur PDF belum aktif. Hubungi admin desa.",
+      });
+      return;
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      toast.error("Gagal mengunduh PDF", { description: body || `Server error (${res.status})` });
+      return;
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -458,7 +489,7 @@ async function handleDownload(record: SuratRecord) {
     URL.revokeObjectURL(url);
     toast.success("PDF diunduh");
   } catch {
-    toast.error("Gagal mengunduh PDF");
+    toast.error("Gagal mengunduh PDF", { description: "Tidak dapat terhubung ke server." });
   }
 }
 

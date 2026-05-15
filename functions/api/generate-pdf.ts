@@ -4,7 +4,7 @@
  * Generate PDF surat resmi dengan QR code verifikasi.
  * Token QR aman karena di-generate di server-side.
  *
- * Env vars (via Cloudflare Secrets / wrangler):
+ * Env vars (via deployment secrets):
  *   SUPABASE_URL              — Supabase project URL
  *   SUPABASE_SERVICE_ROLE_KEY — Service role key (NEVER expose to browser)
  *
@@ -19,6 +19,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { generateSuratPdf } from "../../src/lib/pdf-generator";
 import { getSettings } from "../../src/lib/settings-store";
+import { createRateLimiter, getClientIp } from "../_lib/rate-limit";
 
 // ---- Types ----
 
@@ -71,26 +72,56 @@ function generateMockSurat(data: Record<string, unknown>) {
 }
 
 function generateMockWarga(nama: string, nik: string) {
+  // NOTE: Data ini adalah fallback last-resort untuk development mode saja.
+  // Production flow gunakan mapDbWargaToPenduduk() yang baca dari Supabase.
+  // Wilayah data (provinsi/kabupaten/kecamatan/desa) diambil dari settings-store,
+  // tapi jika tidak tersedia (edge runtime), gunakan konstanta berikut:
   return {
     nik,
     nama,
     tempat_lahir: "Lombok Timur",
     tanggal_lahir: "1990-01-15",
-    jenis_kelamin: "Laki-laki" as const,
+    jenis_kelamin: "Laki-Laki",
     agama: "Islam",
-    status_perkawinan: "Kawin" as const,
+    status_perkawinan: "Kawin",
     pekerjaan: "Petani",
     kewarganegaraan: "WNI",
     alamat: "Jl. Raya Seruni Mumbul No. 12",
     rt: "002",
     rw: "001",
-    dusun: "Mumbul Timur",
-    desa: "Seruni Mumbul",
-    kecamatan: "Pringgabaya",
-    kabupaten: "Lombok Timur",
-    provinsi: "Nusa Tenggara Barat",
+    dusun: "Mandar",
+    desa: "Seruni Mumbul", // dari wilayah-store (fallback)
+    kecamatan: "Pringgabaya", // dari wilayah-store (fallback)
+    kabupaten: "Lombok Timur", // dari wilayah-store (fallback)
+    provinsi: "Nusa Tenggara Barat", // dari wilayah-store (fallback)
     no_kk: "5203011501900003",
     no_hp: "081234567890",
+    // ── kolom baru dari migration 006 ──
+    status_dalam_kk: "Kepala Keluarga",
+    pendidikan: "SMA/Sederajat",
+    pendapatan_bulan: "2500000",
+    suku: "Sasak",
+    kepemilikan_rumah: "Milik Sendiri",
+    luas_rumah: "80 m2",
+    jumlah_lantai: "1",
+    jenis_lantai: "Keramik",
+    jenis_dinding: "Tembok",
+    jenis_atap: "Genteng",
+    kepemilikan_tanah: "Milik",
+    luas_tanah: "1200 m2",
+    penerangan: "Listrik PLN",
+    sumber_energi_masak: "LPG",
+    mck: "Milik Sendiri",
+    sumber_air: "Sumur",
+    bantuan_sosial: "Tidak",
+    bantuan_extra: "Tidak",
+    bpjs_kesehatan: "Ya",
+    bpjs_ketenagakerjaan: "Tidak",
+    kepemilikan_aset: "Televisi, Kulkas, Motor",
+    kondisi_fisik: "Normal",
+    nama_ibu: "Siti Aminah",
+    nama_bapak: "H. Mahmud",
+    golongan_darah: "O",
   };
 }
 
@@ -123,15 +154,22 @@ function mapDbSuratToRecord(row: Record<string, unknown>): Record<string, unknow
 
 function mapDbWargaToPenduduk(row: Record<string, unknown>): Record<string, unknown> {
   return {
+    // ── identitas ──
     nik: row.nik,
     nama: row.nama,
     tempat_lahir: row.tempat_lahir ?? "",
-    tanggal_lahir: row.tanggal_lahir ?? "",
-    jenis_kelamin: row.jenis_kelamin ?? "Laki-laki",
-    agama: row.agama ?? "Islam",
-    status_perkawinan: row.status_kawin ?? "Belum Kawin",
+    tanggal_lahir: row.tanggal_lahir ? String(row.tanggal_lahir) : "",
+    jenis_kelamin: row.jenis_kelamin === "Perempuan" ? "Perempuan" : "Laki-Laki",
+    status_dalam_kk: row.status_dalam_kk ?? "Anggota",
+    no_kk: row.no_kk ?? "",
+    status_perkawinan: (row.status_perkawinan ?? row.status_kawin ?? "Belum Kawin") as string,
+    pendidikan: row.pendidikan ?? "",
     pekerjaan: row.pekerjaan ?? "-",
-    kewarganegaraan: row.kewarganegaraan ?? "WNI",
+    pendapatan_bulan: row.pendapatan_bulan ?? "0",
+    kewarganegaraan: row.kewarganegaraan ?? "Indonesia",
+    agama: row.agama ?? "Islam",
+    suku: row.suku ?? "",
+    // ── lokasi ──
     alamat: row.alamat ?? "",
     rt: row.rt ?? "",
     rw: row.rw ?? "",
@@ -140,14 +178,44 @@ function mapDbWargaToPenduduk(row: Record<string, unknown>): Record<string, unkn
     kecamatan: row.kecamatan ?? "Pringgabaya",
     kabupaten: row.kabupaten ?? "Lombok Timur",
     provinsi: row.provinsi ?? "Nusa Tenggara Barat",
-    no_kk: row.no_kk ?? "",
+    // ── kontak ──
     no_hp: row.no_hp ?? "",
+    // ── perumahan ──
+    kepemilikan_rumah: row.kepemilikan_rumah ?? "-",
+    luas_rumah: row.luas_rumah ?? "-",
+    jumlah_lantai: row.jumlah_lantai ?? "-",
+    jenis_lantai: row.jenis_lantai ?? "-",
+    jenis_dinding: row.jenis_dinding ?? "-",
+    jenis_atap: row.jenis_atap ?? "-",
+    kepemilikan_tanah: row.kepemilikan_tanah ?? "-",
+    luas_tanah: row.luas_tanah ?? "-",
+    // ── fasilitas ──
+    penerangan: row.penerangan ?? "-",
+    sumber_energi_masak: row.sumber_energi_masak ?? "-",
+    mck: row.mck ?? "-",
+    sumber_air: row.sumber_air ?? "-",
+    // ── sosial & kesehatan ──
+    bantuan_sosial: row.bantuan_sosial ?? "Tidak",
+    bantuan_extra: row.bantuan_extra ?? "Tidak",
+    bpjs_kesehatan: row.bpjs_kesehatan ?? "Tidak",
+    bpjs_ketenagakerjaan: row.bpjs_ketenagakerjaan ?? "Tidak",
+    kepemilikan_aset: row.kepemilikan_aset ?? "Tidak",
+    kondisi_fisik: row.kondisi_fisik ?? "Normal",
+    // ── keluarga ──
+    nama_ibu: row.nama_ibu ?? "",
+    nama_bapak: row.nama_bapak ?? "",
+    golongan_darah: row.golongan_darah ?? "-",
   };
 }
 
 // ---- Main Handler ----
 
 export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
+  const rl = createRateLimiter("public");
+  const ip = getClientIp(context.request);
+  const rlCheck = rl.check(ip);
+  if (!rlCheck.ok && rlCheck.response) return rlCheck.response;
+
   const { request, env } = context;
 
   let body: PdfRequest;
@@ -168,12 +236,10 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     let warga: Record<string, unknown>;
 
     if (body.mock === true) {
-      // Development mock mode — tidak perlu Supabase
-      surat = generateMockSurat(body);
-      warga = generateMockWarga(
-        String(body.pemohon ?? "Ahmad Saifullah"),
-        String(body.nik ?? "5203011501900001"),
-      );
+      return new Response(JSON.stringify({ error: "Mock mode disabled in production" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
     } else {
       // Production: fetch dari Supabase via admin client
       const sb = createAdminClient(env);
@@ -199,7 +265,19 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
           { status: 404, headers: { "Content-Type": "application/json" } },
         );
       }
-      surat = mapDbSuratToRecord(suratRow as Record<string, unknown>);
+
+      // Access control: only Disetujui records can be downloaded as PDF
+      const record = suratRow as Record<string, unknown>;
+      if (record.status !== "Disetujui") {
+        return new Response(
+          JSON.stringify({
+            error: `PDF tidak tersedia — surat berstatus '${record.status}'. Hanya surat yang Disetujui yang dapat diunduh.`,
+          }),
+          { status: 403, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      surat = mapDbSuratToRecord(record);
 
       // Fetch warga data
       const nik = String(surat.nik ?? "");

@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import Papa from "papaparse";
 import { FileText, Plus, Pencil, Trash2, Eye, Download, Upload, Search, Copy } from "lucide-react";
+import { generateId } from "@/lib/utils";
 import {
   listTemplates,
   saveTemplate,
@@ -24,12 +25,19 @@ import {
 } from "@/lib/template-store";
 import { can } from "@/lib/roles";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { SURAT_MASTER } from "@/data/surat-master";
+import { AlertCircle, Lock } from "lucide-react";
 
-export function TemplateSuratManager() {
+export function TemplateSuratManager({ username = "Admin" }: { username?: string }) {
   const [items, setItems] = useState<SuratTemplate[]>(() => listTemplates());
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<SuratTemplate | null>(null);
   const [previewing, setPreviewing] = useState<SuratTemplate | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<{
+    message: string;
+    action: () => void;
+  } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = () => setItems(listTemplates());
@@ -47,7 +55,7 @@ export function TemplateSuratManager() {
   const handleDuplicate = (t: SuratTemplate) => {
     const copy: SuratTemplate = {
       ...t,
-      id: crypto.randomUUID(),
+      id: generateId(),
       code: `${t.code}-CPY`,
       name: `${t.name} (Salinan)`,
       status: "Draft",
@@ -58,10 +66,18 @@ export function TemplateSuratManager() {
     toast.success("Template diduplikasi");
   };
   const handleDelete = (t: SuratTemplate) => {
-    if (!confirm(`Hapus template "${t.name}"?`)) return;
-    deleteTemplate(t.id);
-    refresh();
-    toast.success("Template dihapus");
+    if (SURAT_MASTER[t.code]) {
+      toast.error("Template Master Sistem tidak dapat dihapus");
+      return;
+    }
+    setConfirmTarget({
+      message: `Hapus template "${t.name}"? Tindakan ini tidak dapat dibatalkan.`,
+      action: () => {
+        deleteTemplate(t.id);
+        refresh();
+        toast.success("Template dihapus");
+      },
+    });
   };
 
   const onSave = () => {
@@ -107,7 +123,7 @@ export function TemplateSuratManager() {
         res.data.forEach((r) => {
           if (!r.code || !r.name) return;
           const tpl: SuratTemplate = {
-            id: r.id || crypto.randomUUID(),
+            id: r.id || generateId(),
             code: r.code,
             name: r.name,
             category: r.category || "Surat Keterangan",
@@ -209,7 +225,17 @@ export function TemplateSuratManager() {
                       {t.code}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-ui font-semibold">{t.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-ui font-semibold">{t.name}</span>
+                        {SURAT_MASTER[t.code] && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] h-4 px-1.5 font-normal bg-primary/10 text-primary border-primary/20"
+                          >
+                            System
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground line-clamp-1 max-w-md">
                         {t.description}
                       </div>
@@ -234,8 +260,17 @@ export function TemplateSuratManager() {
                           </IconBtn>
                         )}
                         {can("template.delete") && (
-                          <IconBtn title="Hapus" tone="destructive" onClick={() => handleDelete(t)}>
-                            <Trash2 className="h-4 w-4" />
+                          <IconBtn
+                            title={SURAT_MASTER[t.code] ? "System Locked" : "Hapus"}
+                            tone="destructive"
+                            disabled={!!SURAT_MASTER[t.code]}
+                            onClick={() => handleDelete(t)}
+                          >
+                            {SURAT_MASTER[t.code] ? (
+                              <Lock className="h-4 w-4 opacity-50" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
                           </IconBtn>
                         )}
                       </div>
@@ -252,10 +287,29 @@ export function TemplateSuratManager() {
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
               {editing?.code ? `Edit Template — ${editing.name}` : "Template Baru"}
+              {editing?.code && SURAT_MASTER[editing.code] && (
+                <Badge variant="outline" className="text-xs font-normal">
+                  System Master
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
+
+          {editing?.code && SURAT_MASTER[editing.code] && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-amber-800">
+              <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <p className="font-bold">Peringatan: Template Sistem</p>
+                <p>
+                  Anda mengedit template master bawaan sistem. Perubahan pada struktur field atau
+                  DNA clauses mungkin memerlukan pembaruan logika pada letter-engine atau
+                  smart-form.
+                </p>
+              </div>
+            </div>
+          )}
           {editing && (
             <div className="grid sm:grid-cols-2 gap-4 py-2">
               <Field label="Kode Surat *">
@@ -320,7 +374,177 @@ export function TemplateSuratManager() {
               </Field>
               <div className="sm:col-span-2 space-y-2 border-t border-border pt-4">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-ui font-semibold">Field Form Pengajuan</Label>
+                  <Label className="text-xs font-ui font-semibold">DNA Clauses (Isi Surat)</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setEditing({
+                        ...editing,
+                        dna_clauses: [...(editing.dna_clauses || []), "Klausa baru..."],
+                      })
+                    }
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Tambah Klausa
+                  </Button>
+                </div>
+                {(editing.dna_clauses || []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    Belum ada klausa DNA. Surat akan menggunakan fallback Body Template.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {(editing.dna_clauses || []).map((c, i) => (
+                      <div key={i} className="flex gap-2 items-start">
+                        <Textarea
+                          className="font-mono text-xs flex-1"
+                          rows={2}
+                          value={c}
+                          onChange={(e) => {
+                            const clauses = [...(editing.dna_clauses || [])];
+                            clauses[i] = e.target.value;
+                            setEditing({ ...editing, dna_clauses: clauses });
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="text-destructive hover:bg-destructive/10 h-8 w-8 rounded-md shrink-0 flex items-center justify-center"
+                          onClick={() =>
+                            setEditing({
+                              ...editing,
+                              dna_clauses: (editing.dna_clauses || []).filter((_, j) => j !== i),
+                            })
+                          }
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Field label="Kalimat Penutup (Closing)" full>
+                <Textarea
+                  rows={2}
+                  value={editing.closing || ""}
+                  onChange={(e) => setEditing({ ...editing, closing: e.target.value })}
+                  className="font-mono text-xs"
+                />
+              </Field>
+
+              <div className="sm:col-span-2 space-y-2 border-t border-border pt-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-ui font-semibold">
+                    Field Identitas (Subject Fields)
+                  </Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setEditing({
+                        ...editing,
+                        subject_fields: [
+                          ...(editing.subject_fields || []),
+                          {
+                            key: `sub_${(editing.subject_fields || []).length + 1}`,
+                            label: "Label",
+                            source: "warga",
+                            required: true,
+                            order: (editing.subject_fields || []).length,
+                          },
+                        ],
+                      })
+                    }
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Tambah Subject
+                  </Button>
+                </div>
+                {(editing.subject_fields || []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    Belum ada field khusus. Menggunakan default (Nama, NIK, TTL, dll).
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {(editing.subject_fields || []).map((f, i) => (
+                      <div
+                        key={i}
+                        className="grid grid-cols-12 gap-2 items-center rounded-md border border-border p-2 bg-muted/30"
+                      >
+                        <Input
+                          className="col-span-3 h-8 text-xs font-mono"
+                          placeholder="key"
+                          value={f.key}
+                          onChange={(e) => {
+                            const sf = [...(editing.subject_fields || [])];
+                            sf[i] = { ...f, key: e.target.value };
+                            setEditing({ ...editing, subject_fields: sf });
+                          }}
+                        />
+                        <Input
+                          className="col-span-4 h-8 text-xs"
+                          placeholder="Label"
+                          value={f.label}
+                          onChange={(e) => {
+                            const sf = [...(editing.subject_fields || [])];
+                            sf[i] = { ...f, label: e.target.value };
+                            setEditing({ ...editing, subject_fields: sf });
+                          }}
+                        />
+                        <select
+                          className="col-span-2 h-8 text-xs rounded-md border border-input bg-background px-2"
+                          value={f.source}
+                          onChange={(e) => {
+                            const sf = [...(editing.subject_fields || [])];
+                            sf[i] = {
+                              ...f,
+                              source: e.target.value as "warga" | "request" | "vars",
+                            };
+                            setEditing({ ...editing, subject_fields: sf });
+                          }}
+                        >
+                          <option value="warga">warga</option>
+                          <option value="request">request</option>
+                          <option value="vars">vars</option>
+                        </select>
+                        <label className="col-span-2 flex items-center gap-1.5 text-xs">
+                          <Switch
+                            checked={f.hidden !== true}
+                            onCheckedChange={(v) => {
+                              const sf = [...(editing.subject_fields || [])];
+                              sf[i] = { ...f, hidden: !v };
+                              setEditing({ ...editing, subject_fields: sf });
+                            }}
+                          />
+                          {f.hidden !== true ? "Tampil" : "Sembunyi"}
+                        </label>
+                        <button
+                          type="button"
+                          className="col-span-1 text-destructive hover:bg-destructive/10 h-8 rounded-md inline-flex items-center justify-center"
+                          onClick={() =>
+                            setEditing({
+                              ...editing,
+                              subject_fields: (editing.subject_fields || []).filter(
+                                (_, j) => j !== i,
+                              ),
+                            })
+                          }
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="sm:col-span-2 space-y-2 border-t border-border pt-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-ui font-semibold">
+                    Field Form Pengajuan (Request Fields)
+                  </Label>
                   <Button
                     type="button"
                     size="sm"
@@ -355,7 +579,7 @@ export function TemplateSuratManager() {
                         className="grid grid-cols-12 gap-2 items-center rounded-md border border-border p-2 bg-muted/30"
                       >
                         <Input
-                          className="col-span-3 h-8 text-xs"
+                          className="col-span-3 h-8 text-xs font-mono"
                           placeholder="key"
                           value={f.key}
                           onChange={(e) => {
@@ -466,6 +690,40 @@ export function TemplateSuratManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Confirm Delete Template ── */}
+      {confirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setConfirmTarget(null)}
+          />
+          <div className="relative bg-card rounded-3xl shadow-elev border border-border p-6 w-full max-w-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-destructive" />
+              </div>
+              <h3 className="font-display text-lg font-bold">Konfirmasi Hapus</h3>
+            </div>
+            <p className="font-body text-sm text-muted-foreground mb-5">{confirmTarget.message}</p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setConfirmTarget(null)}>
+                Batal
+              </Button>
+              <Button
+                className="bg-destructive hover:bg-destructive/90 text-white"
+                onClick={() => {
+                  const action = confirmTarget.action;
+                  setConfirmTarget(null);
+                  action();
+                }}
+              >
+                Ya, Hapus
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -492,21 +750,24 @@ function IconBtn({
   title,
   onClick,
   tone,
+  disabled,
 }: {
   children: React.ReactNode;
   title: string;
   onClick: () => void;
   tone?: "destructive";
+  disabled?: boolean;
 }) {
   return (
     <button
       title={title}
       onClick={onClick}
+      disabled={disabled}
       className={`h-8 w-8 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground transition ${
         tone === "destructive"
           ? "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40"
           : "hover:bg-muted"
-      }`}
+      } ${disabled ? "opacity-50 cursor-not-allowed pointer-events-none" : ""}`}
     >
       {children}
     </button>

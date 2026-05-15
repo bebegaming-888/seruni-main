@@ -10,6 +10,8 @@
  * @param params.includeQr — apakah QR ditampilkan (default true)
  */
 import { PDFDocument, rgb, StandardFonts, type RGB } from "pdf-lib";
+import { DNA_CLAUSES_PRESETS } from "@/lib/letter-engine";
+import type { LetterVars } from "@/lib/letter-engine";
 
 export type PdfGenParams = {
   /** Record surat (sama format dari esurat-store) */
@@ -61,6 +63,7 @@ export type PdfGenParams = {
       address: string;
       phone: string;
       email?: string;
+      province?: string;
     };
     branding: { primary_color: string };
     signature: {
@@ -88,12 +91,27 @@ function hexToRgb(hex: string): RGB {
 
 function fmtDate(iso: string): string {
   if (!iso) return "-";
-  return new Date(iso).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = BULAN_ID[d.getMonth() + 1];
+  const yyyy = d.getFullYear();
+  return `${dd} ${mm} ${yyyy}`;
 }
+
+const BULAN_ID: Record<number, string> = {
+  1: "Januari",
+  2: "Februari",
+  3: "Maret",
+  4: "April",
+  5: "Mei",
+  6: "Juni",
+  7: "Juli",
+  8: "Agustus",
+  9: "September",
+  10: "Oktober",
+  11: "November",
+  12: "Desember",
+};
 
 function wrapText(text: string, maxChars: number): string[] {
   const words = text.split(" ");
@@ -113,6 +131,107 @@ function wrapText(text: string, maxChars: number): string[] {
 
 function label(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// ── Letter Vars Builder (standalone — no getSettings() dependency) ─────────────
+
+const BULAN_ID_LV: Record<number, string> = {
+  1: "Januari",
+  2: "Februari",
+  3: "Maret",
+  4: "April",
+  5: "Mei",
+  6: "Juni",
+  7: "Juli",
+  8: "Agustus",
+  9: "September",
+  10: "Oktober",
+  11: "November",
+  12: "Desember",
+};
+
+function fmtTglLahirLv(iso?: string): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  return `${d.getDate()} ${BULAN_ID_LV[d.getMonth() + 1]} ${d.getFullYear()}`;
+}
+
+function fmtAlamatLv(p: PdfGenParams["warga"]): string {
+  const parts: string[] = [];
+  if (p.alamat) parts.push(p.alamat);
+  if (p.rt && p.rw)
+    parts.push(`RT ${String(p.rt).padStart(3, "0")}/RW ${String(p.rw).padStart(3, "0")}`);
+  if (p.dusun) parts.push(`Dusun ${p.dusun}`);
+  if (p.desa) parts.push(`Desa ${p.desa}`);
+  if (p.kecamatan) parts.push(`Kecamatan ${p.kecamatan}`);
+  if (p.kabupaten) parts.push(`Kabupaten ${p.kabupaten}`);
+  if (p.provinsi) parts.push(`Provinsi ${p.provinsi}`);
+  return parts.join(", ");
+}
+
+function fmtRupiahLv(val?: string | number): string {
+  const n = Number(val ?? 0);
+  return `Rp ${n.toLocaleString("id-ID")}`;
+}
+
+/**
+ * Build LetterVars from raw warga + surat data (no external state).
+ * Mirrors buildLetterVars() from letter-engine.ts but standalone.
+ */
+function buildLetterVarsFromData(
+  warga: PdfGenParams["warga"],
+  surat: PdfGenParams["surat"],
+  settings: PdfGenParams["settings"],
+): LetterVars {
+  const tgl = surat.signed_at ?? new Date().toISOString();
+  const d = new Date(tgl);
+  const vars: LetterVars = {
+    nama: warga.nama || "-",
+    nik: warga.nik || "-",
+    tempat_lahir: warga.tempat_lahir || "-",
+    tanggal_lahir: fmtTglLahirLv(warga.tanggal_lahir),
+    tempat_tanggal_lahir: `${warga.tempat_lahir || "-"}, ${fmtTglLahirLv(warga.tanggal_lahir)}`,
+    jenis_kelamin: warga.jenis_kelamin || "-",
+    agama: warga.agama || "-",
+    status_kawin: warga.status_perkawinan || "-",
+    pekerjaan: warga.pekerjaan || "-",
+    kewarganegaraan: warga.kewarganegaraan || "WNI",
+    no_kk: warga.no_kk || "-",
+    no_hp: warga.no_hp || "-",
+    alamat: fmtAlamatLv(warga),
+    alamat_singkat: warga.alamat || "-",
+    rt: warga.rt || "-",
+    rw: warga.rw || "-",
+    dusun: warga.dusun || "-",
+    desa: warga.desa || settings.village.name,
+    kecamatan: warga.kecamatan || settings.village.district,
+    kabupaten: warga.kabupaten || settings.village.regency,
+    provinsi: warga.provinsi || settings.village.province || "Nusa Tenggara Barat",
+    nomor_surat: surat.no,
+    tanggal: `${d.getDate()} ${BULAN_ID_LV[d.getMonth() + 1]} ${d.getFullYear()}`,
+    bulan: BULAN_ID_LV[d.getMonth() + 1],
+    tahun: String(d.getFullYear()),
+    nama_desa: settings.village.name,
+    nama_kecamatan: settings.village.district,
+    nama_kabupaten: settings.village.regency,
+    nama_provinsi: settings.village.province || "Nusa Tenggara Barat",
+    nama_pejabat: settings.signature.signer_name,
+    jabatan_pejabat: settings.signature.signer_title,
+    alamat_desa: settings.village.address,
+    ...surat.data,
+    penghasilan: surat.data.penghasilan ? fmtRupiahLv(surat.data.penghasilan) : "-",
+  };
+  return vars;
+}
+
+/** Render {{placeholder}} in text with vars values. Unresolved → "-". */
+function renderVarsLv(text: string, vars: LetterVars): string {
+  return text.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, k) => vars[k] ?? "-");
+}
+
+/** Render all DNA clauses with vars substitution. */
+function renderDnaClausesLv(clauses: string[], vars: LetterVars): string[] {
+  return clauses.map((c) => renderVarsLv(c, vars));
 }
 
 // ==================== TEMPLATE BUILDERS ====================
@@ -494,6 +613,14 @@ function buildSuratBody(
     data,
   };
 
+  // ── Prioritas 1: DNA clauses dari letter-engine (73+ surat types) ──────────
+  const dnaClauses = DNA_CLAUSES_PRESETS[kode];
+  if (dnaClauses) {
+    const vars = buildLetterVarsFromData(warga, surat, settings);
+    return renderDnaClausesLv(dnaClauses, vars);
+  }
+
+  // ── Prioritas 2: fallback ke hardcoded template builder ─────────────────────
   // Pernikahan
   if (kode === "SK-NIKAH" || kode === "SK_NIKAH") return buildBodyNikah(ctx);
   if (kode === "SK_NIKAH_NONMUSLIM") return buildBodyNikah(ctx);
@@ -548,9 +675,11 @@ export async function generateSuratPdf({
   const page = doc.addPage([595.28, 841.89]); // A4 portrait (1/72 inch)
   const { width, height } = page.getSize();
 
+  // Body font: locked to Arial 11pt per blanko requirements
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
   const fontRegular = await doc.embedFont(StandardFonts.Helvetica);
   const fontCourier = await doc.embedFont(StandardFonts.Courier);
+  const bodyFontSize = 11;
 
   const primaryRgb = hexToRgb(settings.branding.primary_color);
   const greyRgb = rgb(0.4, 0.4, 0.4);
@@ -643,7 +772,7 @@ export async function generateSuratPdf({
   // ============ BODY SURAT ============
   const bodyLines = buildSuratBody(surat, warga, settings);
   for (const line of bodyLines) {
-    drawLater(line, { size: 10 });
+    drawLater(line, { size: bodyFontSize });
     flush();
   }
 

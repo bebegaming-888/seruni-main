@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { getSettings, useSettings } from "@/lib/settings-store";
 import {
   Sprout,
   TrendingUp,
@@ -12,61 +12,39 @@ import {
   Wind,
   ChevronRight,
 } from "lucide-react";
+import { useKomoditasStore, type KomoditasItem } from "@/lib/content-store";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/lainnya/komoditas")({
-  head: () => ({
-    meta: [
-      { title: `Potensi Komoditas — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Informasi mengenai potensi hasil bumi, perikanan, dan komoditas unggulan di ${VILLAGE.name}.`,
-      },
-    ],
-  }),
+  head: () => {
+    const { village } = getSettings();
+    return {
+      meta: [
+        { title: `Potensi Komoditas — ${village.name}` },
+        {
+          name: "description",
+          content: `Informasi mengenai potensi hasil bumi, perikanan, dan komoditas unggulan di ${village.name}.`,
+        },
+      ],
+    };
+  },
   component: () => <KomoditasPage />,
 });
 
-const COMMODITIES = [
-  {
-    id: "1",
-    name: "Padi Gogo",
-    area: "420 Ha",
-    production: "2.100 Ton/Thn",
-    status: "Unggulan",
-    icon: Sprout,
-    color: "text-success",
-  },
-  {
-    id: "2",
-    name: "Jagung Hibrida",
-    area: "310 Ha",
-    production: "1.850 Ton/Thn",
-    status: "Ekspor",
-    icon: Sun,
-    color: "text-warning",
-  },
-  {
-    id: "3",
-    name: "Ikan Kerapu",
-    area: "15 Ha Keramba",
-    production: "45 Ton/Thn",
-    status: "Premium",
-    icon: Droplets,
-    color: "text-info",
-  },
-  {
-    id: "4",
-    name: "Rumput Laut",
-    area: "120 Ha Pesisir",
-    production: "800 Ton/Thn",
-    status: "Industri",
-    icon: Wind,
-    color: "text-primary",
-  },
-];
+// COMMODITIES are now dynamic from store
 
-function CommodityCard({ item }: { item: (typeof COMMODITIES)[number] }) {
-  const Icon = item.icon;
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Sprout,
+  TrendingUp,
+  BarChart3,
+  Map,
+  Droplets,
+  Sun,
+  Wind,
+};
+
+function CommodityCard({ item }: { item: KomoditasItem }) {
+  const Icon = ICON_MAP[item.icon ?? ""] || Sprout;
   return (
     <div className="p-8 rounded-[2.5rem] bg-card border border-border shadow-sm hover:shadow-md transition-all group">
       <div className="flex items-start justify-between mb-8">
@@ -86,8 +64,10 @@ function CommodityCard({ item }: { item: (typeof COMMODITIES)[number] }) {
           <span className="font-ui text-sm font-bold text-ink">{item.area}</span>
         </div>
         <div className="flex justify-between items-center py-2">
-          <span className="font-body text-sm text-muted-foreground">Hasil Produksi</span>
-          <span className="font-ui text-sm font-bold text-ink">{item.production}</span>
+          <span className="font-body text-sm text-muted-foreground">Harga Saat Ini</span>
+          <span className="font-ui text-sm font-bold text-ink">
+            Rp {item.price.toLocaleString()}/{item.unit}
+          </span>
         </div>
       </div>
       <button className="w-full mt-8 py-3 rounded-2xl bg-muted group-hover:bg-primary group-hover:text-primary-foreground transition-all flex items-center justify-center gap-2 font-ui text-sm font-bold text-ink">
@@ -99,6 +79,14 @@ function CommodityCard({ item }: { item: (typeof COMMODITIES)[number] }) {
 }
 
 export function KomoditasPage() {
+  const { village } = useSettings();
+  const store = useKomoditasStore();
+  const items = store.items;
+
+  useEffect(() => {
+    store.load();
+  }, [store]);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -114,7 +102,7 @@ export function KomoditasPage() {
               Potensi Hasil Bumi <span className="text-success">& Laut</span>
             </h1>
             <p className="font-body text-muted-foreground text-lg max-w-2xl mx-auto">
-              Memetakan kekayaan sumber daya alam {VILLAGE.name} sebagai modal utama pembangunan
+              Memetakan kekayaan sumber daya alam {village.name} sebagai modal utama pembangunan
               ekonomi berkelanjutan.
             </p>
           </div>
@@ -159,7 +147,7 @@ export function KomoditasPage() {
               </button>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {COMMODITIES.map((item) => (
+              {items.map((item) => (
                 <CommodityCard key={item.id} item={item} />
               ))}
             </div>
@@ -178,7 +166,7 @@ export function KomoditasPage() {
               </h2>
               <p className="font-body text-lg text-background/70 mb-10 leading-relaxed">
                 Kami membuka peluang kerja sama bagi investor dan mitra bisnis untuk mengembangkan
-                hilirisasi produk pertanian dan perikanan di {VILLAGE.name}.
+                hilirisasi produk pertanian dan perikanan di {village.name}.
               </p>
               <div className="flex flex-wrap gap-4">
                 <button className="btn-pill bg-primary text-primary-foreground font-ui font-bold hover:bg-primary-hover px-8">

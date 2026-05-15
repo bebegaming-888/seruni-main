@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { useSettings, getSettings } from "@/lib/settings-store";
 import {
   BarChart,
   Bar,
@@ -39,12 +39,15 @@ import {
 import { DUSUN_LIST, PEKERJAAN_LIST, PENDIDIKAN_LIST } from "@/data/penduduk";
 
 export const Route = createFileRoute("/pelayanan/penduduk")({
-  head: () => ({
-    meta: [
-      { title: `Statistik Penduduk — ${VILLAGE.name}` },
-      { name: "description", content: `Data kependudukan ${VILLAGE.name}` },
-    ],
-  }),
+  head: () => {
+    const { village } = getSettings();
+    return {
+      meta: [
+        { title: `Statistik Penduduk — ${village.name}` },
+        { name: "description", content: `Data kependudukan ${village.name}` },
+      ],
+    };
+  },
   component: () => <PendudukPage />,
 });
 
@@ -85,6 +88,7 @@ function StatCard({
 }
 
 export function PendudukPage() {
+  const { village } = useSettings();
   const allData = useMemo(() => listPenduduk(), []);
   const stat = useMemo(() => getStatistik(), []);
 
@@ -205,7 +209,7 @@ export function PendudukPage() {
               Statistik Demografi
             </h1>
             <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              Data kependudukan {VILLAGE.name}. Informasi bersumber dari database desa yang dikelola
+              Data kependudukan {village.name}. Informasi bersumber dari database desa yang dikelola
               pemerintah desa.
             </p>
             <span

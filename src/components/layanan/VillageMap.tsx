@@ -1,5 +1,6 @@
 // Client-only Leaflet map — rendered only after mount to avoid SSR window errors
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { useVillage } from "@/hooks/use-village";
 
 export type MapFacility = {
   id: string;
@@ -22,10 +23,10 @@ export type MapFacility = {
 const FACILITIES: MapFacility[] = [
   {
     id: "kantor-desa",
-    name: "Kantor Desa Seruni Mumbul",
+    name: "Kantor Desa",
     type: "kantor-desa",
     coords: [-8.5732, 116.6214],
-    description: "Pusat pemerintahan Desa Seruni Mumbul",
+    description: "Pusat pemerintahan Desa",
   },
   {
     id: "posyandu-mawar",
@@ -45,17 +46,17 @@ const FACILITIES: MapFacility[] = [
   },
   {
     id: "sekolah-dasar",
-    name: "SDN 1 Seruni Mumbul",
+    name: "Sekolah Dasar Negeri",
     type: "sekolah",
     coords: [-8.5735, 116.622],
-    description: "Sekolah Dasar Negeri di Desa Seruni Mumbul",
+    description: "Sekolah Dasar Negeri di wilayah Desa",
   },
   {
     id: "masjid-jami",
     name: "Masjid Jami Al-Muttaqin",
     type: "masjid",
     coords: [-8.573, 116.6205],
-    description: "Masjid utama di Desa Seruni Mumbul",
+    description: "Masjid utama di wilayah Desa",
   },
   {
     id: "lapangan-olahraga",
@@ -66,21 +67,21 @@ const FACILITIES: MapFacility[] = [
   },
   {
     id: "pasar-desa",
-    name: "Pasar Desa Seruni Mumbul",
+    name: "Pasar Desa",
     type: "pasar",
     coords: [-8.5728, 116.6235],
     description: "Pasar mingguan，每hari Sabtu",
   },
   {
     id: "bumdes",
-    name: "Kantor BUMDes Mumbul Sejahtera",
+    name: "Kantor BUMDes",
     type: "bumdes",
     coords: [-8.5738, 116.6218],
     description: "Pusat usaha BUMDes dan penjualan produk lokal",
   },
   {
     id: "objek-wisata-embung",
-    name: "Embung Seruni Mumbul",
+    name: "Objek Wisata Desa",
     type: "objek-wisata",
     coords: [-8.576, 116.625],
     description: "Embung wisata dengan pemandangan sawah terasering",
@@ -122,13 +123,24 @@ interface VillageMapProps {
 }
 
 export function VillageMap({ height = "500px", showSidebar = true }: VillageMapProps) {
+  const { village: villageName } = useVillage();
+  const villageNameRef = useRef(villageName);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<unknown>(null);
   const [activeType, setActiveType] = useState<MapFacility["type"] | "all">("all");
   const [selectedFacility, setSelectedFacility] = useState<MapFacility | null>(null);
 
-  const filtered =
-    activeType === "all" ? FACILITIES : FACILITIES.filter((f) => f.type === activeType);
+  const filtered = (
+    activeType === "all" ? FACILITIES : FACILITIES.filter((f) => f.type === activeType)
+  ).map((f) => {
+    return {
+      ...f,
+      name: f.name.includes("Desa") ? f.name.replace("Desa", villageName) : f.name,
+      description: f.description?.includes("Desa")
+        ? f.description.replace("Desa", villageName)
+        : f.description,
+    };
+  });
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -170,7 +182,7 @@ export function VillageMap({ height = "500px", showSidebar = true }: VillageMapP
         dashArray: "6 6",
       })
         .addTo(map)
-        .bindPopup("Desa Seruni Mumbul");
+        .bindPopup(`Desa ${villageNameRef.current}`);
 
       FACILITIES.forEach((facility) => {
         const config = TYPE_CONFIG[facility.type];
@@ -206,7 +218,7 @@ export function VillageMap({ height = "500px", showSidebar = true }: VillageMapP
         mapInstanceRef.current = null;
       }
     };
-  }, []);
+  }, [villageName]);
 
   const facilityTypes = Object.keys(TYPE_CONFIG) as Array<MapFacility["type"]>;
 

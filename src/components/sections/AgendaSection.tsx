@@ -40,7 +40,7 @@ export function AgendaSection() {
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-cream text-ink group-hover:bg-background/10 group-hover:text-background text-[11px] font-ui font-semibold">
+                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground group-hover:bg-background/10 group-hover:text-foreground text-[11px] font-ui font-semibold">
                     {a.category}
                   </span>
                   <h3 className="font-display text-xl font-bold mt-2 leading-tight">{a.title}</h3>

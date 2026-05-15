@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VerifikasiRouteImport } from './routes/verifikasi'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as SplatRouteImport } from './routes/$'
@@ -29,10 +30,12 @@ import { Route as PelayananMonitoringRouteImport } from './routes/pelayanan.moni
 import { Route as PelayananKonsultasiRouteImport } from './routes/pelayanan.konsultasi'
 import { Route as PelayananESuratRouteImport } from './routes/pelayanan.e-surat'
 import { Route as MasukWargaRouteImport } from './routes/masuk.warga'
+import { Route as MasukPengajuanSayaRouteImport } from './routes/masuk.pengajuan-saya'
 import { Route as LaporanRealisasiRouteImport } from './routes/laporan.realisasi'
 import { Route as LaporanApbdesRouteImport } from './routes/laporan.apbdes'
 import { Route as LainnyaProdukHukumRouteImport } from './routes/lainnya.produk-hukum'
 import { Route as LainnyaPetaRouteImport } from './routes/lainnya.peta'
+import { Route as LainnyaMonografiRouteImport } from './routes/lainnya.monografi'
 import { Route as LainnyaKomoditasRouteImport } from './routes/lainnya.komoditas'
 import { Route as InformasiPengumumanRouteImport } from './routes/informasi.pengumuman'
 import { Route as InformasiIdmRouteImport } from './routes/informasi.idm'
@@ -42,6 +45,11 @@ import { Route as InformasiAgendaRouteImport } from './routes/informasi.agenda'
 import { Route as EkonomiBumdesRouteImport } from './routes/ekonomi.bumdes'
 import { Route as InformasiBeritaSlugRouteImport } from './routes/informasi.berita.$slug'
 
+const VerifikasiRoute = VerifikasiRouteImport.update({
+  id: '/verifikasi',
+  path: '/verifikasi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -73,9 +81,9 @@ const WisataDestinasiRoute = WisataDestinasiRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const VerifikasiNoRoute = VerifikasiNoRouteImport.update({
-  id: '/verifikasi/$no',
-  path: '/verifikasi/$no',
-  getParentRoute: () => rootRouteImport,
+  id: '/$no',
+  path: '/$no',
+  getParentRoute: () => VerifikasiRoute,
 } as any)
 const ProfilPkkrwRoute = ProfilPkkrwRouteImport.update({
   id: '/profil/pkkrw',
@@ -142,6 +150,11 @@ const MasukWargaRoute = MasukWargaRouteImport.update({
   path: '/masuk/warga',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MasukPengajuanSayaRoute = MasukPengajuanSayaRouteImport.update({
+  id: '/masuk/pengajuan-saya',
+  path: '/masuk/pengajuan-saya',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LaporanRealisasiRoute = LaporanRealisasiRouteImport.update({
   id: '/laporan/realisasi',
   path: '/laporan/realisasi',
@@ -160,6 +173,11 @@ const LainnyaProdukHukumRoute = LainnyaProdukHukumRouteImport.update({
 const LainnyaPetaRoute = LainnyaPetaRouteImport.update({
   id: '/lainnya/peta',
   path: '/lainnya/peta',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LainnyaMonografiRoute = LainnyaMonografiRouteImport.update({
+  id: '/lainnya/monografi',
+  path: '/lainnya/monografi',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LainnyaKomoditasRoute = LainnyaKomoditasRouteImport.update({
@@ -208,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
   '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
+  '/verifikasi': typeof VerifikasiRouteWithChildren
   '/ekonomi/bumdes': typeof EkonomiBumdesRoute
   '/informasi/agenda': typeof InformasiAgendaRoute
   '/informasi/berita': typeof InformasiBeritaRouteWithChildren
@@ -215,10 +234,12 @@ export interface FileRoutesByFullPath {
   '/informasi/idm': typeof InformasiIdmRoute
   '/informasi/pengumuman': typeof InformasiPengumumanRoute
   '/lainnya/komoditas': typeof LainnyaKomoditasRoute
+  '/lainnya/monografi': typeof LainnyaMonografiRoute
   '/lainnya/peta': typeof LainnyaPetaRoute
   '/lainnya/produk-hukum': typeof LainnyaProdukHukumRoute
   '/laporan/apbdes': typeof LaporanApbdesRoute
   '/laporan/realisasi': typeof LaporanRealisasiRoute
+  '/masuk/pengajuan-saya': typeof MasukPengajuanSayaRoute
   '/masuk/warga': typeof MasukWargaRoute
   '/pelayanan/e-surat': typeof PelayananESuratRoute
   '/pelayanan/konsultasi': typeof PelayananKonsultasiRoute
@@ -242,6 +263,7 @@ export interface FileRoutesByTo {
   '/$': typeof SplatRoute
   '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
+  '/verifikasi': typeof VerifikasiRouteWithChildren
   '/ekonomi/bumdes': typeof EkonomiBumdesRoute
   '/informasi/agenda': typeof InformasiAgendaRoute
   '/informasi/berita': typeof InformasiBeritaRouteWithChildren
@@ -249,10 +271,12 @@ export interface FileRoutesByTo {
   '/informasi/idm': typeof InformasiIdmRoute
   '/informasi/pengumuman': typeof InformasiPengumumanRoute
   '/lainnya/komoditas': typeof LainnyaKomoditasRoute
+  '/lainnya/monografi': typeof LainnyaMonografiRoute
   '/lainnya/peta': typeof LainnyaPetaRoute
   '/lainnya/produk-hukum': typeof LainnyaProdukHukumRoute
   '/laporan/apbdes': typeof LaporanApbdesRoute
   '/laporan/realisasi': typeof LaporanRealisasiRoute
+  '/masuk/pengajuan-saya': typeof MasukPengajuanSayaRoute
   '/masuk/warga': typeof MasukWargaRoute
   '/pelayanan/e-surat': typeof PelayananESuratRoute
   '/pelayanan/konsultasi': typeof PelayananKonsultasiRoute
@@ -277,6 +301,7 @@ export interface FileRoutesById {
   '/$': typeof SplatRoute
   '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
+  '/verifikasi': typeof VerifikasiRouteWithChildren
   '/ekonomi/bumdes': typeof EkonomiBumdesRoute
   '/informasi/agenda': typeof InformasiAgendaRoute
   '/informasi/berita': typeof InformasiBeritaRouteWithChildren
@@ -284,10 +309,12 @@ export interface FileRoutesById {
   '/informasi/idm': typeof InformasiIdmRoute
   '/informasi/pengumuman': typeof InformasiPengumumanRoute
   '/lainnya/komoditas': typeof LainnyaKomoditasRoute
+  '/lainnya/monografi': typeof LainnyaMonografiRoute
   '/lainnya/peta': typeof LainnyaPetaRoute
   '/lainnya/produk-hukum': typeof LainnyaProdukHukumRoute
   '/laporan/apbdes': typeof LaporanApbdesRoute
   '/laporan/realisasi': typeof LaporanRealisasiRoute
+  '/masuk/pengajuan-saya': typeof MasukPengajuanSayaRoute
   '/masuk/warga': typeof MasukWargaRoute
   '/pelayanan/e-surat': typeof PelayananESuratRoute
   '/pelayanan/konsultasi': typeof PelayananKonsultasiRoute
@@ -313,6 +340,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/admin'
     | '/login'
+    | '/verifikasi'
     | '/ekonomi/bumdes'
     | '/informasi/agenda'
     | '/informasi/berita'
@@ -320,10 +348,12 @@ export interface FileRouteTypes {
     | '/informasi/idm'
     | '/informasi/pengumuman'
     | '/lainnya/komoditas'
+    | '/lainnya/monografi'
     | '/lainnya/peta'
     | '/lainnya/produk-hukum'
     | '/laporan/apbdes'
     | '/laporan/realisasi'
+    | '/masuk/pengajuan-saya'
     | '/masuk/warga'
     | '/pelayanan/e-surat'
     | '/pelayanan/konsultasi'
@@ -347,6 +377,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/admin'
     | '/login'
+    | '/verifikasi'
     | '/ekonomi/bumdes'
     | '/informasi/agenda'
     | '/informasi/berita'
@@ -354,10 +385,12 @@ export interface FileRouteTypes {
     | '/informasi/idm'
     | '/informasi/pengumuman'
     | '/lainnya/komoditas'
+    | '/lainnya/monografi'
     | '/lainnya/peta'
     | '/lainnya/produk-hukum'
     | '/laporan/apbdes'
     | '/laporan/realisasi'
+    | '/masuk/pengajuan-saya'
     | '/masuk/warga'
     | '/pelayanan/e-surat'
     | '/pelayanan/konsultasi'
@@ -381,6 +414,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/admin'
     | '/login'
+    | '/verifikasi'
     | '/ekonomi/bumdes'
     | '/informasi/agenda'
     | '/informasi/berita'
@@ -388,10 +422,12 @@ export interface FileRouteTypes {
     | '/informasi/idm'
     | '/informasi/pengumuman'
     | '/lainnya/komoditas'
+    | '/lainnya/monografi'
     | '/lainnya/peta'
     | '/lainnya/produk-hukum'
     | '/laporan/apbdes'
     | '/laporan/realisasi'
+    | '/masuk/pengajuan-saya'
     | '/masuk/warga'
     | '/pelayanan/e-surat'
     | '/pelayanan/konsultasi'
@@ -416,6 +452,7 @@ export interface RootRouteChildren {
   SplatRoute: typeof SplatRoute
   AdminRoute: typeof AdminRoute
   LoginRoute: typeof LoginRoute
+  VerifikasiRoute: typeof VerifikasiRouteWithChildren
   EkonomiBumdesRoute: typeof EkonomiBumdesRoute
   InformasiAgendaRoute: typeof InformasiAgendaRoute
   InformasiBeritaRoute: typeof InformasiBeritaRouteWithChildren
@@ -423,10 +460,12 @@ export interface RootRouteChildren {
   InformasiIdmRoute: typeof InformasiIdmRoute
   InformasiPengumumanRoute: typeof InformasiPengumumanRoute
   LainnyaKomoditasRoute: typeof LainnyaKomoditasRoute
+  LainnyaMonografiRoute: typeof LainnyaMonografiRoute
   LainnyaPetaRoute: typeof LainnyaPetaRoute
   LainnyaProdukHukumRoute: typeof LainnyaProdukHukumRoute
   LaporanApbdesRoute: typeof LaporanApbdesRoute
   LaporanRealisasiRoute: typeof LaporanRealisasiRoute
+  MasukPengajuanSayaRoute: typeof MasukPengajuanSayaRoute
   MasukWargaRoute: typeof MasukWargaRoute
   PelayananESuratRoute: typeof PelayananESuratRoute
   PelayananKonsultasiRoute: typeof PelayananKonsultasiRoute
@@ -440,13 +479,19 @@ export interface RootRouteChildren {
   ProfilLpmRoute: typeof ProfilLpmRoute
   ProfilPerangkatRoute: typeof ProfilPerangkatRoute
   ProfilPkkrwRoute: typeof ProfilPkkrwRoute
-  VerifikasiNoRoute: typeof VerifikasiNoRoute
   WisataDestinasiRoute: typeof WisataDestinasiRoute
   WisataUmkmRoute: typeof WisataUmkmRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/verifikasi': {
+      id: '/verifikasi'
+      path: '/verifikasi'
+      fullPath: '/verifikasi'
+      preLoaderRoute: typeof VerifikasiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -491,10 +536,10 @@ declare module '@tanstack/react-router' {
     }
     '/verifikasi/$no': {
       id: '/verifikasi/$no'
-      path: '/verifikasi/$no'
+      path: '/$no'
       fullPath: '/verifikasi/$no'
       preLoaderRoute: typeof VerifikasiNoRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof VerifikasiRoute
     }
     '/profil/pkkrw': {
       id: '/profil/pkkrw'
@@ -587,6 +632,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MasukWargaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/masuk/pengajuan-saya': {
+      id: '/masuk/pengajuan-saya'
+      path: '/masuk/pengajuan-saya'
+      fullPath: '/masuk/pengajuan-saya'
+      preLoaderRoute: typeof MasukPengajuanSayaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/laporan/realisasi': {
       id: '/laporan/realisasi'
       path: '/laporan/realisasi'
@@ -613,6 +665,13 @@ declare module '@tanstack/react-router' {
       path: '/lainnya/peta'
       fullPath: '/lainnya/peta'
       preLoaderRoute: typeof LainnyaPetaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lainnya/monografi': {
+      id: '/lainnya/monografi'
+      path: '/lainnya/monografi'
+      fullPath: '/lainnya/monografi'
+      preLoaderRoute: typeof LainnyaMonografiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lainnya/komoditas': {
@@ -674,6 +733,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface VerifikasiRouteChildren {
+  VerifikasiNoRoute: typeof VerifikasiNoRoute
+}
+
+const VerifikasiRouteChildren: VerifikasiRouteChildren = {
+  VerifikasiNoRoute: VerifikasiNoRoute,
+}
+
+const VerifikasiRouteWithChildren = VerifikasiRoute._addFileChildren(
+  VerifikasiRouteChildren,
+)
+
 interface InformasiBeritaRouteChildren {
   InformasiBeritaSlugRoute: typeof InformasiBeritaSlugRoute
 }
@@ -691,6 +762,7 @@ const rootRouteChildren: RootRouteChildren = {
   SplatRoute: SplatRoute,
   AdminRoute: AdminRoute,
   LoginRoute: LoginRoute,
+  VerifikasiRoute: VerifikasiRouteWithChildren,
   EkonomiBumdesRoute: EkonomiBumdesRoute,
   InformasiAgendaRoute: InformasiAgendaRoute,
   InformasiBeritaRoute: InformasiBeritaRouteWithChildren,
@@ -698,10 +770,12 @@ const rootRouteChildren: RootRouteChildren = {
   InformasiIdmRoute: InformasiIdmRoute,
   InformasiPengumumanRoute: InformasiPengumumanRoute,
   LainnyaKomoditasRoute: LainnyaKomoditasRoute,
+  LainnyaMonografiRoute: LainnyaMonografiRoute,
   LainnyaPetaRoute: LainnyaPetaRoute,
   LainnyaProdukHukumRoute: LainnyaProdukHukumRoute,
   LaporanApbdesRoute: LaporanApbdesRoute,
   LaporanRealisasiRoute: LaporanRealisasiRoute,
+  MasukPengajuanSayaRoute: MasukPengajuanSayaRoute,
   MasukWargaRoute: MasukWargaRoute,
   PelayananESuratRoute: PelayananESuratRoute,
   PelayananKonsultasiRoute: PelayananKonsultasiRoute,
@@ -715,7 +789,6 @@ const rootRouteChildren: RootRouteChildren = {
   ProfilLpmRoute: ProfilLpmRoute,
   ProfilPerangkatRoute: ProfilPerangkatRoute,
   ProfilPkkrwRoute: ProfilPkkrwRoute,
-  VerifikasiNoRoute: VerifikasiNoRoute,
   WisataDestinasiRoute: WisataDestinasiRoute,
   WisataUmkmRoute: WisataUmkmRoute,
 }

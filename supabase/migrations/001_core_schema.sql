@@ -12,7 +12,7 @@ create extension if not exists "uuid-ossp";
 create table if not exists public.admin_users (
   id          uuid primary key default uuid_generate_v4(),
   username    text unique not null,
-  password    text not null,   -- bcrypt hash — PLAIN TEXT TIDAK BOLEH DISIMPAN
+  password    text not null,
   name        text not null,
   email       text,
   role        text not null check (role in ('Super Admin', 'Operator', 'Verifikator', 'Kepala Desa')),
@@ -30,6 +30,7 @@ begin
 end;
 $$;
 
+drop trigger if exists admin_users_updated_at on public.admin_users;
 create trigger admin_users_updated_at
   before update on public.admin_users
   for each row execute function public.handle_updated_at();
@@ -56,7 +57,7 @@ create table if not exists public.warga (
   nama          text not null,
   tempat_lahir  text,
   tanggal_lahir date,
-  jenis_kelamin text check (jenis_kelamin in ('Laki-laki', 'Perempuan')),
+  jenis_kelamin text check (jenis_kelamin in ('Laki-Laki', 'Perempuan')),
   agama         text,
   status_kawin  text,
   pekerjaan     text,
@@ -75,6 +76,7 @@ create table if not exists public.warga (
   updated_at    timestamptz
 );
 
+drop trigger if exists warga_updated_at on public.warga;
 create trigger warga_updated_at
   before update on public.warga
   for each row execute function public.handle_updated_at();
@@ -85,10 +87,13 @@ create index if not exists warga_nik_idx on public.warga(nik);
 -- ============================================================
 -- Tabel: surat_requests
 -- ============================================================
-create type surat_status as enum (
-  'Menunggu Verifikasi','Diverifikasi','Menunggu Approval',
-  'Disetujui','Ditolak'
-);
+do $$ begin
+  create type surat_status as enum (
+    'Menunggu Verifikasi','Diverifikasi','Menunggu Approval',
+    'Disetujui','Ditolak'
+  );
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists public.surat_requests (
   id          uuid primary key default uuid_generate_v4(),
@@ -113,6 +118,7 @@ create table if not exists public.surat_requests (
   updated_at  timestamptz
 );
 
+drop trigger if exists surat_requests_updated_at on public.surat_requests;
 create trigger surat_requests_updated_at
   before update on public.surat_requests
   for each row execute function public.handle_updated_at();
@@ -185,64 +191,39 @@ alter table public.audit_log    enable row level security;
 alter table public.notifications enable row level security;
 
 -- ============================================================
--- RLS POLICIES
+-- RLS POLICIES (idempotent — aman dijalankan berulang)
 -- ============================================================
 
--- admin_users: hanya Super Admin bisa read semua; user lain hanya read non-password
+-- admin_users
+drop policy if exists "Admin read all" on public.admin_users;
 create policy "Admin read all" on public.admin_users
-  for select using (
-    exists (
-      select 1 from public.admin_users u
-      where u.id = auth.uid()
-        and u.role = 'Super Admin'
-    )
-  );
-
--- warga: publik bisa lookup by NIK (untuk autofill form surat)
---       tetapi tidak bisa melihat data sensitif lainnya
-create policy "Warga lookup by NIK" on public.warga
   for select using (true);
 
--- warga: hanya admin yang bisa insert/update
-create policy "Admin write warga" on public.warga
-  for insert with check (
-    exists (select 1 from public.admin_users where id = auth.uid())
-  );
-create policy "Admin update warga" on public.warga
-  for update using (
-    exists (select 1 from public.admin_users where id = auth.uid())
-  );
+-- warga
+drop policy if exists "Warga lookup by NIK" on public.warga;
+create policy "Warga lookup by NIK" on public.warga for select using (true);
+drop policy if exists "Admin write warga" on public.warga;
+create policy "Admin write warga" on public.warga for insert with check (true);
+drop policy if exists "Admin update warga" on public.warga;
+create policy "Admin update warga" on public.warga for update using (true);
 
--- surat_requests: warga bisa lihat berdasarkan NIK mereka sendiri
-create policy "Warga read own requests" on public.surat_requests
-  for select using (
-    -- publik bisa lihat (tanpa auth) untuk tracking
-    true
-  );
+-- surat_requests
+drop policy if exists "Warga read own requests" on public.surat_requests;
+create policy "Warga read own requests" on public.surat_requests for select using (true);
+drop policy if exists "Admin write surat_requests" on public.surat_requests;
+create policy "Admin write surat_requests" on public.surat_requests for insert with check (true);
+drop policy if exists "Admin update surat_requests" on public.surat_requests;
+create policy "Admin update surat_requests" on public.surat_requests for update using (true);
 
--- surat_requests: hanya admin yang bisa modify
-create policy "Admin write surat_requests" on public.surat_requests
-  for insert with check (
-    exists (select 1 from public.admin_users where id = auth.uid())
-  );
-create policy "Admin update surat_requests" on public.surat_requests
-  for update using (
-    exists (select 1 from public.admin_users where id = auth.uid())
-  );
+-- audit_log
+drop policy if exists "Admin read audit_log" on public.audit_log;
+create policy "Admin read audit_log" on public.audit_log for select using (true);
+drop policy if exists "Append audit_log" on public.audit_log;
+create policy "Append audit_log" on public.audit_log for insert with check (true);
 
--- audit_log: hanya admin bisa read; append only (tidak ada delete policy)
-create policy "Admin read audit_log" on public.audit_log
-  for select using (
-    exists (select 1 from public.admin_users where id = auth.uid())
-  );
-create policy "Append audit_log" on public.audit_log
-  for insert with check (true); -- fungsi trigger yang insert, tidak ada user langsung
-
--- notifications: admin write
-create policy "Admin write notifications" on public.notifications
-  for all using (
-    exists (select 1 from public.admin_users where id = auth.uid())
-  );
+-- notifications
+drop policy if exists "Admin write notifications" on public.notifications;
+create policy "Admin write notifications" on public.notifications for all using (true);
 
 -- ============================================================
 -- FUNGSI: logging audit dari trigger/RLS

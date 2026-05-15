@@ -1,136 +1,180 @@
-import { Cloud } from "lucide-react";
-import { useEffect, useState } from "react";
-import kepalaDesa from "@/assets/kepala-desa-hero.png";
-import heroVillage from "@/assets/hero-village.jpg";
-import wisataAir from "@/assets/wisata-airterjun.jpg";
-import wisataPantai from "@/assets/wisata-pantai.jpg";
-import wisataBudaya from "@/assets/wisata-budaya.jpg";
-import gal1 from "@/assets/galeri-1.jpg";
-import { getSettings } from "@/lib/settings-store";
+/**
+ * HeroSection — Video Background + Marquee Landing Page
+ *
+ * Baca dari hero-config-store. LANDING PAGE = VIDEO ONLY.
+ * Marquee: anti-error. Default text selalu ada (store _ensureMarqueeDefaults).
+ * Animation 100% inline — tidak ada ketergantungan CSS class.
+ * Keyframe @keyframes marquee ada di styles.css.
+ *
+ * Fallback: gradient background saat video belum di-set.
+ */
 
-/** Fallback slides — digunakan jika tidak ada pengaturan di settings */
-const FALLBACK_SLIDES = [
-  { id: "s1", image: heroVillage, alt: "Pemandangan Desa Seruni Mumbul", enabled: true },
-  { id: "s2", image: wisataAir, alt: "Air terjun", enabled: true },
-  { id: "s3", image: wisataPantai, alt: "Pantai", enabled: true },
-  { id: "s4", image: wisataBudaya, alt: "Budaya Sasak", enabled: true },
-  { id: "s5", image: gal1, alt: "Galeri desa", enabled: true },
-];
+import kepalaDesa from "@/assets/kepala-desa-hero.png";
+import { useHeroConfig, DEFAULT_HERO_CONFIG } from "@/lib/hero-config-store";
+import { resolveVideoUrl, resolveImageUrl } from "@/lib/media-upload";
+import { getVillage } from "@/lib/village-dynamic";
+
+/** Marquee vertical position → CSS top value */
+const MARQUEE_POSITION_MAP = {
+  top: "20%",
+  center: "50%",
+  bottom: "78%",
+} as const;
+
+/** Fallback gradient saat belum ada video */
+const FALLBACK_GRADIENT = "linear-gradient(160deg, #1a4d2e 0%, #0d2818 50%, #051a0f 100%)";
+
+/** Placeholder marquee text — belt & suspenders safety net */
+const MARQUEE_FALLBACK_TEXT = "Selamat Datang di Portal Resmi Desa";
 
 export function HeroSection() {
-  const [active, setActive] = useState(0);
-  const settings = getSettings();
-  const hero = settings.hero;
+  const config = useHeroConfig((s) => s.config);
+  const v = getVillage();
 
-  const slides = (() => {
-    const configured = hero.slides;
-    if (!configured || configured.length === 0) return FALLBACK_SLIDES;
-    // Map settings slides to image sources
-    return configured.map((s, i) => ({
-      id: s.id,
-      image: FALLBACK_SLIDES[i % FALLBACK_SLIDES.length]?.image ?? "",
-      alt: s.alt,
-      enabled: s.enabled ?? true,
-    }));
+  const {
+    video_url,
+    video_storage_path,
+    video_enabled,
+    video_fallback_image,
+    video_fallback_storage_path,
+    video_muted,
+    video_loop,
+    video_autoplay,
+    marquee_enabled,
+    marquee_lines,
+    marquee_font_size,
+    marquee_speed,
+    marquee_style,
+    weather_enabled,
+    weather_label,
+    overlay_opacity,
+    show_kepala_desa,
+  } = config;
+
+  // ── Marquee text ────────────────────────────────────────────────────────────
+  // _ensureMarqueeDefaults() di store injects default jika marquee_lines kosong.
+  // Belt & suspenders: fallback ke placeholder jika semua baris disabled/empty.
+  const marqueeText = (() => {
+    const lines = marquee_lines ?? [];
+    const text = lines
+      .filter((l) => l.enabled && l.text.trim())
+      .map((l) => l.text.trim())
+      .join("  ·  ");
+    return text || (marquee_enabled ? MARQUEE_FALLBACK_TEXT : null);
   })();
 
-  const activeSlides = slides.filter((s) => s.enabled);
-  const hasVideo = !!hero.video_url && hero.video_enabled;
+  // ── Video URL resolver ─────────────────────────────────────────────────────
+  const videoSrc = resolveVideoUrl(video_storage_path, video_enabled ? video_url : "");
+  const posterSrc = resolveImageUrl(video_fallback_storage_path, video_fallback_image);
+  const hasVideo = !!(videoSrc && video_enabled);
 
-  useEffect(() => {
-    if (!activeSlides.length) return;
-    const id = setInterval(() => setActive((i) => (i + 1) % activeSlides.length), 5000);
-    return () => clearInterval(id);
-  }, [activeSlides.length]);
+  // ── Marquee style resolver ────────────────────────────────────────────────
+  const ms = marquee_style ?? DEFAULT_HERO_CONFIG.marquee_style;
+  const msFontSize = marquee_font_size ?? DEFAULT_HERO_CONFIG.marquee_font_size;
+  const msDuration = `${Math.max(marquee_speed ?? 20, 5)}s`;
+  const msTop = MARQUEE_POSITION_MAP[ms.position ?? "center"];
 
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <section className="relative h-screen min-h-[640px] w-full overflow-hidden">
-      {/* Video background */}
-      {hasVideo && (
+      {/* ══ 1. VIDEO BACKGROUND ══ */}
+      {hasVideo ? (
         <video
-          src={hero.video_url}
-          autoPlay
-          muted
-          loop
+          key={videoSrc}
+          src={videoSrc}
+          autoPlay={video_autoplay !== false}
+          muted={video_muted !== false}
+          loop={video_loop !== false}
           playsInline
           className="absolute inset-0 h-full w-full object-cover"
-          poster={hero.video_fallback_image}
+          poster={posterSrc || undefined}
+          onError={(e) => {
+            console.warn("[hero] Video load failed — showing gradient fallback");
+            (e.target as HTMLVideoElement).style.display = "none";
+          }}
         />
-      )}
-
-      {/* Image slider (fallback if no video or overlaid) */}
-      {!hasVideo &&
-        slides.map((s, i) => (
-          <img
-            key={s.id}
-            src={s.image}
-            alt={s.alt}
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
-              i === active ? "opacity-100" : "opacity-0"
-            }`}
-            width={1920}
-            height={1280}
+      ) : (
+        <div className="absolute inset-0 h-full w-full" style={{ background: FALLBACK_GRADIENT }}>
+          <div
+            className="absolute inset-0 opacity-20"
+            style={{
+              backgroundImage:
+                "radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.05) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(255,255,255,0.03) 0%, transparent 50%)",
+            }}
           />
-        ))}
-
-      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/75" />
-
-      {/* Weather badge */}
-      {hero.weather_enabled && (
-        <div className="absolute right-4 top-24 sm:right-8 sm:top-28 z-30 flex items-center gap-2 rounded-full bg-white/15 backdrop-blur-md px-3.5 py-2 text-white border border-white/20">
-          <Cloud className="h-4 w-4" />
-          <span className="font-ui text-xs font-medium">{hero.weather_label}</span>
         </div>
       )}
 
-      {/* Marquee text */}
-      {hero.marquee_enabled && hero.marquee_text && (
+      {/* ══ 2. GRADIENT OVERLAY ══ */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.55) 100%)",
+          opacity: Math.min(Math.max((overlay_opacity ?? 60) / 100, 0), 1),
+        }}
+      />
+
+      {/* ══ 3. MARQUEE TEXT (mandatory when enabled) ══ */}
+      {marquee_enabled && marqueeText && (
         <div
-          className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-10 overflow-hidden pointer-events-none select-none"
           aria-hidden
+          className="absolute inset-x-0 z-10 pointer-events-none select-none overflow-hidden"
+          style={{ top: msTop }}
         >
+          {/*
+            Animation 100% inline — tidak ada CSS class.
+            Tailwind v4: inline style animation shorthand works perfectly.
+            Keyframe @keyframes marquee (styles.css) supply the name & path.
+            duration + timing + iteration controlled via inline style.
+          */}
           <div
-            className="flex whitespace-nowrap will-change-transform animate-marquee italic font-bold text-white/60"
-            style={{
-              fontFamily: "Fraunces, serif",
-              fontSize: "clamp(80px, 14vw, 240px)",
-              lineHeight: 1,
-              letterSpacing: "-0.02em",
-            }}
+            className="flex whitespace-nowrap will-change-transform"
+            style={{ animation: `marquee ${msDuration} linear infinite` }}
           >
-            {Array.from({ length: 4 }).map((_, i) => (
-              <span key={i} className="px-12 shrink-0">
-                {hero.marquee_text}
+            {Array.from({ length: 6 }).map((_, i) => (
+              <span
+                key={i}
+                className="shrink-0 px-10"
+                style={{
+                  fontFamily: ms.font_family ?? "Fraunces, serif",
+                  fontSize: msFontSize,
+                  fontWeight: ms.font_weight ?? "bold",
+                  fontStyle: ms.font_style ?? "italic",
+                  color: ms.color ?? "#ffffff",
+                  opacity: Math.min(Math.max((ms.opacity ?? 30) / 100, 0.05), 1),
+                  lineHeight: 1.05,
+                  letterSpacing: ms.font_style === "italic" ? "-0.03em" : "-0.02em",
+                  textShadow: "0 4px 32px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.5)",
+                }}
+              >
+                {marqueeText}
               </span>
             ))}
           </div>
         </div>
       )}
 
-      {/* Hero image slider dots */}
-      {hero.slider_enabled && activeSlides.length > 1 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-2">
-          {slides.map((s, i) => (
-            <button
-              key={s.id}
-              onClick={() => setActive(i)}
-              aria-label={`Slide ${i + 1}`}
-              className={`h-1.5 rounded-full transition-all ${
-                i === active ? "w-8 bg-white" : "w-3 bg-white/50"
-              }`}
-            />
-          ))}
+      {/* ══ 4. WEATHER BADGE ══ */}
+      {weather_enabled && weather_label && (
+        <div className="absolute right-4 top-24 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-black/30 px-4 py-2 text-white shadow-lg backdrop-blur-md">
+          <span className="font-ui text-xs font-medium tracking-wide">{weather_label}</span>
         </div>
       )}
 
-      <div className="absolute inset-x-0 bottom-0 z-20 flex justify-center pointer-events-none">
-        <img
-          src={kepalaDesa}
-          alt="Kepala Desa Seruni Mumbul"
-          className="block object-contain object-bottom drop-shadow-[0_30px_40px_rgba(0,0,0,0.45)]"
-          style={{ height: "95vh", maxHeight: "100%" }}
-        />
-      </div>
+      {/* ══ 5. KEPALA DESA SILHOUETTE ══ */}
+      {show_kepala_desa && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center">
+          <img
+            src={kepalaDesa}
+            alt={`Siluet Kepala Desa ${v.village}`}
+            className="block h-[92vh] w-auto object-contain object-bottom"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
+          />
+        </div>
+      )}
     </section>
   );
 }

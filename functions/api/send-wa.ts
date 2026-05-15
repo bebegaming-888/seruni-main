@@ -4,21 +4,19 @@
  * Aman: Token Fonnte tidak pernah dikirim ke browser.
  * Browser memanggil endpoint ini → Edge Function meneruskan ke Fonnte API.
  *
+ * Env vars:
+ *   FONNTE_API_KEY       — Fonnte API token
+ *   FONNTE_SENDER_NAME   — Nama pengirim opsional
+ *   SUPABASE_URL         — Supabase URL
+ *   SUPABASE_SERVICE_ROLE_KEY — Supabase service role key
+ *
  * Request body:
  *   { target: "62812...", message: "Halo..." }
- *
- * Deployment:
- *   wrangler secret put FONNTE_API_KEY
- *   wrangler secret put SUPABASE_URL
- *   wrangler secret put SUPABASE_SERVICE_ROLE_KEY
- *   lalu: npx wrangler deploy
  */
 
-// Cloudflare Pages Functions dieksekusi di Edge (V8 isolate)
-// env.FONNTE_API_KEY berasal dari: wrangler secret put FONNTE_API_KEY
-// env.SUPABASE_* berasal dari: wrangler secret put SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
-
 import { createClient } from "@supabase/supabase-js";
+import { json, corsOptions } from "../_lib/utils";
+import { createRateLimiter, getClientIp } from "../_lib/rate-limit";
 
 interface SendWaRequest {
   target: string;
@@ -85,6 +83,11 @@ async function logToDb(
 // ---- Main Handler ----
 
 export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
+  const rl = createRateLimiter("admin");
+  const ip = getClientIp(context.request);
+  const rlCheck = rl.check(ip);
+  if (!rlCheck.ok && rlCheck.response) return rlCheck.response;
+
   const { request, env } = context;
 
   // Parse request body
@@ -109,7 +112,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
   const token = env.FONNTE_API_KEY;
   if (!token) {
-    console.error("[send-wa] FONNTE_API_KEY belum di-set di wrangler secrets");
+    console.error("[send-wa] FONNTE_API_KEY belum di-set di deployment secrets");
     return new Response(
       JSON.stringify({ ok: false, message: "Server not configured for WhatsApp" }),
       { status: 500, headers: { "Content-Type": "application/json" } },
@@ -172,12 +175,5 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
 // OPTIONS — untuk CORS preflight jika diperlukan
 export async function onRequestOptions(): Promise<Response> {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
+  return corsOptions();
 }

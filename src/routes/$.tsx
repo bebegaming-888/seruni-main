@@ -1,23 +1,31 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@/components/Link";
-import { VILLAGE } from "@/data/site";
+import { getSettings } from "@/lib/settings-store";
+import { useSettings } from "@/lib/settings-store";
 import { Home, ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/$")({
-  head: () => ({
-    meta: [{ title: "404 — Halaman Tidak Ditemukan" }, { name: "robots", content: "noindex" }],
-  }),
+  head: () => {
+    const s = getSettings();
+    return {
+      meta: [
+        { title: `404 — ${s?.village?.name ?? "Halaman Tidak Ditemukan"}` },
+        { name: "robots", content: "noindex" },
+      ],
+    };
+  },
   component: NotFoundPage,
 });
 
 function NotFoundPage() {
+  const { village } = useSettings();
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center space-y-6">
         {/* Logo */}
         <div className="flex justify-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20">
-            <span className="font-display text-3xl font-bold text-primary">{VILLAGE.name[0]}</span>
+            <span className="font-display text-3xl font-bold text-primary">{village.name[0]}</span>
           </div>
         </div>
 
@@ -64,7 +72,7 @@ function NotFoundPage() {
             </li>
             <li className="flex items-start gap-2">
               <span className="text-primary mt-0.5">•</span>
-              Hubungi kantor desa di {VILLAGE.phone}
+              Hubungi kantor desa di {village.phone}
             </li>
           </ul>
         </div>
@@ -87,7 +95,7 @@ function NotFoundPage() {
 
         {/* Footer note */}
         <p className="font-ui text-xs text-muted-foreground/60">
-          {VILLAGE.name} · {VILLAGE.district}
+          {village.name} · {village.district}
         </p>
       </div>
     </div>

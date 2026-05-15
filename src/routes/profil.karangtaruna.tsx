@@ -1,20 +1,38 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
-import { Zap, Users, Phone, MapPin, Target, HeartHandshake, CheckCircle2 } from "lucide-react";
+import { Link } from "@/components/Link";
+import { useVillage } from "@/hooks/use-village";
+import { getVillage } from "@/lib/village-dynamic";
+import { getLembagaWithStruktur } from "@/lib/lembaga-store";
+import { getMediaUrl } from "@/lib/media-upload";
+import { useEffect, useState } from "react";
+
+import {
+  Zap,
+  Users,
+  Phone,
+  MapPin,
+  Target,
+  HeartHandshake,
+  CheckCircle2,
+  Loader2,
+  User,
+} from "lucide-react";
 
 export const Route = createFileRoute("/profil/karangtaruna")({
-  head: () => ({
-    meta: [
-      { title: `Karang Taruna — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content:
-          "Karang Taruna Mumbul Jaya Desa Seruni Mumbul. Generasi muda pemberdaya masyarakat.",
-      },
-    ],
-  }),
+  head: () => {
+    const v = getVillage();
+    return {
+      meta: [
+        { title: `Karang Taruna — ${v.name}` },
+        {
+          name: "description",
+          content: `Karang Taruna Desa ${v.name}. Generasi muda pemberdaya masyarakat.`,
+        },
+      ],
+    };
+  },
   component: () => <KarangTarunaPage />,
 });
 
@@ -41,22 +59,26 @@ const PROGRAM = [
   },
 ];
 
-const STATS = [
-  { label: "Anggota Aktif", value: "67" },
-  { label: "Program/Tahun", value: "14" },
-  { label: "Relawan Tetap", value: "23" },
-  { label: "Usia Rata-rata", value: "22 th" },
-];
-
-const PENGURUS = [
-  { nama: "M. Ryan Saputra", jabatan: "Ketua Umum", instagram: "@ryan_seruni" },
-  { nama: "Siti Nurfadilah", jabatan: "Sekretaris 1", instagram: "@nfdlh_" },
-  { nama: "Lalu Gilang", jabatan: "Bendahara", instagram: "@lalu_gilang" },
-  { nama: "Baiq Dina", jabatan: "Kabid Sosial", instagram: "@dina.kt" },
-  { nama: "H. Fauzi", jabatan: "Kabid Lingkungan", instagram: "@fauzi_kt" },
-];
-
 export function KarangTarunaPage() {
+  const v = useVillage();
+  const [data, setData] = useState<Awaited<ReturnType<typeof getLembagaWithStruktur>>>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getLembagaWithStruktur("karang-taruna").then((d) => {
+      setData(d);
+      setLoading(false);
+    });
+  }, []);
+
+  const logoUrl = data?.lembaga.logo_storage_path
+    ? getMediaUrl(data.lembaga.logo_storage_path, "public-media")
+    : data?.lembaga.logo_url;
+
+  // Count stats from data
+  const aktifCount = data?.allPengurus.length ?? 0;
+  const rootNodes = data?.strukturTree.filter((n) => n.level === 0).length ?? 0;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -64,6 +86,13 @@ export function KarangTarunaPage() {
         {/* Hero */}
         <section className="relative pt-32 pb-16 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
           <div className="max-w-5xl mx-auto relative">
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt="Logo Karang Taruna"
+                className="h-20 w-20 rounded-2xl object-contain border border-border bg-white/50 mb-6"
+              />
+            )}
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
               <Zap className="h-3.5 w-3.5" />
               Organisasi Kepemudaan
@@ -71,40 +100,75 @@ export function KarangTarunaPage() {
             <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-4">
               Karang Taruna
               <br />
-              <span className="text-primary">Mumbul Jaya</span>
+              <span className="text-primary">{v.name}</span>
             </h1>
             <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-6">
-              Organisasi pemuda-pemudi desa yang bergerak di bidang sosial, lingkungan, dan
-              pemberdayaan ekonomi kreatif. Menginspirasi generasi muda untuk aktif membangun desa
-              dari sekarang.
+              {data?.lembaga.deskripsi ||
+                "Organisasi pemuda-pemudi desa yang bergerak di bidang sosial, lingkungan, dan pemberdayaan ekonomi kreatif."}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                67 Anggota aktif
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
-                <Zap className="h-3.5 w-3.5" />
-                14 Program/tahun
-              </span>
-            </div>
+            {loading ? (
+              <div className="flex items-center gap-2 rounded-full bg-muted text-muted-foreground px-3 py-1 font-ui text-xs font-semibold">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Memuat…
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {aktifCount} anggota aktif
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
+                  <Zap className="h-3.5 w-3.5" />
+                  {rootNodes} jabatan
+                </span>
+              </div>
+            )}
           </div>
         </section>
 
         {/* Stats */}
         <section className="px-4 -mt-8 mb-14">
           <div className="max-w-5xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {STATS.map((s) => (
-              <div
-                key={s.label}
-                className="rounded-2xl border border-border bg-card shadow-card p-5 text-center"
-              >
-                <p className="font-display text-2xl sm:text-3xl font-bold text-primary">
-                  {s.value}
-                </p>
-                <p className="font-ui text-xs text-muted-foreground mt-0.5">{s.label}</p>
-              </div>
-            ))}
+            {loading ? (
+              <>
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="rounded-2xl border border-border bg-card shadow-card p-5 animate-pulse"
+                  >
+                    <div className="h-8 bg-muted rounded w-16 mb-2 mx-auto" />
+                    <div className="h-4 bg-muted rounded w-24 mx-auto" />
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                <div className="rounded-2xl border border-border bg-card shadow-card p-5 text-center">
+                  <p className="font-display text-2xl sm:text-3xl font-bold text-primary">
+                    {aktifCount}
+                  </p>
+                  <p className="font-ui text-xs text-muted-foreground mt-0.5">Anggota Aktif</p>
+                </div>
+                <div className="rounded-2xl border border-border bg-card shadow-card p-5 text-center">
+                  <p className="font-display text-2xl sm:text-3xl font-bold text-primary">
+                    {data?.allStruktur.length ?? 0}
+                  </p>
+                  <p className="font-ui text-xs text-muted-foreground mt-0.5">Jabatan</p>
+                </div>
+                <div className="rounded-2xl border border-border bg-card shadow-card p-5 text-center">
+                  <p className="font-display text-2xl sm:text-3xl font-bold text-primary">
+                    {rootNodes}
+                  </p>
+                  <p className="font-ui text-xs text-muted-foreground mt-0.5">Bidang</p>
+                </div>
+                <div className="rounded-2xl border border-border bg-card shadow-card p-5 text-center">
+                  <p className="font-display text-2xl sm:text-3xl font-bold text-primary">
+                    {data?.lembaga.periode_mulai?.slice(0, 4) ?? "—"}
+                  </p>
+                  <p className="font-ui text-xs text-muted-foreground mt-0.5">Periode</p>
+                </div>
+              </>
+            )}
           </div>
         </section>
 
@@ -142,54 +206,94 @@ export function KarangTarunaPage() {
         {/* Kepengurusan */}
         <section className="px-4 mb-16">
           <div className="max-w-5xl mx-auto">
-            <h2 className="font-display text-3xl font-bold text-ink mb-8">Kepengurusan</h2>
-            <div className="rounded-2xl border border-border bg-card overflow-hidden mb-6">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-left">
-                  <tr>
-                    <th className="px-4 py-3 font-ui font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                      Nama
-                    </th>
-                    <th className="px-4 py-3 font-ui font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                      Jabatan
-                    </th>
-                    <th className="px-4 py-3 font-ui font-semibold text-xs uppercase tracking-wider text-muted-foreground hidden md:table-cell">
-                      Instagram
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {PENGURUS.map((p) => (
-                    <tr
-                      key={p.nama}
-                      className="border-t border-border hover:bg-muted/30 transition"
-                    >
-                      <td className="px-4 py-3 font-display font-semibold">{p.nama}</td>
-                      <td className="px-4 py-3">
-                        <span className="text-[11px] font-ui font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                          {p.jabatan}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        <a
-                          href={`https://instagram.com/${p.instagram.replace("@", "")}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-ui text-xs text-primary hover:underline font-medium"
-                        >
-                          {p.instagram}
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex items-end justify-between mb-8 gap-4">
+              <div>
+                <p className="font-ui text-xs font-semibold uppercase tracking-wider text-primary mb-2">
+                  Kepengurusan
+                </p>
+                <h2 className="font-display text-3xl font-bold text-ink">Susunan Pengurus</h2>
+                {data?.lembaga.periode_mulai && (
+                  <p className="font-body text-sm text-muted-foreground mt-1">
+                    Periode {data.lembaga.periode_mulai.slice(0, 4)}–
+                    {data.lembaga.periode_selesai?.slice(0, 4) ?? "—"}
+                  </p>
+                )}
+              </div>
+              <Link
+                to="/profil/lembaga"
+                className="hidden sm:inline-flex items-center gap-2 font-ui text-sm text-primary font-semibold hover:underline shrink-0"
+              >
+                Lembaga Lain →
+              </Link>
             </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : data?.allPengurus.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border text-center py-16 font-body text-muted-foreground">
+                Data kepengurusan belum diisi.
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {data?.allPengurus.map((p) => {
+                  const strukturNode = data.allStruktur.find((s) => s.id === p.struktur_id);
+                  const isRoot = strukturNode?.level === 0;
+                  const fotoUrl = p.foto_storage_path
+                    ? getMediaUrl(p.foto_storage_path, "perangkat-fotos")
+                    : p.foto_url;
+                  return (
+                    <div
+                      key={p.id}
+                      className={`rounded-2xl border p-5 flex items-start gap-4 ${
+                        isRoot ? "border-primary/30 bg-primary/5" : "border-border bg-card"
+                      }`}
+                    >
+                      {fotoUrl ? (
+                        <img
+                          src={fotoUrl}
+                          alt={p.nama}
+                          className="h-14 w-14 rounded-full object-cover border border-border shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center shrink-0">
+                          <User className="h-7 w-7 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span
+                            className={`text-[10px] font-ui font-semibold px-2 py-0.5 rounded-full border ${isRoot ? "bg-primary/15 text-primary border-primary/30" : "bg-muted text-muted-foreground"}`}
+                          >
+                            {strukturNode?.nama_jabatan ?? "—"}
+                          </span>
+                        </div>
+                        <p className="font-display text-base font-bold text-ink leading-tight">
+                          {p.nama}
+                        </p>
+                        {p.no_hp && (
+                          <p className="font-ui text-xs text-muted-foreground mt-0.5">{p.no_hp}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="rounded-3xl border border-border bg-card p-6">
               <div className="flex flex-wrap gap-6">
                 {[
-                  { icon: MapPin, text: "Balai Desa Seruni Mumbul, Ruang Karang Taruna" },
-                  { icon: Phone, text: "+62 812-3456-7890 (Ketua)" },
+                  {
+                    icon: MapPin,
+                    text: data?.lembaga.kontak_info?.alamat || `Balai Desa ${v.name}`,
+                  },
+                  {
+                    icon: Phone,
+                    text: data?.lembaga.kontak_info?.telepon || "Hubungi sekretariat",
+                  },
                 ].map(({ icon: Icon, text }) => (
                   <div key={text} className="flex items-center gap-2">
                     <Icon className="h-4 w-4 text-primary" />

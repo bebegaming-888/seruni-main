@@ -4,7 +4,7 @@
  * Kirim Web Push notification via Web Push Protocol (RFC 8030).
  * Menggunakan fetch ke endpoint browser push — tidak perlu library eksternal.
  *
- * Env vars (Cloudflare Secrets):
+ * Env vars (deployment secrets):
  *   VAPID_PRIVATE_KEY — VAPID private key (base64, PKCS8)
  *   VAPID_PUBLIC_KEY  — VAPID public key (base64)
  *   VAPID_SUBJECT     — mailto: atau https:// URL (VAPID subject)
@@ -18,6 +18,7 @@
  */
 
 import { base64UrlDecode } from "../../_lib/utils";
+import { createRateLimiter, getClientIp } from "../../_lib/rate-limit";
 
 interface Env {
   VAPID_PRIVATE_KEY: string;
@@ -104,6 +105,11 @@ function base64UrlEncode(buffer: ArrayBuffer): string {
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
+  const rl = createRateLimiter("admin");
+  const ip = getClientIp(context.request);
+  const rlCheck = rl.check(ip);
+  if (!rlCheck.ok && rlCheck.response) return rlCheck.response;
+
   let body: RequestBody;
   try {
     body = (await context.request.json()) as RequestBody;
@@ -127,7 +133,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     !context.env.VAPID_PUBLIC_KEY ||
     !context.env.VAPID_SUBJECT
   ) {
-    console.error("[push/send] Missing VAPID env vars — check wrangler secrets");
+    console.error("[push/send] Missing VAPID env vars — check deployment secrets");
     return json({ ok: false, error: "Push service misconfigured" }, 500);
   }
 

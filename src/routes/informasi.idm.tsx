@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { useSettings, getSettings } from "@/lib/settings-store";
 import {
   Award,
   TrendingUp,
@@ -12,19 +12,42 @@ import {
   Info,
   ExternalLink,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/informasi/idm")({
-  head: () => ({
-    meta: [
-      { title: `Indeks Desa Membangun (IDM) — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Status kemandirian desa ${VILLAGE.name} berdasarkan Indeks Desa Membangun (IDM) Kementerian Desa PDT.`,
-      },
-    ],
-  }),
+  head: () => {
+    const { village } = getSettings();
+    return {
+      meta: [
+        { title: `Indeks Desa Membangun (IDM) — ${village.name}` },
+        {
+          name: "description",
+          content: `Status kemandirian desa ${village.name} berdasarkan Indeks Desa Membangun (IDM) Kementerian Desa PDT.`,
+        },
+      ],
+    };
+  },
   component: () => <IDMPage />,
 });
+
+type IDMData = {
+  idm_score: number;
+  idm_status: string;
+  semester: string;
+};
+
+const MOCK_IDM: IDMData = {
+  idm_score: 0.8942,
+  idm_status: "Mandiri",
+  semester: "2026-1",
+};
+
+const MOCK_TREND = [
+  { year: "2025", status: "Mandiri", score: "0.8942", change: "+0.0210" },
+  { year: "2024", status: "Mandiri", score: "0.8732", change: "+0.0345" },
+  { year: "2023", status: "Maju", score: "0.8387", change: "+0.0120" },
+];
 
 function IDMCard({
   title,
@@ -57,6 +80,50 @@ function IDMCard({
 }
 
 export function IDMPage() {
+  const { village } = useSettings();
+  const [data, setData] = useState<IDMData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [usingMock, setUsingMock] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      if (!isSupabaseConfigured) {
+        setData(MOCK_IDM);
+        setUsingMock(true);
+        setLoading(false);
+        return;
+      }
+      const sb = getSupabase();
+      if (!sb) {
+        setData(MOCK_IDM);
+        setUsingMock(true);
+        setLoading(false);
+        return;
+      }
+      try {
+        const { data: rows, error } = await sb
+          .from("monografi")
+          .select("idm_score, idm_status, semester")
+          .order("semester", { ascending: false })
+          .limit(1)
+          .single();
+        if (!error && rows) {
+          setData(rows as IDMData);
+        } else {
+          setData(MOCK_IDM);
+          setUsingMock(true);
+        }
+      } catch {
+        setData(MOCK_IDM);
+        setUsingMock(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const d = data ?? MOCK_IDM;
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -72,11 +139,24 @@ export function IDMPage() {
               Indeks Desa Membangun
             </h1>
             <p className="font-body text-muted-foreground text-lg max-w-2xl mx-auto">
-              {VILLAGE.name} saat ini berstatus sebagai <strong>Desa Mandiri</strong>, tingkat
+              {village.name} saat ini berstatus sebagai <strong>{d.idm_status}</strong>, tingkat
               tertinggi dalam klasifikasi IDM Kementerian Desa.
             </p>
           </div>
         </section>
+
+        {/* Demo data notice */}
+        {usingMock && (
+          <section className="px-4 mb-6 -mt-4">
+            <div className="max-w-4xl mx-auto">
+              <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 border border-amber-300 px-3 py-1 font-ui text-xs font-semibold text-amber-700">
+                <span>⚠️</span>
+                Data contoh — belum ada data IDM di database. Hubungi admin untuk upload data
+                semester berjalan.
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Score Overview */}
         <section className="px-4 -mt-10 mb-20">
@@ -86,9 +166,9 @@ export function IDMPage() {
                 <div className="font-ui text-xs font-bold uppercase tracking-widest opacity-80 mb-2">
                   Skor Akhir
                 </div>
-                <div className="font-display text-5xl font-bold mb-4">0.8942</div>
+                <div className="font-display text-5xl font-bold mb-4">{d.idm_score.toFixed(4)}</div>
                 <div className="px-4 py-1 rounded-full bg-white/20 font-ui text-sm font-bold">
-                  MANDIRI
+                  {d.idm_status.toUpperCase()}
                 </div>
               </div>
 
@@ -124,7 +204,7 @@ export function IDMPage() {
                 Analisis Tahun Berjalan
               </h2>
               <p className="font-body text-muted-foreground">
-                Perbandingan skor IDM {VILLAGE.name} dalam 3 tahun terakhir menunjukkan tren positif
+                Perbandingan skor IDM {village.name} dalam 3 tahun terakhir menunjukkan tren positif
                 yang stabil.
               </p>
             </div>

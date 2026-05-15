@@ -65,7 +65,15 @@ self.addEventListener("fetch", (event) => {
     return;
 
   if (url.pathname.startsWith("/api/")) {
-    event.respondWith(networkFirst(request));
+    // GET → network-first with cache (bisa di-cache hasil GET-nya)
+    // POST/PUT/DELETE/PATCH → NO CACHE, langsung network, offline = fail fast
+    // Ini penting untuk offline queue: POST gagal offline harus di-enqueue,
+    // bukan menunggu SW retry yang bisa 5-30 detik.
+    if (request.method === "GET") {
+      event.respondWith(networkFirst(request));
+    } else {
+      event.respondWith(networkOnly(request));
+    }
     return;
   }
 
@@ -135,20 +143,57 @@ async function networkFirst(request) {
   }
 }
 
+async function networkOnly(request) {
+  // State-changing requests (POST/PUT/DELETE) — tidak pernah di-cache.
+  // Offline = fail fast, jangan block UI dengan retry delay.
+  try {
+    const response = await fetch(request);
+    return response;
+  } catch {
+    // Offline detected — return JSON error agar client bisa intercept.
+    return new Response(
+      JSON.stringify({
+        _sw_offline: true,
+        error: "Offline",
+        message: "Tidak ada koneksi internet — permintaan masuk offline queue",
+      }),
+      {
+        status: 503,
+        headers: { "Content-Type": "application/json", "X-Service-Worker": "true" },
+      },
+    );
+  }
+}
+
 async function staleWhileRevalidate(request) {
   const url = new URL(request.url);
   const version = url.searchParams.get("v") ?? "v1";
   const cache = await caches.open(version);
   const cached = await cache.match(request);
 
-  const fetchPromise = fetch(request)
-    .then((response) => {
-      if (response.ok) cache.put(request, response.clone());
-      return response;
-    })
-    .catch(() => null);
+  // Network-first: fetch, cache ok responses, return real status to user
+  let networkOk = false;
+  let networkRes = null;
+  try {
+    networkRes = await fetch(request);
+    networkOk = networkRes.ok;
+    if (networkOk) cache.put(request, networkRes.clone());
+  } catch {
+    // Genuine network failure (no internet, DNS, CORS) — use stale cache
+    networkOk = false;
+  }
 
-  return cached ?? (await fetchPromise) ?? new Response("Offline", { status: 503 });
+  // Stale cache fallback: hanya untuk network failure, bukan untuk error response
+  if (!networkOk && cached) return cached;
+
+  // Return real response: baik dari network maupun "Offline" placeholder
+  return (
+    networkRes ??
+    new Response(JSON.stringify({ error: "Offline — tidak ada koneksi" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    })
+  );
 }
 
 async function trimCache(cache, maxItems) {
@@ -178,4 +223,26 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = event.notification.data?.url ?? "/";
   event.waitUntil(self.clients.openWindow(url));
+});
+
+// ---- Offline queue: process on reconnect ----
+// When browser comes back online, notify all tabs to process offline queue
+self.addEventListener("online", () => {
+  self.clients.matchAll({ type: "window" }).then((clients) => {
+    clients.forEach((client) => {
+      client.postMessage({ type: "PROCESS_OFFLINE_QUEUE" });
+    });
+  });
+});
+
+// Listen for messages from clients (to process queue on reconnect)
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "PROCESS_OFFLINE_QUEUE") {
+    // Forward to all clients so they can call processOfflineQueue()
+    self.clients.matchAll({ type: "window" }).then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({ type: "PROCESS_OFFLINE_QUEUE" });
+      });
+    });
+  }
 });

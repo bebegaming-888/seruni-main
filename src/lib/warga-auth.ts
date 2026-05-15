@@ -12,7 +12,7 @@ export type WargaSession = {
     id: string;
     nik: string;
     nama: string;
-    no_hp: string;
+    no_hp?: string; // nullable di DB, tidak selalu terisi saat login
   };
   expires_at: number; // timestamp ms
 };
@@ -70,6 +70,63 @@ export function logoutWarga() {
   sessionStorage.removeItem(SESSION_KEY);
 }
 
+/**
+ * Perpanjang session warga jika belum expired.
+ * Dipanggil periodically (misal: setiap 4 jam) untuk menjaga session alive.
+ *
+ * Returns updated session or null jika refresh gagal / sudah expired.
+ */
+export async function refreshWargaSession(): Promise<WargaSession | null> {
+  const existing = getWargaSession();
+  if (!existing) return null;
+
+  // Jangan refresh jika < 1 hari sebelum expiry
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  if (existing.expires_at - Date.now() > oneDayMs) {
+    // Session masih sangat segar — tidak perlu refresh
+    return existing;
+  }
+
+  // Supabase not configured → dev mode (no server to call)
+  if (!isSupabaseConfigured) {
+    // Dev mode: extend locally
+    const newExpiry = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const updated: WargaSession = { ...existing, expires_at: newExpiry };
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+    return updated;
+  }
+
+  try {
+    const res = await fetch("/api/auth/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: existing.token }),
+    });
+    const data = (await res.json()) as {
+      ok: boolean;
+      token?: string;
+      expires_in?: number;
+      error?: string;
+    };
+    if (!res.ok || !data.ok || !data.token) {
+      // Refresh gagal — session mungkin expired
+      logoutWarga();
+      return null;
+    }
+    const updated: WargaSession = {
+      token: data.token,
+      warga: existing.warga,
+      expires_at: Date.now() + (data.expires_in ?? 7 * 24 * 60 * 60) * 1000,
+    };
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+    return updated;
+  } catch (err) {
+    // Network error — keep existing session but surface as degraded
+    console.warn("[warga-auth] Session refresh failed, using cached session:", err);
+    return existing;
+  }
+}
+
 /** Request OTP via edge function /api/auth/request-otp. */
 export async function requestOtp(
   nik: string,
@@ -94,8 +151,16 @@ export async function requestOtp(
       message?: string;
       error?: string;
       dev_otp?: string;
+      code?: number; // HTTP status code from edge function body
     };
     if (!res.ok || !data.ok) {
+      // Surface specific error codes for better UX
+      if (data.code === 422) {
+        return { ok: false, message: "Nomor WhatsApp tidak ditemukan. Hubungi kantor desa." };
+      }
+      if (data.code === 429) {
+        return { ok: false, message: "Terlalu banyak percobaan. Tunggu beberapa menit." };
+      }
       return { ok: false, message: data.error ?? "Gagal mengirim OTP" };
     }
     return {

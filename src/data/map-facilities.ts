@@ -35,10 +35,10 @@ export const TYPE_CONFIG: Record<MapFacilityType, { color: string; icon: string;
 export const FACILITIES: MapFacility[] = [
   {
     id: "kantor-desa",
-    name: "Kantor Desa Seruni Mumbul",
+    name: "Kantor Desa",
     type: "kantor-desa",
     coords: [-8.5732, 116.6214],
-    description: "Pusat pemerintahan Desa Seruni Mumbul",
+    description: "Pusat pemerintahan Desa",
   },
   {
     id: "posyandu-mawar",
@@ -58,17 +58,17 @@ export const FACILITIES: MapFacility[] = [
   },
   {
     id: "sekolah-dasar",
-    name: "SDN 1 Seruni Mumbul",
+    name: "Sekolah Dasar Negeri",
     type: "sekolah",
     coords: [-8.5735, 116.622],
-    description: "Sekolah Dasar Negeri di Desa Seruni Mumbul",
+    description: "Sekolah Dasar Negeri di Desa",
   },
   {
     id: "masjid-jami",
     name: "Masjid Jami Al-Muttaqin",
     type: "masjid",
     coords: [-8.573, 116.6205],
-    description: "Masjid utama di Desa Seruni Mumbul",
+    description: "Masjid utama di Desa",
   },
   {
     id: "lapangan-olahraga",
@@ -79,21 +79,21 @@ export const FACILITIES: MapFacility[] = [
   },
   {
     id: "pasar-desa",
-    name: "Pasar Desa Seruni Mumbul",
+    name: "Pasar Desa",
     type: "pasar",
     coords: [-8.5728, 116.6235],
     description: "Pasar mingguan, setiap hari Sabtu",
   },
   {
     id: "bumdes",
-    name: "Kantor BUMDes Mumbul Sejahtera",
+    name: "Kantor BUMDes",
     type: "bumdes",
     coords: [-8.5738, 116.6218],
     description: "Pusat usaha BUMDes dan penjualan produk lokal",
   },
   {
     id: "objek-wisata-embung",
-    name: "Embung Seruni Mumbul",
+    name: "Embung Desa",
     type: "objek-wisata",
     coords: [-8.576, 116.625],
     description: "Embung wisata dengan pemandangan sawah terasering",

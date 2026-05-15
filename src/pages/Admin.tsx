@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import QRCode from "qrcode";
 import { Footer } from "@/components/site/Footer";
 import { Link } from "@/components/Link";
@@ -34,11 +34,21 @@ import {
   Menu,
   ListChecks,
   Send,
+  Cloud,
+  CloudDownload,
+  Loader2,
+  AlertCircle,
+  Building2,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { TemplateSuratManager } from "@/components/admin/TemplateSuratManager";
 import { PendudukManager } from "@/components/admin/PendudukManager";
+import { CMSManager } from "@/components/admin/CMSManager";
+import { Newspaper, History } from "lucide-react";
+import { AuditLogManager } from "@/components/admin/AuditLogManager";
+import { AlertPanel } from "@/components/admin/AlertPanel";
+import { SuratPreviewPanel } from "@/components/admin/SuratPreviewPanel";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,20 +57,26 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { getSession, logout } from "@/lib/auth";
-import {
-  listRecords,
-  listArchive,
-  listPenduduk,
-  savePenduduk,
-  type SuratRecord,
-} from "@/lib/esurat-store";
+import { listRecords, listArchive, lookupPenduduk, type SuratRecord } from "@/lib/esurat-store";
+import { listPenduduk, savePendudukBatch, isUsingMock } from "@/lib/penduduk-store";
 import { notifySurat } from "@/lib/esurat-notif";
+import { signQrPayload } from "@/lib/qr-signature";
 import { generateNomorSurat } from "@/lib/nomor-surat";
+import { getSettings } from "@/lib/settings-store";
 import { sendWaNotification } from "@/lib/fonnte";
 import { suratActionsFor, can } from "@/lib/roles";
-import { getSettings } from "@/lib/settings-store";
-import { syncSetStatus, syncSaveRecord, syncArchive } from "@/lib/useSupabaseSync";
+import {
+  syncSetStatus,
+  syncSaveRecord,
+  syncArchive,
+  syncDeleteRecord,
+  syncPullAllRecords,
+  logAudit,
+  healthCheck,
+} from "@/lib/useSupabaseSync";
 import Papa from "papaparse";
+import { jsPDF } from "jspdf";
+import { utils, writeFile } from "xlsx";
 import type { Penduduk } from "@/data/penduduk";
 import {
   ResponsiveContainer,
@@ -96,15 +112,28 @@ const STATUS_COLORS: Record<StatusKey, string> = {
 export default function AdminPage() {
   const navigate = useNavigate();
   const [view, setView] = useState<
-    "dashboard" | "monitoring" | "archive" | "templates" | "penduduk" | "settings"
+    | "dashboard"
+    | "monitoring"
+    | "archive"
+    | "templates"
+    | "penduduk"
+    | "settings"
+    | "konten"
+    | "audit"
   >("dashboard");
   const [records, setRecords] = useState<SuratRecord[]>([]);
   const [archive, setArchive] = useState<SuratRecord[]>([]);
   const [preview, setPreview] = useState<SuratRecord | null>(null);
   const [qrUrl, setQrUrl] = useState<string>("");
   const [pendCount, setPendCount] = useState(0);
+  const [pendIsMock, setPendIsMock] = useState(false);
   const [tab, setTab] = useState<"all" | StatusKey>("all");
   const [q, setQ] = useState("");
+  const [isSyncing, setIsSyncing] = useState(false);
+  // null = checking, true = connected, false = offline/error
+  const [connectionStatus, setConnectionStatus] = useState<boolean | null>(null);
+  // Track records with pending actions to prevent duplicate triggers (double-click)
+  const [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
 
   // Guard: jika belum login, alihkan ke /login
   useEffect(() => {
@@ -112,6 +141,11 @@ export default function AdminPage() {
       navigate({ to: "/login" });
     }
   }, [navigate]);
+
+  // ── Scroll to top when view changes ─────────────────────────────────────
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [view]);
 
   const session = getSession();
   const username = session?.name ?? "Admin";
@@ -126,8 +160,49 @@ export default function AdminPage() {
     setRecords(listRecords());
     setArchive(listArchive());
     setPendCount(listPenduduk().length);
+    setPendIsMock(isUsingMock());
   };
+
+  const handleCloudSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await syncPullAllRecords();
+      if (res.ok) {
+        logAudit({
+          action: "cloud.sync_pull",
+          detail: "Tarik data terbaru dari Supabase ke lokal",
+          username,
+        });
+        toast.success("Sinkronisasi Cloud Berhasil", {
+          description: "Data lokal telah diperbarui dengan data terbaru dari cloud.",
+        });
+        refresh();
+      } else {
+        toast.error("Gagal Sinkronisasi Cloud", {
+          description: res.error || "Terjadi kesalahan saat menarik data.",
+        });
+      }
+    } catch (err) {
+      toast.error("Sync Error", { description: String(err) });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(refresh, []);
+
+  // Run healthCheck once on mount to surface connection status
+  useEffect(() => {
+    healthCheck()
+      .then((ok) => {
+        (window as unknown as { __SUPABASE_OK__?: boolean }).__SUPABASE_OK__ = ok;
+        setConnectionStatus(ok);
+      })
+      .catch(() => {
+        (window as unknown as { __SUPABASE_OK__?: boolean }).__SUPABASE_OK__ = false;
+        setConnectionStatus(false);
+      });
+  }, []);
 
   useEffect(() => {
     if (!preview) {
@@ -204,60 +279,147 @@ export default function AdminPage() {
 
   /* ---------- Actions (via sync layer) ---------- */
   const verify = async (r: SuratRecord) => {
+    if (pendingActions.has(r.no)) return; // Debounce double-click
+    setPendingActions((s) => new Set(s).add(r.no));
     const result = await syncSetStatus(r.no, "Diverifikasi", undefined, username);
     refresh();
     if (result.ok) {
+      await logAudit({
+        action: "surat.verify",
+        detail: `Verifikasi: ${r.no} oleh ${username}`,
+        username,
+      });
       const notify = await notifySurat(r, "verify");
       if (notify.ok) toast.success("Diverifikasi & notifikasi WA dikirim", { description: r.no });
       else toast.warning("Diverifikasi OK, WA gagal", { description: notify.message });
     } else {
       toast.error("Gagal menyimpan", { description: result.error });
     }
+    setPendingActions((s) => {
+      const n = new Set(s);
+      n.delete(r.no);
+      return n;
+    });
   };
   const reject = async (r: SuratRecord) => {
+    if (pendingActions.has(r.no)) return;
     const note = window.prompt("Alasan penolakan?") ?? "";
     if (!note) return;
+    setPendingActions((s) => new Set(s).add(r.no));
     const result = await syncSetStatus(r.no, "Ditolak", note, username);
     const updated = { ...r, status: "Ditolak" as const, catatan: note };
+    await logAudit({
+      action: "surat.reject",
+      detail: `Tolak: ${r.no} alasan "${note}" oleh ${username}`,
+      username,
+    });
     await notifySurat(updated, "reject", note);
     refresh();
     if (result.ok) toast.error("Ditolak", { description: r.no });
     else toast.error("Gagal menyimpan", { description: result.error });
+    setPendingActions((s) => {
+      const n = new Set(s);
+      n.delete(r.no);
+      return n;
+    });
   };
   const lanjutApproval = async (r: SuratRecord) => {
+    if (pendingActions.has(r.no)) return;
+    setPendingActions((s) => new Set(s).add(r.no));
     const result = await syncSetStatus(r.no, "Menunggu Approval", undefined, username);
     refresh();
     if (result.ok) {
-      setPreview({ ...r, status: "Menunggu Approval" });
+      await logAudit({
+        action: "surat.forward",
+        detail: `Lanjut approval: ${r.no} oleh ${username}`,
+        username,
+      });
+      const updated = { ...r, status: "Menunggu Approval" as const };
+      await notifySurat(updated, "forward");
+      setPreview(updated);
     } else {
       toast.error("Gagal menyimpan", { description: result.error });
     }
+    setPendingActions((s) => {
+      const n = new Set(s);
+      n.delete(r.no);
+      return n;
+    });
   };
   const approve = async (r: SuratRecord) => {
-    const tahun = new Date().getFullYear();
-    const noSurat = await generateNomorSurat(r.kode, tahun);
-    const signed_at = new Date().toISOString();
-    const signerName = getSettings().signature.signer_name;
-    const updated: SuratRecord = {
-      ...r,
-      tracking_no: r.no,
-      no: noSurat,
-      status: "Disetujui",
-      signed_at,
-      signed_by: signerName,
-      qr_payload: `SERUNI-MUMBUL|${noSurat}|${r.nik}|${r.kode}|${signed_at}`,
-    };
-    // Simpan dengan nomor surat resmi, lalu arsipkan
-    await syncSaveRecord(updated, username);
-    await syncArchive(noSurat, username);
-    const notify = await notifySurat(updated, "approve");
-    refresh();
-    setPreview(updated);
-    if (notify.ok) toast.success("Disetujui & notifikasi WA dikirim");
-    else toast.warning("Disetujui, WA gagal", { description: notify.message });
+    if (pendingActions.has(r.no)) return;
+    setPendingActions((s) => new Set(s).add(r.no));
+    try {
+      const tahun = new Date().getFullYear();
+      const noSurat = await generateNomorSurat(r.kode, tahun);
+      const signed_at = new Date().toISOString();
+      const signerName = getSettings().signature.signer_name;
+
+      // HMAC-SHA256 signed QR payload — forgery langsung terdeteksi saat verifikasi
+      const qrSecret = (import.meta.env.VITE_QR_SECRET as string) ?? "";
+      const signed = await signQrPayload({
+        no: noSurat,
+        nik: r.nik,
+        kode: r.kode,
+        secret: qrSecret,
+      });
+
+      const updated: SuratRecord = {
+        ...r,
+        tracking_no: r.no,
+        no: noSurat,
+        status: "Disetujui",
+        signed_at,
+        signed_by: signerName,
+        qr_payload: signed.raw,
+      };
+      // All-or-nothing: delete + save + archive must all succeed
+      // If save fails, archive should not run — check individually
+      const deleteResult = await syncDeleteRecord(r.no, username);
+      if (!deleteResult.ok) throw new Error("Gagal hapus tracking record");
+      const saveResult = await syncSaveRecord(updated, username);
+      if (!saveResult.ok) throw new Error("Gagal simpan surat resmi");
+      const archiveResult = await syncArchive(noSurat, username);
+      if (!archiveResult.ok) throw new Error("Gagal arsipkan surat");
+      await logAudit({
+        action: "surat.approve",
+        detail: `Approve: ${noSurat} oleh ${username}`,
+        username,
+      });
+      const notify = await notifySurat(updated, "approve");
+      refresh();
+      setPreview(updated);
+      if (notify.ok) toast.success("Disetujui & notifikasi WA dikirim");
+      else toast.warning("Disetujui, WA gagal", { description: notify.message });
+    } catch (e) {
+      toast.error("Gagal approve", { description: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setPendingActions((s) => {
+        const n = new Set(s);
+        n.delete(r.no);
+        return n;
+      });
+    }
   };
 
   const onCsv = (file: File) => {
+    // Baca default lokasi dari settings agar tidak hardcoded saat import CSV
+    const village = (() => {
+      try {
+        return getSettings().wilayah;
+      } catch {
+        return null;
+      }
+    })();
+
+    const villageFallback = (() => {
+      try {
+        return getSettings().village;
+      } catch {
+        return null;
+      }
+    })();
+
     Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
@@ -265,10 +427,10 @@ export default function AdminPage() {
         const rows: Penduduk[] = res.data
           .map((r) => ({
             // ── lokasi
-            provinsi: r.provinsi || "Nusa Tenggara Barat",
-            kabupaten: r.kabupaten || "Lombok Timur",
-            kecamatan: r.kecamatan || "Pringgabaya",
-            desa: r.desa || "Seruni Mumbul",
+            provinsi: r.provinsi || village?.province || "Nusa Tenggara Barat",
+            kabupaten: r.kabupaten || village?.regency || "Lombok Timur",
+            kecamatan: r.kecamatan || village?.district || "Pringgabaya",
+            desa: r.desa || village?.village || villageFallback?.name || "Desa",
             dusun: r.dusun || "",
             rt: r.rt || "",
             rw: r.rw || "",
@@ -318,9 +480,17 @@ export default function AdminPage() {
             alamat: r.alamat || "",
           }))
           .filter((p) => /^\d{16}$/.test(p.nik));
-        savePenduduk(rows);
-        refresh();
-        toast.success(`Imported ${rows.length} penduduk`);
+        savePendudukBatch(rows, username).then(({ added, updated, syncOk, syncMessage }) => {
+          refresh();
+          if (syncOk)
+            toast.success(`Imported: +${added} new, ~${updated} updated`, {
+              description: syncMessage,
+            });
+          else
+            toast.warning(`Imported: +${added} new, ~${updated} updated`, {
+              description: syncMessage,
+            });
+        });
       },
     });
   };
@@ -346,7 +516,141 @@ export default function AdminPage() {
     a.download = `arsip-surat-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    logAudit({
+      action: "archive.export",
+      detail: `Export arsip surat (${archive.length} record) ke CSV`,
+      username,
+    });
     toast.success("Arsip diunduh");
+  };
+
+  /** Export arsip ke Excel (.xlsx) */
+  const exportArchiveExcel = () => {
+    if (archive.length === 0) {
+      toast.error("Tidak ada arsip untuk diekspor");
+      return;
+    }
+    const rows = archive.map((r) => ({
+      "No. Tracking": r.no,
+      Kode: r.kode,
+      "Jenis Surat": r.nama_surat,
+      Pemohon: r.pemohon,
+      NIK: r.nik,
+      Kontak: r.kontak,
+      Status: r.status,
+      "Ditandatangani Oleh": r.signed_by ?? "-",
+      "Tanggal Ditandatangani": r.signed_at ? new Date(r.signed_at).toLocaleString("id-ID") : "-",
+      "Diajukan Pada": new Date(r.created_at).toLocaleString("id-ID"),
+    }));
+    const ws = utils.json_to_sheet(rows);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Arsip Surat");
+    // Column widths
+    ws["!cols"] = [
+      { wch: 20 },
+      { wch: 12 },
+      { wch: 28 },
+      { wch: 24 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 22 },
+    ];
+    writeFile(wb, `arsip-surat-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    logAudit({
+      action: "archive.export_excel",
+      detail: `Export ${archive.length} record ke XLSX`,
+      username,
+    });
+    toast.success("Arsip diekspor (.xlsx)");
+  };
+
+  /** Export daftar surat (aktif) ke PDF */
+  const exportSuratPdf = () => {
+    if (records.length === 0) {
+      toast.error("Tidak ada surat untuk diekspor");
+      return;
+    }
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("DAFTAR PENGAJUAN SURAT", 10, 12);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      `Dicetak: ${new Date().toLocaleString("id-ID", { dateStyle: "long", timeStyle: "short" })} — Total: ${records.length} surat`,
+      10,
+      18,
+    );
+    const headers = [
+      "No",
+      "No.Tracking",
+      "Kode",
+      "Jenis Surat",
+      "Pemohon",
+      "NIK",
+      "Status",
+      "Diajukan",
+    ];
+    const colW = [6, 28, 18, 48, 38, 22, 24, 30];
+    const rowH = 7;
+    let y = 24;
+    // Header row
+    doc.setFillColor(15, 122, 74);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.rect(
+      10,
+      y,
+      colW.reduce((a, b) => a + b, 0),
+      rowH,
+      "F",
+    );
+    let x = 10;
+    headers.forEach((h, i) => {
+      doc.text(h, x + 2, y + 5);
+      x += colW[i];
+    });
+    y += rowH;
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "normal");
+    records.slice(0, 50).forEach((r, idx) => {
+      if (idx % 2 === 0) {
+        doc.setFillColor(245, 247, 250);
+        doc.rect(
+          10,
+          y,
+          colW.reduce((a, b) => a + b, 0),
+          rowH,
+          "F",
+        );
+      }
+      x = 10;
+      const row = [
+        String(idx + 1),
+        r.no,
+        r.kode,
+        r.nama_surat,
+        r.pemohon,
+        r.nik,
+        r.status,
+        new Date(r.created_at).toLocaleDateString("id-ID"),
+      ];
+      row.forEach((cell, i) => {
+        doc.text(cell.slice(0, colW[i] / 2.5), x + 2, y + 5);
+        x += colW[i];
+      });
+      y += rowH;
+    });
+    doc.save(`daftar-surat-${new Date().toISOString().slice(0, 10)}.pdf`);
+    logAudit({
+      action: "surat.export_pdf",
+      detail: `Export ${Math.min(records.length, 50)} record ke PDF`,
+      username,
+    });
+    toast.success("PDF diunduh");
   };
 
   return (
@@ -379,20 +683,46 @@ export default function AdminPage() {
                       ? "Template Surat"
                       : view === "penduduk"
                         ? "Data Penduduk"
-                        : "Pengaturan"}
+                        : view === "konten"
+                          ? "Konten Website"
+                          : view === "audit"
+                            ? "Audit Log Aktivitas"
+                            : view === "settings"
+                              ? "Pengaturan Sistem"
+                              : "Pengaturan"}
             </span>
           </nav>
 
+          <div id="admin-content-top" />
+
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <p className="eyebrow text-primary mb-2">
-                Admin Panel{" "}
-                {session && (
-                  <span className="opacity-70">
-                    · {session.name} ({session.role})
-                  </span>
-                )}
-              </p>
+              {/* Cloud connection indicator */}
+              {(() => {
+                const ok = connectionStatus;
+                return (
+                  <p className="eyebrow mb-2">
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                        ok === false ? "bg-red-400" : ok ? "bg-green-400" : "bg-yellow-400"
+                      }`}
+                      title={
+                        ok === false
+                          ? "Supabase offline"
+                          : ok
+                            ? "Cloud sync aktif"
+                            : "Memeriksa koneksi..."
+                      }
+                    />
+                    Admin Panel
+                  </p>
+                );
+              })()}
+              {session && (
+                <span className="opacity-70">
+                  · {session.name} ({session.role})
+                </span>
+              )}
               <h1 className="hero-title text-background">
                 {view === "dashboard" && (
                   <>
@@ -419,6 +749,11 @@ export default function AdminPage() {
                     Data <em className="not-italic text-primary">Penduduk</em>
                   </>
                 )}
+                {view === "konten" && (
+                  <>
+                    Konten <em className="not-italic text-primary">Website</em>
+                  </>
+                )}
                 {view === "settings" && (
                   <>
                     Pengaturan <em className="not-italic text-primary">Sistem</em>
@@ -436,6 +771,8 @@ export default function AdminPage() {
                   "Kelola katalog template surat: CRUD, import/export, preview, alur verifikasi & approval, hingga pengiriman dokumen."}
                 {view === "penduduk" &&
                   "Kelola database kependudukan: CRUD, import CSV massal, export data, dan filter multi-kriteria."}
+                {view === "konten" &&
+                  "Kelola Berita, Agenda, Pengumuman, APBDes, dan Galeri Desa untuk transparansi publik."}
                 {view === "settings" &&
                   "Atur konfigurasi sistem, branding, integrasi WhatsApp, dan preferensi admin."}
               </p>
@@ -451,8 +788,42 @@ export default function AdminPage() {
                     onClick={refresh}
                     className="hidden sm:inline-flex border-background/30 bg-background/10 text-background hover:bg-background/20"
                   >
-                    <RefreshCw className="h-4 w-4 sm:mr-2" />
+                    <RefreshCw className={`h-4 w-4 sm:mr-2 ${isSyncing ? "animate-spin" : ""}`} />
                     <span className="hidden md:inline">Muat Ulang</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCloudSync}
+                    disabled={isSyncing}
+                    className="hidden sm:inline-flex border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
+                  >
+                    <CloudDownload
+                      className={`h-4 w-4 sm:mr-2 ${isSyncing ? "animate-spin" : ""}`}
+                    />
+                    <span className="hidden md:inline">
+                      {isSyncing ? "Syncing..." : "Cloud Sync"}
+                    </span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={exportSuratPdf}
+                    className="hidden sm:inline-flex border-info/30 bg-info/10 text-info hover:bg-info/20"
+                    title="Export daftar surat aktif ke PDF"
+                  >
+                    <FileText className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden md:inline">PDF Surat</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={exportArchiveExcel}
+                    className="hidden sm:inline-flex border-success/30 bg-success/10 text-success hover:bg-success/20"
+                    title="Export arsip surat ke Excel"
+                  >
+                    <TrendingUp className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden md:inline">Excel Arsip</span>
                   </Button>
                   <Button
                     size="sm"
@@ -460,7 +831,7 @@ export default function AdminPage() {
                     className="hidden sm:inline-flex bg-primary text-primary-foreground hover:bg-primary-hover"
                   >
                     <Download className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden md:inline">Export Arsip</span>
+                    <span className="hidden md:inline">CSV Arsip</span>
                   </Button>
                 </>
               )}
@@ -479,12 +850,30 @@ export default function AdminPage() {
                   {view === "dashboard" && (
                     <>
                       <DropdownMenuItem onClick={refresh} className="sm:hidden">
-                        <RefreshCw className="h-4 w-4 mr-2" />
+                        <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
                         Muat Ulang
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleCloudSync}
+                        disabled={isSyncing}
+                        className="sm:hidden"
+                      >
+                        <CloudDownload
+                          className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`}
+                        />
+                        Cloud Sync
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportSuratPdf} className="sm:hidden">
+                        <FileText className="h-4 w-4 mr-2" />
+                        PDF Surat Aktif
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportArchiveExcel} className="sm:hidden">
+                        <TrendingUp className="h-4 w-4 mr-2" />
+                        Excel Arsip
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={exportArchive} className="sm:hidden">
                         <Download className="h-4 w-4 mr-2" />
-                        Export Arsip
+                        CSV Arsip
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="sm:hidden" />
                     </>
@@ -541,6 +930,20 @@ export default function AdminPage() {
                 icon={Users}
                 label="Penduduk"
               />
+              <SectionTab
+                active={view === "konten"}
+                onClick={() => setView("konten")}
+                icon={Newspaper}
+                label="Konten"
+              />
+              {can("settings.manage") && (
+                <SectionTab
+                  active={view === "audit"}
+                  onClick={() => setView("audit")}
+                  icon={History}
+                  label="Audit Log"
+                />
+              )}
               {can("settings.manage") && (
                 <SectionTab
                   active={view === "settings"}
@@ -554,22 +957,34 @@ export default function AdminPage() {
         </div>
       </section>
 
-      {view === "settings" && can("settings.manage") ? (
+      {view === "konten" ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <CMSManager />
+          </div>
+        </section>
+      ) : view === "settings" && can("settings.manage") ? (
         <section className="py-8 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl">
             <SettingsPanel />
           </div>
         </section>
+      ) : view === "audit" && can("settings.manage") ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <AuditLogManager />
+          </div>
+        </section>
       ) : view === "penduduk" ? (
         <section className="py-8 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl">
-            <PendudukManager />
+            <PendudukManager username={username} />
           </div>
         </section>
       ) : view === "templates" && can("template.view") ? (
         <section className="py-8 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl">
-            <TemplateSuratManager />
+            <TemplateSuratManager username={username} />
           </div>
         </section>
       ) : view === "monitoring" ? (
@@ -586,7 +1001,14 @@ export default function AdminPage() {
                 sendWaNotification(
                   r.kontak,
                   `Dokumen ${r.nama_surat} (${r.no}) telah dikirim.`,
-                ).then(() => toast.success("Dikirim via WA"))
+                ).then(() => {
+                  logAudit({
+                    action: "surat.send_wa",
+                    detail: `Kirim notifikasi WA ke ${r.pemohon} (${r.kontak}) untuk surat ${r.no}`,
+                    username,
+                  });
+                  toast.success("Dikirim via WA");
+                })
               }
             />
           </div>
@@ -600,6 +1022,9 @@ export default function AdminPage() {
       ) : (
         <section className="py-8 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl space-y-8">
+            {/* Peringatan Dini */}
+            <AlertPanel />
+
             {/* Stat cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatCard
@@ -627,8 +1052,8 @@ export default function AdminPage() {
                 icon={Users}
                 label="Database Penduduk"
                 value={pendCount}
-                hint="Entri NIK aktif"
-                tone="info"
+                hint={pendIsMock ? "Data Simulasi — Import CSV untuk data asli" : "Entri NIK aktif"}
+                tone={pendIsMock ? "warning" : "info"}
               />
             </div>
 
@@ -723,11 +1148,16 @@ export default function AdminPage() {
               <div>
                 <h2 className="font-display text-xl font-bold flex items-center gap-2">
                   <Upload className="h-5 w-5 text-primary" /> Database Penduduk
+                  {pendIsMock && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 text-warning px-2 py-0.5 text-xs font-semibold">
+                      <AlertCircle className="h-3 w-3" /> Data Simulasi
+                    </span>
+                  )}
                 </h2>
                 <p className="font-body text-sm text-muted-foreground mt-1 max-w-2xl">
-                  {pendCount} entri aktif. Import CSV dengan kolom: nik, nama, tempat_lahir,
-                  tanggal_lahir, jenis_kelamin, agama, status_perkawinan, pekerjaan, alamat, rt, rw,
-                  dusun, no_kk, no_hp.
+                  {pendCount} entri{pendIsMock ? " simulasi" : " aktif"}. Import CSV dengan kolom:
+                  nik, nama, tempat_lahir, tanggal_lahir, jenis_kelamin, agama, status_perkawinan,
+                  pekerjaan, alamat, rt, rw, dusun, no_kk, no_hp.
                 </p>
               </div>
               <Label className="btn-pill bg-primary text-primary-foreground hover:bg-primary-hover cursor-pointer">
@@ -743,7 +1173,7 @@ export default function AdminPage() {
 
             {/* Antrian + Preview */}
             <div className="grid lg:grid-cols-[1fr_380px] gap-6">
-              <div className="space-y-4">
+              <div className="space-y-5" id="monitoring-top">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="font-display text-2xl font-bold flex items-center gap-2">
                     <FileText className="h-6 w-6 text-primary" /> Antrian Pengajuan
@@ -898,7 +1328,7 @@ export default function AdminPage() {
               <aside className="lg:sticky lg:top-24 h-fit">
                 <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-display text-lg font-bold">Preview Blanko</h3>
+                    <h3 className="font-display text-lg font-bold">Preview Surat</h3>
                     {preview && <StatusPill status={preview.status} />}
                   </div>
                   {!preview ? (
@@ -909,42 +1339,16 @@ export default function AdminPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-border bg-background p-5 text-sm font-body space-y-2">
-                      <div className="text-center pb-3 border-b border-border">
-                        <p className="font-display text-base font-bold">
-                          PEMERINTAH DESA SERUNI MUMBUL
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Kec. Pringgabaya · Kab. Lombok Timur
-                        </p>
-                      </div>
-                      <p className="text-center font-display font-bold uppercase mt-2">
-                        {preview.nama_surat}
-                      </p>
-                      <p className="text-center text-xs text-muted-foreground">No: {preview.no}</p>
-                      <div className="pt-3 space-y-1">
-                        <p>Yang bertanda tangan menerangkan bahwa:</p>
-                        <p>
-                          <strong>Nama:</strong> {preview.pemohon}
-                        </p>
-                        <p>
-                          <strong>NIK:</strong> {preview.nik}
-                        </p>
-                        {Object.entries(preview.data).map(([k, v]) => (
-                          <p key={k}>
-                            <strong className="capitalize">{k.replace(/_/g, " ")}:</strong> {v}
-                          </p>
-                        ))}
-                      </div>
-                      {preview.status === "Disetujui" && qrUrl ? (
-                        <div className="flex flex-col items-center pt-4 border-t border-border mt-4">
-                          <img src={qrUrl} alt="QR e-signature" className="w-32 h-32" />
-                          <p className="text-xs text-muted-foreground mt-1">Tertanda digital</p>
-                          <p className="font-display font-bold">{preview.signed_by}</p>
-                        </div>
-                      ) : (
-                        <div className="pt-4 mt-4 border-t border-dashed border-border text-center text-xs text-muted-foreground">
-                          Belum ditandatangani
+                    <div className="space-y-3">
+                      <SuratPreviewPanel preview={preview} />
+                      {preview.status === "Disetujui" && qrUrl && (
+                        <div className="flex flex-col items-center mt-4">
+                          <img
+                            src={qrUrl}
+                            alt="QR"
+                            className="w-14 h-14 border border-border rounded"
+                          />
+                          <p className="text-[10px] text-muted-foreground mt-0.5">QR e-sign</p>
                         </div>
                       )}
                     </div>
@@ -1142,6 +1546,7 @@ function MonitoringTable({
                 <th className="text-left px-4 py-3 hidden md:table-cell">Nama Surat</th>
                 <th className="text-left px-4 py-3">Status</th>
                 <th className="text-left px-4 py-3 hidden lg:table-cell">Diajukan</th>
+                <th className="text-left px-4 py-3">Sync</th>
                 <th className="text-right px-4 py-3">Aksi</th>
               </tr>
             </thead>
@@ -1156,7 +1561,11 @@ function MonitoringTable({
                 filtered.map((r) => {
                   const acts = suratActionsFor(r.status);
                   return (
-                    <tr key={r.no} className="border-t border-border hover:bg-muted/30 transition">
+                    <tr
+                      key={r.no}
+                      className="border-t border-border hover:bg-muted/30 transition cursor-pointer"
+                      onClick={() => onPreview(r)}
+                    >
                       <td className="px-4 py-3">
                         <div className="font-mono text-xs text-muted-foreground">#{r.no}</div>
                         <div className="text-[11px] font-bold text-primary">{r.kode}</div>
@@ -1172,9 +1581,41 @@ function MonitoringTable({
                       <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">
                         {fmtRelative(r.created_at)}
                       </td>
+                      {/* Sync status — dot indicator */}
+                      <td className="px-4 py-3">
+                        {r.cloudSynced === true ? (
+                          <div
+                            title="Tersimpan di server"
+                            className="flex items-center justify-center"
+                          >
+                            <div className="h-2 w-2 rounded-full bg-success" />
+                          </div>
+                        ) : r.cloudSynced === false ? (
+                          <div
+                            title="Hanya tersimpan lokal"
+                            className="flex items-center justify-center"
+                          >
+                            <div className="h-2 w-2 rounded-full bg-warning" />
+                          </div>
+                        ) : (
+                          <div
+                            title="Status sync belum diketahui"
+                            className="flex items-center justify-center"
+                          >
+                            <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-1 flex-wrap">
-                          <Button size="sm" variant="outline" onClick={() => onPreview(r)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onPreview(r);
+                            }}
+                          >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
                           {acts.map((a) => {
@@ -1319,7 +1760,11 @@ function ArchiveTable({
                 </tr>
               ) : (
                 filtered.map((r) => (
-                  <tr key={r.no} className="border-t border-border hover:bg-muted/30 transition">
+                  <tr
+                    key={r.no}
+                    className="border-t border-border hover:bg-muted/30 transition cursor-pointer"
+                    onClick={() => onPreview(r)}
+                  >
                     <td className="px-4 py-3 font-mono text-xs">{r.no}</td>
                     <td className="px-4 py-3">
                       <div className="font-ui font-semibold">{r.nama_surat}</div>
@@ -1334,7 +1779,14 @@ function ArchiveTable({
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
-                        <Button size="sm" variant="outline" onClick={() => onPreview(r)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPreview(r);
+                          }}
+                        >
                           <Eye className="h-3.5 w-3.5 mr-1" /> Preview
                         </Button>
                       </div>

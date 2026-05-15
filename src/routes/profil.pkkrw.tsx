@@ -1,7 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { Link } from "@/components/Link";
+import { useVillage } from "@/hooks/use-village";
+import { getVillage } from "@/lib/village-dynamic";
+import { useSettings, getSettings } from "@/lib/settings-store";
+import { getLembagaWithStruktur } from "@/lib/lembaga-store";
+import { getMediaUrl } from "@/lib/media-upload";
+import { useEffect, useState } from "react";
+
 import {
   ScrollText,
   Users,
@@ -11,19 +18,23 @@ import {
   MapPin,
   Star,
   CheckCircle2,
+  Loader2,
+  User,
 } from "lucide-react";
 
 export const Route = createFileRoute("/profil/pkkrw")({
-  head: () => ({
-    meta: [
-      { title: `PKK & KWT — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content:
-          "Program Pemberdayaan Kesejahteraan Keluarga dan Kelompok Wanita Tani Desa Seruni Mumbul.",
-      },
-    ],
-  }),
+  head: () => {
+    const v = getVillage();
+    return {
+      meta: [
+        { title: `PKK & KWT — ${v.name}` },
+        {
+          name: "description",
+          content: `Program Pemberdayaan Kesejahteraan Keluarga dan Kelompok Wanita Tani Desa ${v.name}.`,
+        },
+      ],
+    };
+  },
   component: () => <PKKRWPage />,
 });
 
@@ -61,27 +72,30 @@ const PROGRAM_PKK = [
 ];
 
 const KWT = [
-  {
-    nama: "KWT Melati",
-    dusun: "Mumbul Timur",
-    anggota: 28,
-    produk: "Kue tradisional & jajanan pasar",
-  },
-  { nama: "KWT Mawar", dusun: "Mumbul Barat", anggota: 22, produk: "Manisan & dodol lombok" },
-  { nama: "KWT Sejahtera", dusun: "Mumbul Selatan", anggota: 35, produk: "Keripik & emping" },
-  { nama: "KWT Anggrek", dusun: "Mumbul Tengah", anggota: 19, produk: "Tenun & bordir" },
-];
-
-const PENGURUS = [
-  { nama: "Hj. Baiq Munawwaroh", jabatan: "Ketua TP-PKK Desa", role: "primary" },
-  { nama: "Siti Nuraini", jabatan: "Sekretaris", role: "secondary" },
-  { nama: "Baiq Rahmawati", jabatan: "Bendahara", role: "secondary" },
-  { nama: "Siti Aminah", jabatan: "Kabid Pendidikan & Keterampilan", role: "normal" },
-  { nama: "Hj. Maryati", jabatan: "Kabid Kesehatan", role: "normal" },
-  { nama: "Nurfatimah", jabatan: "Kabid Ekonomi Kreatif", role: "normal" },
+  { nama: "KWT Melati", dusun: "Mandar", anggota: 28, produk: "Kue tradisional & jajanan pasar" },
+  { nama: "KWT Mawar", dusun: "Sasak", anggota: 22, produk: "Manisan & dodol lombok" },
+  { nama: "KWT Sejahtera", dusun: "Dames", anggota: 35, produk: "Keripik & emping" },
+  { nama: "KWT Anggrek", dusun: "Brantapen Asri", anggota: 19, produk: "Tenun & bordir" },
 ];
 
 export function PKKRWPage() {
+  const v = useVillage();
+  const [data, setData] = useState<Awaited<ReturnType<typeof getLembagaWithStruktur>>>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getLembagaWithStruktur("pkk").then((d) => {
+      setData(d);
+      setLoading(false);
+    });
+  }, []);
+
+  const logoUrl = data?.lembaga.logo_storage_path
+    ? getMediaUrl(data.lembaga.logo_storage_path, "public-media")
+    : data?.lembaga.logo_url;
+
+  const aktifCount = data?.allPengurus.length ?? 0;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -89,6 +103,13 @@ export function PKKRWPage() {
         {/* Hero */}
         <section className="relative pt-32 pb-16 px-4 bg-gradient-to-br from-primary/5 via-background to-accent/30 overflow-hidden">
           <div className="max-w-5xl mx-auto relative">
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt="Logo PKK"
+                className="h-20 w-20 rounded-2xl object-contain border border-border bg-white/50 mb-6"
+              />
+            )}
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
               <Heart className="h-3.5 w-3.5" />
               Pemberdayaan Keluarga
@@ -96,26 +117,34 @@ export function PKKRWPage() {
             <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-4">
               PKK & Kelompok Wanita Tani
               <br />
-              <span className="text-primary">{VILLAGE.name}</span>
+              <span className="text-primary">{v.name}</span>
             </h1>
+
             <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-6">
-              TP-PKK (Kelompok Wanita) berperan dalam pemberdayaan keluarga melalui program
-              pendidikan, kesehatan, ekonomi kreatif, dan kesejahteraan sosial. Saat ini aktif 104
-              anggota dan 4 KWT di setiap dusun.
+              {data?.lembaga.deskripsi ||
+                "TP-PKK berperan dalam pemberdayaan keluarga melalui program pendidikan, kesehatan, ekonomi kreatif, dan kesejahteraan sosial."}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
-                <CheckCircle2 className="h-3.5 w-3.5" />4 KWT Aktif
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
-                <Users className="h-3.5 w-3.5" />
-                104 Anggota
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary">
-                <Star className="h-3.5 w-3.5" />
-                12 Program Aktif
-              </span>
-            </div>
+            {loading ? (
+              <div className="flex items-center gap-2 rounded-full bg-muted text-muted-foreground px-3 py-1 font-ui text-xs font-semibold">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Memuat…
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {KWT.length} KWT Aktif
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
+                  <Users className="h-3.5 w-3.5" />
+                  {aktifCount} Pengurus Aktif
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary">
+                  <Star className="h-3.5 w-3.5" />
+                  {PROGRAM_PKK.length} Program Aktif
+                </span>
+              </div>
+            )}
           </div>
         </section>
 
@@ -165,6 +194,12 @@ export function PKKRWPage() {
                   Usaha produktif per dusun untuk pemberdayaan ekonomi perempuan
                 </p>
               </div>
+              <Link
+                to="/profil/lembaga"
+                className="hidden sm:inline-flex items-center gap-2 font-ui text-sm text-primary font-semibold hover:underline shrink-0"
+              >
+                Lembaga Lain →
+              </Link>
             </div>
             <div className="rounded-2xl border border-border bg-card overflow-hidden">
               <table className="w-full text-sm">
@@ -214,21 +249,68 @@ export function PKKRWPage() {
                 <ScrollText className="h-5 w-5 text-primary" />
                 Dewan Ketua TP-PKK Desa
               </h3>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {PENGURUS.map((p) => (
-                  <div
-                    key={p.nama}
-                    className={`rounded-xl border p-4 ${p.role === "primary" ? "border-primary/40 bg-primary/5" : "border-border bg-muted/30"}`}
-                  >
-                    <p className="font-display font-bold text-ink leading-tight">{p.nama}</p>
-                    <p className="font-ui text-xs text-muted-foreground mt-0.5">{p.jabatan}</p>
-                  </div>
-                ))}
-              </div>
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : data?.allPengurus.length === 0 ? (
+                <p className="font-body text-muted-foreground text-center py-8">
+                  Data kepengurusan belum diisi.
+                </p>
+              ) : (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {data?.allPengurus.map((p) => {
+                    const strukturNode = data.allStruktur.find((s) => s.id === p.struktur_id);
+                    const isRoot = strukturNode?.level === 0;
+                    const fotoUrl = p.foto_storage_path
+                      ? getMediaUrl(p.foto_storage_path, "perangkat-fotos")
+                      : p.foto_url;
+                    return (
+                      <div
+                        key={p.id}
+                        className={`rounded-xl border p-4 ${isRoot ? "border-primary/40 bg-primary/5" : "border-border bg-muted/30"}`}
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          {fotoUrl ? (
+                            <img
+                              src={fotoUrl}
+                              alt={p.nama}
+                              className="h-12 w-12 rounded-full object-cover border border-border shrink-0"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center shrink-0">
+                              <User className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-display font-bold text-ink leading-tight">
+                              {p.nama}
+                            </p>
+                            <p className="font-ui text-xs text-muted-foreground mt-0.5">
+                              {strukturNode?.nama_jabatan ?? "—"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <div className="mt-6 pt-6 border-t border-border flex flex-wrap gap-4">
                 {[
-                  { icon: MapPin, text: "Balai Desa Seruni Mumbul, Ruang PKK Lt. 1" },
-                  { icon: Phone, text: "+62 812-3456-7890 (Ketua)" },
+                  {
+                    icon: MapPin,
+                    text:
+                      data?.lembaga.kontak_info?.alamat ||
+                      `Balai Desa ${v.village}, Ruang PKK Lt. 1`,
+                  },
+                  {
+                    icon: Phone,
+                    text: data?.lembaga.kontak_info?.telepon || "Hubungi sekretariat PKK",
+                  },
                 ].map(({ icon: Icon, text }) => (
                   <div key={text} className="flex items-center gap-2">
                     <Icon className="h-4 w-4 text-primary" />

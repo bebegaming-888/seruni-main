@@ -10,6 +10,7 @@ import { getSettings } from "@/lib/settings-store";
 import { getSuratMaster } from "@/data/surat-master";
 import { isSupabaseConfigured } from "./supabase";
 import { idbGet, idbPut } from "@/lib/idb-store";
+import { logAudit } from "./useSupabaseSync";
 
 const ROMAWI = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -50,11 +51,11 @@ export function toRomawiNumber(n: number): string {
   return ROMAWI[n] ?? "";
 }
 
-export function formatNomorSurat(params: FormatNomorSurat): string {
-  const { kodeKlasifikasi, noUrut, tahun } = params;
+export function formatNomorSurat(params: FormatNomorSurat & { bulan?: number }): string {
+  const { kodeKlasifikasi, noUrut, tahun, bulan } = params;
   const settings = getSettings();
   const cfg = settings.nomor ?? { inisialJabatan: "KDS", inisialDesa: "SRMB" };
-  const bulanRomawi = ROMAWI[new Date().getMonth() + 1];
+  const bulanRomawi = ROMAWI[bulan ?? new Date().getMonth() + 1];
   return `${kodeKlasifikasi}/${String(noUrut).padStart(3, "0")}/${cfg.inisialJabatan}.${cfg.inisialDesa}/${bulanRomawi}/${tahun}`;
 }
 
@@ -69,22 +70,38 @@ export function getKodeKlasifikasi(kodeSurat: string): string {
 
 export async function generateNomorSurat(kodeSurat: string, tahun?: number): Promise<string> {
   const tahunDipakai = tahun ?? new Date().getFullYear();
+  const kodeKlasifikasi = getKodeKlasifikasi(kodeSurat);
+
+  // Prioritas: Supabase RPC — atomic, tidak mungkin duplikat
   if (isSupabaseConfigured) {
     try {
       const res = await fetch("/api/generate-nomor-surat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kode: kodeSurat }),
+        body: JSON.stringify({ kode: kodeSurat, klasifikasi: kodeKlasifikasi }),
       });
       if (res.ok) {
         const data = (await res.json()) as { ok: boolean; nomor?: string };
         if (data.ok && data.nomor) return data.nomor;
       }
-    } catch {
-      /* fallback */
+      // Supabase configured but RPC returned non-ok — FAIL FAST, jangan gunakan local counter
+      // karena kemungkinan besar akan menghasilkan nomor duplikat
+      const errText = await res.text().catch(() => "unknown");
+      console.error(
+        `[nomor-surat] RPC failed (${res.status}), refusing local fallback: ${errText}`,
+      );
+      // Supabase IS configured but RPC failed — FAIL FAST so admin is aware.
+      // Falling back to local counter here would produce duplicate numbers.
+      throw new Error(`Server gagal generate nomor surat (status ${res.status}). Hubungi admin.`);
+    } catch (rpcErr) {
+      // Only true fallback: Supabase is not configured (network/function unavailable).
+      // If Supabase IS configured but RPC failed, we already threw above.
+      if (isSupabaseConfigured) throw rpcErr; // re-throw — should never reach here
+      console.warn("[nomor-surat] Supabase not configured, using local counter:", rpcErr);
     }
   }
-  const kodeKlasifikasi = getKodeKlasifikasi(kodeSurat);
+
+  // Local counter fallback — hanya untuk mode tanpa Supabase
   const noUrut = await generateNextNoUrut(tahunDipakai);
   return formatNomorSurat({ kodeKlasifikasi, noUrut, tahun: tahunDipakai });
 }
@@ -103,9 +120,15 @@ export async function generateNextNoUrut(tahun: number): Promise<number> {
 }
 
 /** Reset counter (untuk testing/tahun baru). */
-export async function resetNoUrut(tahun: number): Promise<void> {
+export async function resetNoUrut(tahun: number, actor: string): Promise<void> {
   _counter[tahun] = 0;
   await idbPut("nomor_surat", { id: String(tahun), counter: 0 });
+
+  logAudit({
+    action: "nomor_surat.reset",
+    detail: `Reset counter nomor surat tahun ${tahun}`,
+    username: actor,
+  });
 }
 
 /** Baca counter saat ini tanpa increment. */

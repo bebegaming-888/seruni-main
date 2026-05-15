@@ -1,0 +1,103 @@
+create table public.warga (
+  id uuid not null default extensions.uuid_generate_v4 (),
+  nik character(16) not null,
+  nama text not null,
+  tempat_lahir text null,
+  tanggal_lahir date null,
+  jenis_kelamin text null,
+  agama text null,
+  pekerjaan text null,
+  kewarganegaraan text null default 'WNI'::text,
+  no_kk character(16) null,
+  alamat text null,
+  rt character(3) null,
+  rw character(3) null,
+  dusun text null,
+  desa text null default 'Seruni Mumbul'::text,
+  kecamatan text null default 'Pringgabaya'::text,
+  kabupaten text null default 'Lombok Timur'::text,
+  provinsi text null default 'Nusa Tenggara Barat'::text,
+  no_hp text null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone null,
+  status_dalam_kk text null,
+  pendidikan text null,
+  pendapatan_bulan text null,
+  suku text null,
+  kepemilikan_rumah text null,
+  luas_rumah text null,
+  jumlah_lantai text null,
+  jenis_lantai text null,
+  jenis_dinding text null,
+  jenis_atap text null,
+  kepemilikan_tanah text null,
+  luas_tanah text null,
+  penerangan text null,
+  sumber_energi_masak text null,
+  mck text null,
+  sumber_air text null,
+  bantuan_sosial text null,
+  bantuan_extra text null,
+  bpjs_kesehatan text null,
+  bpjs_ketenagakerjaan text null,
+  kepemilikan_aset text null,
+  kondisi_fisik text null,
+  nama_ibu text null,
+  nama_bapak text null,
+  golongan_darah text null,
+  status_perkawinan text null,
+  constraint warga_pkey primary key (id),
+  constraint warga_nik_key unique (nik),
+  constraint warga_gol_darah_check check (
+    (
+      golongan_darah = any (
+        array[
+          'A'::text,
+          'B'::text,
+          'AB'::text,
+          'O'::text,
+          'Tidak Diketahui'::text
+        ]
+      )
+    )
+  ),
+  constraint warga_jenis_kelamin_check check (
+    (
+      jenis_kelamin = any (
+        array[
+          'Laki-Laki'::text,
+          'Laki-laki'::text,
+          'Perempuan'::text
+        ]
+      )
+    )
+  ),
+  constraint warga_status_perkawinan_check check (
+    (
+      status_perkawinan = any (
+        array[
+          'Belum Kawin'::text,
+          'Kawin'::text,
+          'Cerai Hidup'::text,
+          'Cerai Mati'::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists warga_dusun_idx on public.warga using btree (dusun) TABLESPACE pg_default;
+
+create index IF not exists warga_status_dalam_kk_idx on public.warga using btree (status_dalam_kk) TABLESPACE pg_default;
+
+create index IF not exists warga_pekerjaan_idx on public.warga using btree (pekerjaan) TABLESPACE pg_default;
+
+create index IF not exists warga_nik_idx on public.warga using btree (nik) TABLESPACE pg_default;
+
+create index IF not exists warga_agama_idx on public.warga using btree (agama) TABLESPACE pg_default;
+
+create index IF not exists warga_status_perkawinan_idx on public.warga using btree (status_perkawinan) TABLESPACE pg_default;
+
+create trigger warga_updated_at BEFORE
+update on warga for EACH row
+execute FUNCTION handle_updated_at ();

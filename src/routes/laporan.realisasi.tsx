@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { getSettings, useSettings } from "@/lib/settings-store";
 import {
   TrendingUp,
   PieChart,
@@ -13,15 +13,18 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/laporan/realisasi")({
-  head: () => ({
-    meta: [
-      { title: `Realisasi Anggaran — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Laporan realisasi penggunaan Anggaran Pendapatan dan Belanja Desa (APBDes) ${VILLAGE.name}.`,
-      },
-    ],
-  }),
+  head: () => {
+    const { village } = getSettings();
+    return {
+      meta: [
+        { title: `Realisasi Anggaran — ${village.name}` },
+        {
+          name: "description",
+          content: `Laporan realisasi penggunaan Anggaran Pendapatan dan Belanja Desa (APBDes) ${village.name}.`,
+        },
+      ],
+    };
+  },
   component: () => <RealisasiPage />,
 });
 
@@ -84,6 +87,7 @@ function SummaryCard({
 }
 
 export function RealisasiPage() {
+  const { village } = useSettings();
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -100,7 +104,7 @@ export function RealisasiPage() {
             </h1>
             <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed">
               Laporan berkala mengenai penggunaan dana desa untuk pembangunan, pemberdayaan, dan
-              pelayanan masyarakat {VILLAGE.name}.
+              pelayanan masyarakat Desa {village.name}.
             </p>
           </div>
         </section>
@@ -252,7 +256,7 @@ export function RealisasiPage() {
                 Butuh Penjelasan Lebih Lanjut?
               </h4>
               <p className="font-body text-sm text-muted-foreground mt-1 leading-relaxed">
-                Pemerintah Desa Seruni Mumbul menjunjung tinggi keterbukaan informasi. Jika Anda
+                Pemerintah Desa {village.name} menjunjung tinggi keterbukaan informasi. Jika Anda
                 memiliki pertanyaan mengenai penggunaan dana desa, silakan datang ke Kantor Desa
                 atau hubungi kami melalui kanal pengaduan.
               </p>

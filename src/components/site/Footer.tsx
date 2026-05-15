@@ -1,6 +1,7 @@
 import { Link } from "@/components/Link";
 import { ArrowUpRight, Facebook, Instagram, Youtube, MapPin, Phone, Mail } from "lucide-react";
-import { VILLAGE } from "@/data/site";
+import { useSettings } from "@/lib/settings-store";
+import { useVillage } from "@/hooks/use-village";
 
 const cols = [
   {
@@ -42,6 +43,9 @@ const cols = [
 ];
 
 export function Footer() {
+  const villageInfo = useVillage();
+  const { social } = useSettings();
+  const { village: villageName, district, regency, address, phone, email, whatsapp } = villageInfo;
   return (
     <footer className="bg-ink text-background mt-24">
       <section className="px-4 sm:px-8 pt-16 pb-12">
@@ -62,7 +66,7 @@ export function Footer() {
             </p>
             <div className="flex flex-wrap gap-3">
               <a
-                href={`https://wa.me/${VILLAGE.whatsapp}`}
+                href={`https://wa.me/${whatsapp}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-pill bg-primary text-primary-foreground hover:bg-primary-hover group"
@@ -91,8 +95,10 @@ export function Footer() {
                 S
               </div>
               <div>
-                <div className="font-display text-xl font-bold">{VILLAGE.name}</div>
-                <div className="font-ui text-xs text-background/60">Pringgabaya · Lombok Timur</div>
+                <div className="font-display text-xl font-bold">{villageName}</div>
+                <div className="font-ui text-xs text-background/60">
+                  {district} · {regency}
+                </div>
               </div>
             </div>
             <p className="font-body text-sm text-background/70 leading-relaxed mb-5 max-w-xs">
@@ -100,20 +106,26 @@ export function Footer() {
             </p>
             <ul className="space-y-2.5 text-sm text-background/70">
               <li className="flex items-start gap-2.5">
-                <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-primary" /> {VILLAGE.address}
+                <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-primary" /> {address}
               </li>
               <li className="flex items-center gap-2.5">
-                <Phone className="h-4 w-4 text-primary" /> {VILLAGE.phone}
+                <Phone className="h-4 w-4 text-primary" /> {phone}
               </li>
               <li className="flex items-center gap-2.5">
-                <Mail className="h-4 w-4 text-primary" /> {VILLAGE.email}
+                <Mail className="h-4 w-4 text-primary" /> {email}
               </li>
             </ul>
             <div className="flex gap-2 mt-5">
-              {[Facebook, Instagram, Youtube].map((Icon, i) => (
+              {[
+                { Icon: Facebook, url: social.facebook },
+                { Icon: Instagram, url: social.instagram },
+                { Icon: Youtube, url: social.youtube },
+              ].map(({ Icon, url }, i) => (
                 <a
                   key={i}
-                  href="#"
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="h-9 w-9 rounded-full bg-background/10 hover:bg-primary flex items-center justify-center transition-colors"
                 >
                   <Icon className="h-4 w-4" />
@@ -144,7 +156,7 @@ export function Footer() {
       <div className="border-t border-background/10" />
       <div className="px-4 sm:px-8 py-5">
         <div className="mx-auto max-w-7xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-background/60 font-ui">
-          <div>© 2026 {VILLAGE.name}. Semua Hak Dilindungi.</div>
+          <div>© 2026 {villageName}. Semua Hak Dilindungi.</div>
           <div className="flex gap-5">
             <a href="#">Kebijakan Privasi</a>
             <a href="#">Syarat & Ketentuan</a>

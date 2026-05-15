@@ -10,18 +10,23 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "@/components/Link";
 import { useSession } from "@/lib/auth";
 import { Menu, X, ChevronDown, ArrowUpRight, LayoutDashboard, LogOut } from "lucide-react";
-import { NAV, VILLAGE } from "@/data/site";
+import { NAV } from "@/data/navigation";
+import { useSettings } from "@/lib/settings-store";
+import { useVillage } from "@/hooks/use-village";
 
 // ─── Brand / Logo ─────────────────────────────────────────────────────────────
 function Brand() {
+  const { village: villageName, district, regency } = useVillage();
   return (
     <Link to="/" className="flex items-center gap-2 shrink-0">
       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-display text-sm font-bold">
-        S
+        {villageName[0]}
       </div>
       <div className="hidden sm:block leading-tight">
-        <div className="font-ui text-[13px] font-bold text-white">{VILLAGE.name}</div>
-        <div className="font-ui text-[10px] text-white/70">Pringgabaya · Lombok Timur</div>
+        <div className="font-ui text-[13px] font-bold text-white">{villageName}</div>
+        <div className="font-ui text-[10px] text-white/70">
+          {district} · {regency}
+        </div>
       </div>
     </Link>
   );
@@ -129,10 +134,10 @@ function DesktopNav() {
                     key={c.to}
                     to={c.to}
                     onClick={() => setOpenMenu(null)}
-                    className="group flex items-start justify-between gap-3 rounded-2xl px-3 py-2.5 hover:bg-cream transition-colors"
+                    className="group flex items-start justify-between gap-3 rounded-2xl px-3 py-2.5 hover:bg-muted dark:hover:bg-muted/80 transition-colors"
                   >
                     <div>
-                      <div className="font-ui text-sm font-semibold text-ink group-hover:text-primary">
+                      <div className="font-ui text-sm font-semibold text-foreground group-hover:text-primary">
                         {c.label}
                       </div>
                       <div className="font-body text-xs text-muted-foreground mt-0.5">{c.desc}</div>
@@ -152,6 +157,7 @@ function DesktopNav() {
 // ─── Full-Screen Menu Overlay ──────────────────────────────────────────────────
 function FullScreenMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   const session = useSession();
+  const { district } = useVillage();
 
   // Lock body scroll
   useEffect(() => {
@@ -249,7 +255,7 @@ function FullScreenMenu({ open, onClose }: { open: boolean; onClose: () => void 
 
         {/* ── Bottom auth bar ── */}
         <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between gap-4 shrink-0">
-          <div className="font-body text-xs text-white/25 truncate">{VILLAGE.district}</div>
+          <div className="font-body text-xs text-white/25 truncate">{district}</div>
           <div className="flex items-center gap-2 shrink-0">
             {session ? (
               <>

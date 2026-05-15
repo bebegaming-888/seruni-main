@@ -1,30 +1,34 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import { login as authLogin, isLoggedIn } from "@/lib/auth";
+import { login as authLogin, isLoggedIn, loginHybrid } from "@/lib/auth";
 import { logAudit } from "@/lib/settings-store";
 import { Link } from "@/components/Link";
 import { Eye, EyeOff, Lock, Mail, ShieldCheck, ArrowRight, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
-import { VILLAGE } from "@/data/site";
+import { getSettings, useSettings } from "@/lib/settings-store";
 
 // Cloudflare Turnstile site key — di-set via .dev.vars / Cloudflare Pages secrets
 // Jika tidak ada, widget tidak di-render (dev mode fallback)
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({
-    meta: [
-      { title: `Login Admin — ${VILLAGE.name}` },
-      { name: "description", content: "Halaman login admin Sistem Informasi Desa." },
-    ],
-    links: TURNSTILE_SITE_KEY
-      ? [{ rel: "preconnect", href: "https://challenges.cloudflare.com" }]
-      : [],
-  }),
+  head: () => {
+    const { village } = getSettings();
+    return {
+      meta: [
+        { title: `Login Admin — ${village.name}` },
+        { name: "description", content: "Halaman login admin Sistem Informasi Desa." },
+      ],
+      links: TURNSTILE_SITE_KEY
+        ? [{ rel: "preconnect", href: "https://challenges.cloudflare.com" }]
+        : [],
+    };
+  },
   component: LoginPage,
 });
 
 function LoginPage() {
+  const { village } = useSettings();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -96,12 +100,17 @@ function LoginPage() {
 
     setLoading(true);
     await new Promise((r) => setTimeout(r, 400));
-    const session = authLogin(email, password, remember);
+
+    // Hybrid login: edge function first (httpOnly cookie) → local fallback
+    const result = await loginHybrid(email, password, remember);
     setLoading(false);
-    if (!session) {
-      toast.error("Username atau password salah");
+
+    if (!result.ok) {
+      toast.error(result.error ?? "Login gagal");
       return;
     }
+
+    const session = result.session!;
     logAudit(session.username, "Login", session.role);
     toast.success(`Selamat datang, ${session.name}`);
     navigate({ to: "/admin" });
@@ -119,7 +128,7 @@ function LoginPage() {
             S
           </div>
           <div className="leading-tight">
-            <div className="font-display text-base font-bold">{VILLAGE.name}</div>
+            <div className="font-display text-base font-bold">{village.name}</div>
             <div className="font-ui text-xs text-white/70">Sistem Informasi Desa</div>
           </div>
         </Link>
@@ -154,7 +163,7 @@ function LoginPage() {
         </div>
 
         <div className="relative z-10 font-ui text-xs text-white/60">
-          © {new Date().getFullYear()} {VILLAGE.name}. All rights reserved.
+          © {new Date().getFullYear()} {village.name}. All rights reserved.
         </div>
       </section>
 

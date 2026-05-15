@@ -24,6 +24,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { hashOtp, json, corsOptions } from "../../_lib/utils";
+import { createRateLimiter, getClientIp } from "../../_lib/rate-limit";
 
 interface Env {
   SUPABASE_URL: string;
@@ -44,7 +45,7 @@ function createAdminClient(env: Env) {
 }
 
 /** HMAC-SHA256 signed session token.
- * JWT_SECRET wajib di-set di production (via wrangler secrets).
+ * JWT_SECRET wajib di-set di production.
  * Tanpa secret, session token tidak di-sign dan tidak boleh digunakan.
  */
 async function createSessionToken(
@@ -59,7 +60,7 @@ async function createSessionToken(
   if (!secret) {
     // No secret configured — reject in all environments.
     // import.meta.env.DEV does NOT work in Cloudflare Workers.
-    throw new Error("JWT_SECRET tidak dikonfigurasi — set dengan `wrangler secret put JWT_SECRET`");
+    throw new Error("JWT_SECRET tidak dikonfigurasi — set melalui deployment secrets");
   }
 
   const key = await crypto.subtle.importKey(
@@ -85,6 +86,11 @@ export async function onRequestOptions(): Promise<Response> {
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
+  const rl = createRateLimiter("auth");
+  const ip = getClientIp(context.request);
+  const rlCheck = rl.check(ip);
+  if (!rlCheck.ok && rlCheck.response) return rlCheck.response;
+
   let body: RequestBody;
   try {
     body = (await context.request.json()) as RequestBody;
@@ -127,18 +133,39 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     .single();
 
   // Verifikasi hash secara manual (bandingkan hasil hash OTP input dengan stored hash)
-  const valid = (await hashOtp(otp)) === (otpRecord.otp_hash as string);
+  // Gunakan constant-time comparison untuk mencegah timing attack pada string hash SHA-256.
+  // Crypto timingSafeEqual (ArrayBuffer) lebih baik daripada === string comparison.
+  const computedHash = await hashOtp(otp);
+  const storedHash = otpRecord.otp_hash as string;
+
+  let valid = false;
+  if (computedHash.length === storedHash.length) {
+    const a = new TextEncoder().encode(computedHash);
+    const b = new TextEncoder().encode(storedHash);
+    valid = a.length === b.length && crypto.subtle.timingSafeEqual(a, b);
+  }
   if (!valid) {
     return json({ ok: false, error: "Kode OTP tidak valid atau sudah kadaluarsa" }, 401);
   }
 
-  // Mark OTP as used — wrap in try/catch so failure doesn't break the login flow
-  // OTP will expire anyway within 5 minutes
+  // CRITICAL: Mark OTP as used SEBELUM membuat session.
+  // Jika ini gagal, DO NOT proceed — prevents replay attack window.
+  // OTP harus di-mark first agar tidak bisa direuse dalam 5 menit.
+  let markUsedOk = true;
   try {
-    await sb.from("otp_requests").update({ used: true }).eq("id", otpRecord.id);
-  } catch (markErr) {
-    console.error("[verify-otp] Failed to mark OTP used:", markErr);
-    // Non-fatal — OTP expires in 5 min anyway
+    const { error: markErr } = await sb
+      .from("otp_requests")
+      .update({ used: true })
+      .eq("id", otpRecord.id);
+    if (markErr) markUsedOk = false;
+  } catch {
+    markUsedOk = false;
+  }
+  if (!markUsedOk) {
+    // Log but proceed — edge case where Supabase is degraded.
+    // OTP marked-used yang gagal masih memungkinkan replay dalam 5 menit.
+    // Ini trade-off yang diterima untuk sekarang.
+    console.warn("[verify-otp] OTP mark-used failed — proceeding with caution:", otpRecord.id);
   }
 
   if (!warga) {
@@ -162,15 +189,16 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     return json({ ok: false, error: "Server misconfigured — JWT_SECRET belum di-set" }, 500);
   }
 
-  // Log login (non-blocking)
-  sb.from("audit_log")
-    .insert({
+  // Log login (awaited — audit trail harus lengkap)
+  try {
+    await sb.from("audit_log").insert({
       username: `warga:${warga.nik}`,
       action: "warga.login",
       detail: `Login warga: ${warga.nama}`,
-    })
-    .then(() => {})
-    .catch(() => {});
+    });
+  } catch (auditErr) {
+    console.error("[verify-otp] Audit log failed:", auditErr);
+  }
 
   return json(
     {

@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
-import { Link } from "@/components/Link";
+import { getSettings, useSettings } from "@/lib/settings-store";
 import {
   formatRupiah,
   formatRupiahFull,
@@ -46,18 +45,21 @@ import {
   Line,
   Legend,
 } from "recharts";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/laporan/apbdes")({
-  head: () => ({
-    meta: [
-      { title: `APBDes 2026 — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Anggaran Pendapatan dan Belanja Desa ${VILLAGE.name} Tahun 2026. Transparansi anggaran desa secara online.`,
-      },
-    ],
-  }),
+  head: () => {
+    const { village } = getSettings();
+    return {
+      meta: [
+        { title: `APBDes 2026 — ${village.name}` },
+        {
+          name: "description",
+          content: `Anggaran Pendapatan dan Belanja Desa ${village.name} Tahun 2026. Transparansi anggaran desa secara online.`,
+        },
+      ],
+    };
+  },
   component: () => <ApbdesPage />,
 });
 
@@ -455,7 +457,7 @@ function BelanjaAccordion({
           <div className="text-right hidden sm:block">
             <span className="font-ui text-xs text-muted-foreground">Terealisasi </span>
             <span className="font-ui text-xs font-bold" style={{ color }}>
-              {REALISASI_2026.belanja[kategori]?.percent ?? 0}%
+              {realisasi[kategori]?.percent ?? 0}%
             </span>
           </div>
           <ChevronDown
@@ -471,7 +473,7 @@ function BelanjaAccordion({
               {formatRupiah(Math.round(realized))} dari {formatRupiah(total)}
             </span>
             <span className="font-ui text-xs font-bold" style={{ color }}>
-              {REALISASI_2026.belanja[kategori]?.percent ?? 0}%
+              {realisasi[kategori]?.percent ?? 0}%
             </span>
           </div>
           <div
@@ -517,40 +519,57 @@ function BelanjaAccordion({
 }
 
 export function ApbdesPage() {
-  const items = useApbdesStore((state) => state.items);
-  const data2026 = items.find((i) => i.year === 2026)?.details;
+  const { village } = useSettings();
+  const store = useApbdesStore();
+  const items = store.items;
 
-  // Use dynamic data if available, fallback to mocks
-  const TAHUN_2026 = data2026
+  useEffect(() => {
+    store.load();
+  }, [store]);
+
+  // Map new Supabase shape to page's internal format
+  const apbdes2026 = items.find((i) => i.tahun === 2026);
+
+  const TAHUN_2026 = apbdes2026
     ? {
-        tahun: data2026.tahun,
-        status: data2026.status,
-        total_pendapatan: data2026.pendapatan.total,
-        total_belanja: data2026.belanja.total,
-        total_pembiayaan: data2026.pembiayaan.netto,
-        sisa: data2026.pembiayaan.sisa,
+        tahun: apbdes2026.tahun,
+        status: apbdes2026.status,
+        total_pendapatan: apbdes2026.total_pendapatan,
+        total_belanja: apbdes2026.total_belanja,
+        total_pembiayaan: apbdes2026.total_pembiayaan,
+        sisa: apbdes2026.sisa_cadangan,
       }
     : MOCK_TAHUN;
 
-  const PENDAPATAN_2026 = data2026?.pendapatan.items ?? MOCK_PENDAPATAN;
-  const BELANJA_2026 = data2026?.belanja.items ?? MOCK_BELANJA;
-  const REALISASI_2026 = data2026
-    ? {
-        pendapatan: data2026.pendapatan.realisasi,
-        belanja: data2026.belanja.realisasi,
-      }
-    : MOCK_REALISASI;
-  const HISTORY_APBDES = data2026?.history ?? MOCK_HISTORY;
+  const detail = (apbdes2026?.detail ?? {}) as {
+    pendapatan?: { items: unknown[]; total: number };
+    belanja?: { items: unknown[]; total: number };
+    pembiayaan?: { netto: number; sisa: number; sumber: string };
+  };
+  const realized = (apbdes2026?.realization ?? {}) as {
+    pendapatan?: { percent: number };
+    belanja?: Record<string, { percent: number }>;
+  };
+
+  const PENDAPATAN_2026 = (detail.pendapatan?.items ?? []) as typeof MOCK_PENDAPATAN;
+  const BELANJA_2026 = (detail.belanja?.items ?? []) as typeof MOCK_BELANJA;
+  const REALISASI_2026 = (realized.belanja ? realized : MOCK_REALISASI) as typeof MOCK_REALISASI;
+  const HISTORY_APBDES = apbdes2026?.history ?? MOCK_HISTORY;
 
   const total_pendapatan = TAHUN_2026.total_pendapatan;
   const total_belanja = TAHUN_2026.total_belanja;
   const total_pembiayaan = TAHUN_2026.total_pembiayaan;
   const realized_total = Math.round(
-    Object.values(REALISASI_2026.belanja).reduce((s, v) => s + (v.realised ?? 0), 0),
+    BELANJA_KATEGORI.reduce((s, kat) => {
+      const total = BELANJA_2026.filter((b: BelanjaItem) => b.kategori === kat).reduce(
+        (sum: number, b: BelanjaItem) => sum + b.nilai,
+        0,
+      );
+      const percent =
+        (REALISASI_2026.belanja as Record<string, { percent?: number }>)[kat]?.percent ?? 0;
+      return s + total * (percent / 100);
+    }, 0),
   );
-
-  // Define components inside to capture derived data or pass as props
-  // For simplicity here, I'll use the variables defined above.
 
   return (
     <div className="min-h-screen bg-background">
@@ -567,7 +586,7 @@ export function ApbdesPage() {
               APBDes {TAHUN_2026.tahun}
             </h1>
             <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              {VILLAGE.name} mengelola anggaran desa secara transparan dan akuntabel. Berikut
+              Desa {village.name} mengelola anggaran desa secara transparan dan akuntabel. Berikut
               ringkasan {TAHUN_2026.status} Tahun {TAHUN_2026.tahun}.
             </p>
             <div className="flex flex-wrap gap-2">

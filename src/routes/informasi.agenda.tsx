@@ -1,33 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
-import { useAgendaStore } from "@/lib/content-store";
+import { useSettings, getSettings } from "@/lib/settings-store";
+import { getVillage } from "@/lib/village-dynamic";
+
+import { useAgendaStore, type AgendaItem } from "@/lib/content-store";
 import { Calendar, MapPin, Clock, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useVillage } from "@/hooks/use-village";
 
 export const Route = createFileRoute("/informasi/agenda")({
-  head: () => ({
-    meta: [
-      { title: `Agenda Kegiatan — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Jadwal kegiatan dan agenda ${VILLAGE.name}.`,
-      },
-    ],
-  }),
+  head: () => {
+    return {
+      meta: [
+        { title: `Agenda Kegiatan — ${getVillage("village")}` },
+        {
+          name: "description",
+          content: `Jadwal kegiatan dan agenda ${getVillage("village")}.`,
+        },
+      ],
+    };
+  },
   component: () => <AgendaPage />,
 });
-
-type AgendaItem = {
-  id: number;
-  day: string;
-  month: string;
-  title: string;
-  time: string;
-  location: string;
-  category: string;
-};
 
 const KATEGORI_CONFIG: Record<string, { color: string; bg: string; icon: string }> = {
   Musyawarah: { color: "text-primary", bg: "bg-primary/10 border-primary/20", icon: "🤝" },
@@ -267,7 +262,15 @@ function DayEventsPanel({
 }
 
 export function AgendaPage() {
-  const items = useAgendaStore((state) => state.items);
+  const villageName = useVillage("village");
+
+  const store = useAgendaStore();
+  const items = store.items;
+
+  useEffect(() => {
+    store.load();
+  }, [store]);
+
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedEvents, setSelectedEvents] = useState<AgendaItem[]>([]);
   const [filter, setFilter] = useState<string>("Semua");
@@ -295,9 +298,10 @@ export function AgendaPage() {
               Kalender Kegiatan
             </h1>
             <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              Jadwal kegiatan masyarakat {VILLAGE.name}. Klik tanggal pada kalender untuk melihat
+              Jadwal kegiatan masyarakat {villageName}. Klik tanggal pada kalender untuk melihat
               agenda hari tersebut.
             </p>
+
             <div className="flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
                 <Calendar className="h-3.5 w-3.5" />

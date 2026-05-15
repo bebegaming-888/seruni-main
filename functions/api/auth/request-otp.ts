@@ -23,6 +23,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { hashOtp, json, corsOptions } from "../../_lib/utils";
+import { createRateLimiter, getClientIp } from "../../_lib/rate-limit";
 
 interface Env {
   FONNTE_API_KEY: string;
@@ -66,6 +67,11 @@ export async function onRequestOptions(): Promise<Response> {
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
+  const rl = createRateLimiter("auth");
+  const ip = getClientIp(context.request);
+  const rlCheck = rl.check(ip);
+  if (!rlCheck.ok && rlCheck.response) return rlCheck.response;
+
   let body: RequestBody;
   try {
     body = (await context.request.json()) as RequestBody;

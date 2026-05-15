@@ -1,56 +1,43 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { useVillage } from "@/hooks/use-village";
+import { getVillage } from "@/lib/village-dynamic";
+import { useSettings, getSettings } from "@/lib/settings-store";
+
 import { Compass, MapPin, Camera, Star, ArrowRight, Info } from "lucide-react";
 
 export const Route = createFileRoute("/wisata/destinasi")({
-  head: () => ({
-    meta: [
-      { title: `Destinasi Wisata — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Jelajahi keindahan alam dan destinasi wisata unggulan di ${VILLAGE.name}.`,
-      },
-    ],
-  }),
+  head: () => {
+    const v = getVillage();
+    return {
+      meta: [
+        { title: `Destinasi Wisata — ${v.name}` },
+        {
+          name: "description",
+          content: `Jelajahi keindahan alam dan destinasi wisata unggulan di ${v.village}.`,
+        },
+      ],
+    };
+  },
   component: () => <DestinasiPage />,
 });
 
-const DESTINATIONS = [
-  {
-    id: "1",
-    title: "Pantai Seruni",
-    category: "Alam",
-    rating: 4.8,
-    reviews: 124,
-    image:
-      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800",
-    desc: "Pantai berpasir putih dengan gradasi air laut biru yang memukau, cocok untuk melihat matahari terbit.",
-  },
-  {
-    id: "2",
-    title: "Kampung Tenun Sasak",
-    category: "Budaya",
-    rating: 4.9,
-    reviews: 86,
-    image:
-      "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&q=80&w=800",
-    desc: "Pusat kerajinan tenun tradisional di mana pengunjung dapat belajar menenun langsung dari pengrajin lokal.",
-  },
-  {
-    id: "3",
-    title: "Bukit Mumbul",
-    category: "Alam",
-    rating: 4.7,
-    reviews: 52,
-    image:
-      "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=800",
-    desc: "Spot terbaik untuk melihat panorama seluruh desa dan pesisir Pringgabaya dari ketinggian.",
-  },
-];
+function DestinationCard({
+  item,
+}: {
+  item: {
+    id: string;
+    title: string;
+    category: string;
+    rating: number;
+    reviews: number;
+    image: string;
+    desc: string;
+  };
+}) {
+  const { village: villageName } = useVillage();
 
-function DestinationCard({ item }: { item: (typeof DESTINATIONS)[number] }) {
   return (
     <div className="group bg-card border border-border rounded-[2.5rem] overflow-hidden hover:shadow-xl transition-all duration-500">
       <div className="relative aspect-[16/10] overflow-hidden">
@@ -80,7 +67,7 @@ function DestinationCard({ item }: { item: (typeof DESTINATIONS)[number] }) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-muted-foreground">
             <MapPin className="h-4 w-4" />
-            <span className="font-ui text-xs font-semibold">{VILLAGE.name}</span>
+            <span className="font-ui text-xs font-semibold">{villageName}</span>
           </div>
           <button className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-all">
             <ArrowRight className="h-5 w-5" />
@@ -92,6 +79,40 @@ function DestinationCard({ item }: { item: (typeof DESTINATIONS)[number] }) {
 }
 
 export function DestinasiPage() {
+  const { village: villageName } = useVillage();
+
+  const destinations = [
+    {
+      id: "1",
+      title: `Pantai ${villageName}`,
+      category: "Alam",
+      rating: 4.8,
+      reviews: 124,
+      image:
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800",
+      desc: "Pantai berpasir putih dengan gradasi air laut biru yang memukau, cocok untuk melihat matahari terbit.",
+    },
+    {
+      id: "2",
+      title: "Kampung Tenun Sasak",
+      category: "Budaya",
+      rating: 4.9,
+      reviews: 86,
+      image:
+        "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&q=80&w=800",
+      desc: "Pusat kerajinan tenun tradisional di mana pengunjung dapat belajar menenun langsung dari pengrajin lokal.",
+    },
+    {
+      id: "3",
+      title: `Bukit ${villageName}`,
+      category: "Alam",
+      rating: 4.7,
+      reviews: 52,
+      image:
+        "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=800",
+      desc: "Spot terbaik untuk melihat panorama seluruh desa dan pesisir Pringgabaya dari ketinggian.",
+    },
+  ];
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -184,7 +205,7 @@ export function DestinasiPage() {
         <section className="py-24 px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {DESTINATIONS.map((dest) => (
+              {destinations.map((dest) => (
                 <DestinationCard key={dest.id} item={dest} />
               ))}
             </div>

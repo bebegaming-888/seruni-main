@@ -1,20 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { getSettings, useSettings } from "@/lib/settings-store";
 import { Scale, FileText, Download, Search, Filter, BookOpen, AlertCircle } from "lucide-react";
 import { useState } from "react";
 
 export const Route = createFileRoute("/lainnya/produk-hukum")({
-  head: () => ({
-    meta: [
-      { title: `Produk Hukum — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Daftar Peraturan Desa (Perdes), Peraturan Kepala Desa, dan produk hukum lainnya di ${VILLAGE.name}.`,
-      },
-    ],
-  }),
+  head: () => {
+    const { village } = getSettings();
+    return {
+      meta: [
+        { title: `Produk Hukum — ${village.name}` },
+        {
+          name: "description",
+          content: `Daftar Peraturan Desa (Perdes), Peraturan Kepala Desa, dan produk hukum lainnya di ${village.name}.`,
+        },
+      ],
+    };
+  },
   component: () => <ProdukHukumPage />,
 });
 
@@ -57,6 +60,7 @@ const DOCS = [
 ];
 
 export function ProdukHukumPage() {
+  const { village } = useSettings();
   const [activeTab, setActiveTab] = useState("Semua");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -84,7 +88,7 @@ export function ProdukHukumPage() {
             </h1>
             <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed">
               Transparansi landasan hukum dan peraturan yang berlaku di lingkungan Pemerintah{" "}
-              {VILLAGE.name}.
+              {village.name}.
             </p>
           </div>
         </section>

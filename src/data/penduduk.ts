@@ -1,4 +1,4 @@
-// Data kependudukan Desa Seruni Mumbul
+// Data kependudukan Desa
 // Struktur kolom mengikuti Tabel_Penduduk.xlsx (41 kolom)
 
 export type Penduduk = {
@@ -57,22 +57,33 @@ export type Penduduk = {
 
 // ── Lookup lists (diambil dari data nyata Tabel_Penduduk.xlsx) ────────────────
 
-export const DUSUN_LIST = [
-  "Dames",
-  "Dasar",
-  "Gunung Sari",
-  "Karang Bajo",
-  "Karang Salah",
-  "Mumbul",
-  "Mumbul Barat",
-  "Mumbul Timur",
-  "Seruni",
-  "Seruni Timur",
-  "Mumbul Tengah",
-  "Mumbul Selatan",
-  "Seruni Utara",
-  "Seruni Selatan",
-];
+/** Fallback static list — digunakan jika settings belum di-load (SSR / belum ada IndexedDB). */
+const STATIC_DUSUN_LIST = ["Mandar", "Sasak", "Dames", "Brantapen Asri"];
+
+export const DUSUN_LIST: string[] = STATIC_DUSUN_LIST;
+
+/**
+ * Dynamic dusun list — baca dari settings store (wilayah-store-backed).
+ * Gunakan ini di komponen React (setelah init).
+ * Static DUSUN_LIST export tetap ada untuk backward compat / non-React context.
+ */
+export async function getDusunList(): Promise<string[]> {
+  try {
+    const { getSettings } = await import("@/lib/settings-store");
+    const dusun = getSettings().wilayah?.dusun_list;
+    return Array.isArray(dusun) && dusun.length > 0 ? dusun : STATIC_DUSUN_LIST;
+  } catch {
+    return STATIC_DUSUN_LIST;
+  }
+}
+
+/**
+ * Alias for backward compatibility.
+ * @deprecated Use getDusunList() instead for dynamic data.
+ */
+export function getDefaultDusunList(): string[] {
+  return STATIC_DUSUN_LIST;
+}
 
 export const PEKERJAAN_LIST = [
   "Petani",
@@ -107,9 +118,13 @@ export const PENDIDIKAN_LIST = [
   "SD/Sederajat",
   "SMP/Sederajat",
   "SMA/Sederajat",
-  "Diploma",
+  "Diploma I",
+  "Diploma II",
+  "Diploma III",
+  "Diploma IV/Sarjana Terapan",
   "S1/Sarjana",
   "S2/Magister",
+  "S3/Doktor",
 ];
 
 export const AGAMA_LIST = ["Islam", "Kristen", "Katholik", "Hindu", "Buddha"];
@@ -153,8 +168,8 @@ export const PENDUDUK_MOCK: Penduduk[] = [
     provinsi: "Nusa Tenggara Barat",
     kabupaten: "Lombok Timur",
     kecamatan: "Pringgabaya",
-    desa: "Seruni Mumbul",
-    dusun: "Mumbul Timur",
+    desa: "Desa",
+    dusun: "Mandar",
     rt: "002",
     rw: "001",
     nik: "5203011501900001",
@@ -193,14 +208,14 @@ export const PENDUDUK_MOCK: Penduduk[] = [
     nama_bapak: "Muhammad Ali",
     golongan_darah: "O",
     no_hp: "081234567890",
-    alamat: "Jl. Raya Seruni Mumbul No. 12",
+    alamat: "Jl. Raya Desa No. 12",
   },
   {
     provinsi: "Nusa Tenggara Barat",
     kabupaten: "Lombok Timur",
     kecamatan: "Pringgabaya",
-    desa: "Seruni Mumbul",
-    dusun: "Mumbul Barat",
+    desa: "Desa",
+    dusun: "Sasak",
     rt: "001",
     rw: "002",
     nik: "5203012203950002",
@@ -245,8 +260,8 @@ export const PENDUDUK_MOCK: Penduduk[] = [
     provinsi: "Nusa Tenggara Barat",
     kabupaten: "Lombok Timur",
     kecamatan: "Pringgabaya",
-    desa: "Seruni Mumbul",
-    dusun: "Mumbul Tengah",
+    desa: "Desa",
+    dusun: "Dames",
     rt: "003",
     rw: "001",
     nik: "5203011008850003",
@@ -289,6 +304,12 @@ export const PENDUDUK_MOCK: Penduduk[] = [
   },
 ];
 
+/**
+ * Mock-only lookup — searches PENDUDUK_MOCK only.
+ * For real penduduk lookup, use getPendudukByNik() from @/lib/penduduk-store.
+ * @deprecated Use getPendudukByNik() instead — this function is kept for
+ *   backward compatibility and will be removed in a future version.
+ */
 export function lookupPenduduk(nik: string): Penduduk | null {
   const clean = nik.trim();
   return PENDUDUK_MOCK.find((p) => p.nik === clean) ?? null;

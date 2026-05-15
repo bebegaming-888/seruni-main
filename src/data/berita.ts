@@ -1,4 +1,4 @@
-// Data Berita — CMS artikel untuk portal Desa Seruni Mumbul
+// Data Berita — CMS artikel untuk portal Desa
 // Production: ganti dengan query ke tabel `articles` di Supabase
 
 export type ArticleCategory =
@@ -36,12 +36,12 @@ export type Article = {
 export const ARTICLES: Article[] = [
   {
     id: "1",
-    slug: "musrenbangdes-2027-desa-seruni-mumbul",
+    slug: "musrenbangdes-2027-desa-desa-digital",
     title: "Musrenbangdes 2027: 47 Proposal Warga Disetujui untuk Tahun Depan",
     excerpt:
       "Musyawarah Perencanaan Desa Tahun 2027 menghasilkan 47 proposal dari 4 dusun. Prioritas pembangunan jalan, irigasi, dan pemberdayaan ekonomi.",
     content: `
-<p>Seruni Mumbul — Musyawarah Perencanaan Desa (Musrenbangdes) Tahun 2027 resmi ditutup hari ini di Balai Desa Seruni Mumbul. Kegiatan yang dimulai sejak pukul 08.30 WITA ini berhasil menghimpun <strong>47 proposal</strong> dari berbagai lapisan masyarakat di 4 dusun.</p>
+<p>Wilayah Desa — Musyawarah Perencanaan Desa (Musrenbangdes) Tahun 2027 resmi ditutup hari ini di Balai Desa. Kegiatan yang dimulai sejak pukul 08.30 WITA ini berhasil menghimpun <strong>47 proposal</strong> dari berbagai lapisan masyarakat di 4 dusun.</p>
 
 <h2>Hasil Utama Musrenbangdes</h2>
 <p>Ketua BPD H. M. Natsir, S.Pd. menyampaikan bahwa proposal yang masuk mencakup tiga prioritas utama:</p>
@@ -75,7 +75,7 @@ export const ARTICLES: Article[] = [
     excerpt:
       "Jalan usaha tani sepanjang 1,2 kilometer di wilayah Timur mulai dikerjakan bulan ini. Dana berasal dari DD 30% sebesar Rp 180 juta.",
     content: `
-<p>Seruni Mumbul — Pemerintah Desa Seruni Mumbul resmi memulai pembangunan jalan usaha tani (JUT) di wilayah Timur Desa, Jumat (02/05/2026). Pembangunan ini menggunakan Dana Desa (DD) 30% sebesar <strong>Rp 180.000.000</strong>.</p>
+<p>Wilayah Desa — Pemerintah Desa resmi memulai pembangunan jalan usaha tani (JUT) di wilayah Timur Desa, Jumat (02/05/2026). Pembangunan ini menggunakan Dana Desa (DD) 30% sebesar <strong>Rp 180.000.000</strong>.</p>
 
 <h2>Spesifikasi Teknis</h2>
 <p>Jalan yang dibangun memiliki spesifikasi:</p>
@@ -87,7 +87,7 @@ export const ARTICLES: Article[] = [
   <li>Drainase: Saluran samping permanen</li>
 </ul>
 
-<p>Pekerjaan diperkirakan selesai dalam 45 hari kalender dan menyerap <strong>25 tenaga kerja</strong> dari warga Desa Seruni Mumbul.</p>
+<p>Pekerjaan diperkirakan selesai dalam 45 hari kalender dan menyerap <strong>25 tenaga kerja</strong> dari warga Desa.</p>
 
 <h2>Dampak bagi Petani</h2>
 <p>Jalan ini diharapkan dapat meningkatkan aksesibilitas petani di wilayah Timur yang selama ini menghadapi kesulitan saat musim hujan. Dari <strong>67 Kepala Keluarga</strong> yang terdampak, sekitar 45 KK merupakan petani pemilik lahan hortikultura.</p>
@@ -107,14 +107,14 @@ export const ARTICLES: Article[] = [
     slug: "pendaftaran-bantuan-sosial-tahap-ii-2026",
     title: "Pendaftaran Bantuan Sosial Tahap II 2026 Resmi Dibuka",
     excerpt:
-      "Warga Seruni Mumbul yang memenuhi kriteria dapat mendaftar bantuan sosial tahap II mulai 1 Juni hingga 15 Juni 2026.",
+      "Warga Desa yang memenuhi kriteria dapat mendaftar bantuan sosial tahap II mulai 1 Juni hingga 15 Juni 2026.",
     content: `
-<p>Seruni Mumbul — Pemerintah Desa Seruni Mumbul mengumumkan pembukaan pendaftaran bantuan sosial tahap II Tahun 2026. Pendaftaran dimulai <strong>1 Juni 2026</strong> dan berakhir pada <strong>15 Juni 2026</strong>.</p>
+<p>Wilayah Desa — Pemerintah Desa mengumumkan pembukaan pendaftaran bantuan sosial tahap II Tahun 2026. Pendaftaran dimulai <strong>1 Juni 2026</strong> dan berakhir pada <strong>15 Juni 2026</strong>.</p>
 
 <h2>Syarat Penerima</h2>
 <p>Bantuan sosial diperuntukkan bagi warga yang memenuhi kriteria berikut:</p>
 <ul>
-  <li>Kartu Keluarga (KK) aktif di Desa Seruni Mumbul</li>
+  <li>Kartu Keluarga (KK) aktif di Desa</li>
   <li>Terdata dalam DTKS (Data Terpadu Kesejahteraan Sosial)</li>
   <li>Tidak menerima bantuan sosial dari program lainnya</li>
   <li>Memiliki kartu identitas yang valid</li>
@@ -123,7 +123,7 @@ export const ARTICLES: Article[] = [
 <h2>Cara Pendaftaran</h2>
 <p>Pendaftaran dapat dilakukan dengan dua cara:</p>
 <ol>
-  <li><strong>Offline</strong>: Datang langsung ke Kantor Desa Seruni Mumbul dengan membawa fotokopi KK, KTP, dan surat keterangan tidak mampu dari rt/rw.</li>
+  <li><strong>Offline</strong>: Datang langsung ke Kantor Desa dengan membawa fotokopi KK, KTP, dan surat keterangan tidak mampu dari rt/rw.</li>
   <li><strong>Online</strong>: Mengisi formulir di portal desa pada menu pelayanan.</li>
 </ol>
 
@@ -146,7 +146,7 @@ export const ARTICLES: Article[] = [
     excerpt:
       "Festival Tenun Sasak akan diselenggarakan pada 17 Juni 2026 di Lapangan Desa. Agenda ini menampilkan lomba tenun, exhibition, dan bazar produk kerajinan.",
     content: `
-<p>Seruni Mumbul — Pemerintah Desa melalui kelompok pengrajin tenun akan mengadakan <strong>Festival Tenun Sasak 2026</strong> pada tanggal 17 Juni 2026 di Lapangan Desa Seruni Mumbul.</p>
+<p>Wilayah Desa — Pemerintah Desa melalui kelompok pengrajin tenun akan mengadakan <strong>Festival Tenun Sasak 2026</strong> pada tanggal 17 Juni 2026 di Lapangan Desa.</p>
 
 <h2>Rangkaian Kegiatan</h2>
 <p>Festival yang dimulai pukul 14.00 WITA ini menyajikan berbagai kegiatan:</p>
@@ -158,7 +158,7 @@ export const ARTICLES: Article[] = [
 </ul>
 
 <h2>Partisipasi Warga</h2>
-<p>Diharapkan seluruh warga Seruni Mumbul dapat hadir dan mendukung kegiatan ini. Keluarga yang memiliki usaha tenun dapat mendaftarkan produknya sebagai peserta bazar melalui hubungi Kader Pemberdayaan Hj. Baiq Munawwaroh.</p>
+<p>Diharapkan seluruh warga Desa dapat hadir dan mendukung kegiatan ini. Keluarga yang memiliki usaha tenun dapat mendaftarkan produknya sebagai peserta bazar melalui hubungi Kader Pemberdayaan Hj. Baiq Munawwaroh.</p>
     `.trim(),
     category: "Agenda",
     tags: ["festival", "budaya", "tenun", "kesehatan"],
@@ -177,7 +177,7 @@ export const ARTICLES: Article[] = [
     excerpt:
       "Posyandu di 4 pos terbagi dalam 2 hari kegiatan. Balita dan lansia diminta hadir sesuai jadwal untuk pemeriksaan kesehatan rutin.",
     content: `
-<p>Seruni Mumbul — Petugas kesehatan Posyandu Desa Seruni Mumbul mengumumkan jadwal kegiatan Posyandu bulan Juni 2026.</p>
+<p>Wilayah Desa — Petugas kesehatan Posyandu Desa mengumumkan jadwal kegiatan Posyandu bulan Juni 2026.</p>
 
 <h2>Jadwal Setiap Pos</h2>
 <ul>
@@ -213,9 +213,9 @@ export const ARTICLES: Article[] = [
     slug: "pelatihan-kewirausahaan-umkm-bumdes",
     title: "30 Warga Ikuti Pelatihan Kewirausahaan Berbasis Digital",
     excerpt:
-      "Sebanyak 30 warga Seruni Mumbul mengikuti pelatihan kewirausahaan selama 3 hari. Pelatihan fokus pada pemasaran digital dan manajemen keuangan usaha.",
+      "Sebanyak 30 warga Desa mengikuti pelatihan kewirausahaan selama 3 hari. Pelatihan fokus pada pemasaran digital dan manajemen keuangan usaha.",
     content: `
-<p>Seruni Mumbul — Pemerintah Desa bekerja sama dengan DPMD Kabupaten Lombok Timur menyelenggarakan <strong>Pelatihan Kewirausahaan Berbasis Digital</strong> bagi warga Seruni Mumbul. Kegiatan yang berlangsung selama 3 hari (27–29 April 2026) ini diikuti <strong>30 peserta</strong> dari berbagai kelompok usaha.</p>
+<p>Wilayah Desa — Pemerintah Desa bekerja sama dengan DPMD Kabupaten menyelenggarakan <strong>Pelatihan Kewirausahaan Berbasis Digital</strong> bagi warga Desa. Kegiatan yang berlangsung selama 3 hari (27–29 April 2026) ini diikuti <strong>30 peserta</strong> dari berbagai kelompok usaha.</p>
 
 <h2>Materi Pelatihan</h2>
 <ul>
@@ -266,12 +266,26 @@ export function getFeaturedArticles(): Article[] {
 
 export function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = BULAN_ID[d.getMonth() + 1];
+  const yyyy = d.getFullYear();
+  return `${dd} ${mm} ${yyyy}`;
 }
+
+const BULAN_ID: Record<number, string> = {
+  1: "Januari",
+  2: "Februari",
+  3: "Maret",
+  4: "April",
+  5: "Mei",
+  6: "Juni",
+  7: "Juli",
+  8: "Agustus",
+  9: "September",
+  10: "Oktober",
+  11: "November",
+  12: "Desember",
+};
 
 export function formatRelativeDate(dateStr: string): string {
   const now = new Date();

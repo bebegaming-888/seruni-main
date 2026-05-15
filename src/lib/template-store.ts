@@ -2,7 +2,21 @@
 // listTemplates() tetap sinkron. initTemplateStore() dipanggil async saat mount.
 
 import { idbGetAll, idbPut, idbDelete, idbReplaceAll } from "@/lib/idb-store";
+import { isStoreLocked } from "@/lib/settings-lock";
+import { addSyncListener, broadcastTemplateChange } from "@/lib/idb-sync";
 import { SURAT_MASTER, type SuratMaster } from "@/data/surat-master";
+import { generateId } from "@/lib/utils";
+import {
+  DNA_CLAUSES_PRESETS,
+  SUBJECT_FIELDS_PRESETS,
+  DEFAULT_SUBJECT_FIELDS,
+} from "@/lib/letter-engine";
+import {
+  syncPullTemplates,
+  syncSaveTemplate,
+  syncDeleteTemplate,
+  subscribeToTemplates,
+} from "@/lib/useSupabaseSync";
 
 type FieldDef = SuratMaster["fields"][number];
 
@@ -16,6 +30,27 @@ export type TemplateStatus =
 
 export type TemplateField = FieldDef & { enabled?: boolean };
 
+/**
+ * Konfigurasi field identitas pemohon (Komponen 4 — "Yang diterangkan").
+ * - `source: "warga"`   → nilai dari data Penduduk (NIK lookup)
+ * - `source: "request"` → nilai dari form pengajuan
+ * - `source: "vars"`    → nilai dari LetterVars (derived/computed)
+ */
+export type SubjectFieldConfig = {
+  key: string;
+  label: string;
+  source: "warga" | "request" | "vars";
+  required: boolean;
+  order: number;
+  hidden?: boolean;
+};
+
+/**
+ * Template surat dengan dukungan DNA clauses dan subject fields dinamis.
+ *
+ * Field legacy `body` dipertahankan untuk backward compat.
+ * Engine akan memprioritaskan `dna_clauses[]` jika ada.
+ */
 export type SuratTemplate = {
   id: string;
   code: string;
@@ -25,7 +60,20 @@ export type SuratTemplate = {
   syarat: string[];
   fields: TemplateField[];
   eta: string;
+
+  // ── Legacy (backward compat) ──
   body: string;
+
+  // ── DNA Engine (baru) ──
+  /** Array klausa isi surat. Mendukung {{vars}} interpolation. */
+  dna_clauses?: string[];
+  /** Konfigurasi field identitas pemohon yang ditampilkan di surat */
+  subject_fields?: SubjectFieldConfig[];
+  /** Kalimat penutup surat */
+  closing?: string;
+  /** Jumlah orang yang diterangkan (biasanya 1, bisa lebih untuk surat keluarga) */
+  subject_count?: number;
+
   status: TemplateStatus;
   catatan?: string;
   verified_by?: string;
@@ -41,32 +89,9 @@ export type SuratTemplate = {
 // ── In-Memory Cache ───────────────────────────────────────────────────────────
 let _cache: SuratTemplate[] | null = null;
 
-function buildDefaultBody(s: SuratMaster): string {
-  const identityFields = [
-    { key: "nama", label: "Nama" },
-    { key: "nik", label: "NIK" },
-    { key: "tempat_lahir", label: "Tempat Lahir" },
-    { key: "tanggal_lahir", label: "Tanggal Lahir" },
-    { key: "jenis_kelamin", label: "Jenis Kelamin" },
-    { key: "alamat", label: "Alamat" },
-  ];
-  const otherFields = s.fields
-    .filter((f) => f.required && !identityFields.some((id) => id.key === f.key))
-    .map((f) => `  - {{${f.key}}}: {{${f.label}-placeholder}}`);
-  return (
-    `PEMERINTAH DESA SERUNI MUMBUL\nKecamatan Pringgabaya — Kabupaten Lombok Timur\n\n` +
-    `${s.name.toUpperCase()}\nNomor: {{no}}\n\n` +
-    `Yang bertanda tangan di bawah ini, Kepala Desa Seruni Mumbul, keterangan:\n\n` +
-    identityFields.map((f) => `${f.label.padEnd(16)}: {{${f.key}}}`).join("\n") +
-    (otherFields.length ? "\n" + otherFields.join("\n") : "") +
-    `\n\nDemikian surat ini dibuat dengan sebenar-benarnya untuk dipergunakan sebagaimana mestinya.\n\n` +
-    `Seruni Mumbul, {{tanggal}}\nKepala Desa,\n\n\n( ......................... )`
-  );
-}
-
 function buildSeedTemplates(): SuratTemplate[] {
   return Object.values(SURAT_MASTER).map((s) => ({
-    id: crypto.randomUUID(),
+    id: generateId(),
     code: s.code,
     name: s.name,
     category: s.category,
@@ -74,7 +99,18 @@ function buildSeedTemplates(): SuratTemplate[] {
     syarat: s.syarat,
     fields: s.fields.map((f) => ({ ...f, enabled: true })),
     eta: s.eta,
-    body: buildDefaultBody(s),
+    // Legacy body (kosong, engine akan pakai dna_clauses)
+    body: "",
+    // DNA Engine
+    dna_clauses: DNA_CLAUSES_PRESETS[s.code] ?? [
+      "Dengan ini menerangkan bahwa :",
+      "adalah benar warga kami yang berdomisili di wilayah Desa {{nama_desa}}, Kecamatan {{nama_kecamatan}}, Kabupaten {{nama_kabupaten}}.",
+      "Surat keterangan ini dibuat untuk keperluan yang tertera dalam surat pengajuan.",
+    ],
+    subject_fields: SUBJECT_FIELDS_PRESETS[s.code] ?? DEFAULT_SUBJECT_FIELDS,
+    closing:
+      "Demikian surat ini dibuat dengan sebenar-benarnya untuk dapat dipergunakan sebagaimana mestinya.",
+    subject_count: 1,
     status: "Disetujui" as const,
     created_at: new Date().toISOString(),
   }));
@@ -83,11 +119,23 @@ function buildSeedTemplates(): SuratTemplate[] {
 // ── Async Init ────────────────────────────────────────────────────────────────
 export async function initTemplateStore(): Promise<void> {
   if (typeof window === "undefined") return;
+
+  // ── Realtime & Cross-tab Sync ──
+  subscribeToTemplates();
+  addSyncListener(async (event) => {
+    if (event.store === "templates") {
+      console.info("[template-store] Sync event received, refreshing cache from IDB...");
+      const saved = await idbGetAll<SuratTemplate>("templates");
+      _cache = saved.map((t) => migrateTemplate(t));
+    }
+  });
+
   try {
     // Coba IndexedDB dulu
     const saved = await idbGetAll<SuratTemplate>("templates");
     if (saved.length > 0) {
-      _cache = saved;
+      // Migrasi: pastikan field baru ada (backward compat)
+      _cache = saved.map((t) => migrateTemplate(t));
       return;
     }
 
@@ -96,18 +144,54 @@ export async function initTemplateStore(): Promise<void> {
     if (raw) {
       const parsed = JSON.parse(raw) as SuratTemplate[];
       if (parsed.length > 0) {
-        _cache = parsed;
-        await idbReplaceAll("templates", parsed); // migrate
+        _cache = parsed.map((t) => migrateTemplate(t));
+        await idbReplaceAll("templates", _cache); // migrate
         return;
       }
+    }
+
+    // ── Supabase Sync (Cloud Source of Truth) ──
+    const remote = await syncPullTemplates();
+    if (remote.length > 0) {
+      _cache = remote;
+      await idbReplaceAll("templates", remote).catch(console.warn);
+      return;
     }
   } catch (e) {
     console.warn("[template-store] Load gagal, pakai seed:", e);
   }
-  // Seed dari SURAT_MASTER
+  // Seed dari SURAT_MASTER HANYA jika tidak di-lock
+  if (isStoreLocked("templates")) {
+    _cache = [];
+    console.info("[template-store] Templates locked — skipping SURAT_MASTER seed");
+    return;
+  }
   const seed = buildSeedTemplates();
   _cache = seed;
   await idbReplaceAll("templates", seed).catch(console.warn);
+}
+
+/** Tambahkan field baru ke template lama yang belum punya (migasi in-place) */
+function migrateTemplate(t: SuratTemplate): SuratTemplate {
+  const migrated = { ...t };
+  if (!migrated.dna_clauses) {
+    migrated.dna_clauses = DNA_CLAUSES_PRESETS[t.code] ?? [
+      "Dengan ini menerangkan bahwa :",
+      "adalah benar warga kami yang berdomisili di wilayah Desa {{nama_desa}}, Kecamatan {{nama_kecamatan}}, Kabupaten {{nama_kabupaten}}.",
+      "Surat keterangan ini dibuat untuk keperluan yang tertera dalam surat pengajuan.",
+    ];
+  }
+  if (!migrated.subject_fields) {
+    migrated.subject_fields = SUBJECT_FIELDS_PRESETS[t.code] ?? DEFAULT_SUBJECT_FIELDS;
+  }
+  if (!migrated.closing) {
+    migrated.closing =
+      "Demikian surat ini dibuat dengan sebenar-benarnya untuk dapat dipergunakan sebagaimana mestinya.";
+  }
+  if (!migrated.subject_count) {
+    migrated.subject_count = 1;
+  }
+  return migrated;
 }
 
 // ── Sync Read ─────────────────────────────────────────────────────────────────
@@ -128,11 +212,27 @@ export async function saveTemplate(t: SuratTemplate): Promise<void> {
   else all.unshift(record);
   _cache = all;
   await idbPut("templates", record).catch(console.warn);
+  broadcastTemplateChange();
+
+  // Sync to Cloud
+  await syncSaveTemplate(record).catch((err) => {
+    console.warn("[template-store] Cloud sync failed (save):", err);
+  });
 }
 
 export async function deleteTemplate(id: string): Promise<void> {
-  _cache = (_cache ?? listTemplates()).filter((t) => t.id !== id);
+  const all = _cache ?? listTemplates();
+  const target = all.find((t) => t.id === id);
+  if (!target) return;
+
+  _cache = all.filter((t) => t.id !== id);
   await idbDelete("templates", id).catch(console.warn);
+  broadcastTemplateChange();
+
+  // Sync to Cloud
+  await syncDeleteTemplate(id, target.code).catch((err) => {
+    console.warn("[template-store] Cloud sync failed (delete):", err);
+  });
 }
 
 export function getTemplate(id: string): SuratTemplate | undefined {
@@ -150,7 +250,7 @@ export async function setTemplateStatus(id: string, patch: Partial<SuratTemplate
 
 export function newBlankTemplate(): SuratTemplate {
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     code: "",
     name: "",
     category: "Surat Keterangan",
@@ -159,11 +259,21 @@ export function newBlankTemplate(): SuratTemplate {
     fields: [],
     eta: "1 hari kerja",
     body: "",
+    dna_clauses: [
+      "Dengan ini menerangkan bahwa :",
+      "adalah benar warga kami yang berdomisili di wilayah Desa {{nama_desa}}, Kecamatan {{nama_kecamatan}}, Kabupaten {{nama_kabupaten}}.",
+      "Surat keterangan ini dibuat untuk keperluan yang tertera dalam surat pengajuan.",
+    ],
+    subject_fields: DEFAULT_SUBJECT_FIELDS,
+    closing:
+      "Demikian surat ini dibuat dengan sebenar-benarnya untuk dapat dipergunakan sebagaimana mestinya.",
+    subject_count: 1,
     status: "Draft",
     created_at: new Date().toISOString(),
   };
 }
 
+/** Legacy render untuk backward compat */
 export function renderTemplate(body: string, vars: Record<string, string>): string {
   return body.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`);
 }

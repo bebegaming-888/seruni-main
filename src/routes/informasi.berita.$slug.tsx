@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { getSettings } from "@/lib/settings-store";
 import { Link } from "@/components/Link";
 import { formatDate, formatRelativeDate } from "@/data/berita";
 import { useBeritaStore } from "@/lib/content-store";
+import { sanitizeHtml } from "@/lib/utils";
 import { ArrowLeft, Eye, Clock, Tag, Calendar, Share2, Bookmark, Printer } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -12,9 +13,10 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/informasi/berita/$slug")({
   head: ({ params }) => {
     const article = useBeritaStore.getState().items.find((a) => a.slug === params.slug);
+    const { village } = getSettings();
     return {
       meta: [
-        { title: article ? `${article.title} — ${VILLAGE.name}` : "Artikel Tidak Ditemukan" },
+        { title: article ? `${article.title} — ${village.name}` : "Artikel Tidak Ditemukan" },
         {
           name: "description",
           content: article?.excerpt ?? "Artikel tidak ditemukan.",
@@ -170,7 +172,7 @@ export function ArticleDetailPage() {
             {/* Content */}
             <div
               className="prose prose-sm sm:prose-base max-w-none font-body"
-              dangerouslySetInnerHTML={{ __html: article.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }}
               style={
                 {
                   "--tw-prose-body": "var(--color-foreground)",

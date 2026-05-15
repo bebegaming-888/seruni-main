@@ -1,6 +1,7 @@
 // Client-only Leaflet map wrapper — safe for SSR with dynamic import
 import { useEffect, useRef, useState } from "react";
 import { FACILITIES, TYPE_CONFIG, type MapFacility } from "@/data/map-facilities";
+import { useVillage } from "@/hooks/use-village";
 
 interface MapLeafletProps {
   height?: string;
@@ -12,6 +13,7 @@ export function MapLeaflet({ height = "500px", showLegend = true }: MapLeafletPr
   const mapInstanceRef = useRef<{ remove: () => void } | null>(null);
   const [activeType, setActiveType] = useState<string>("all");
   const [selected, setSelected] = useState<MapFacility | null>(null);
+  const { village } = useVillage();
 
   const filtered =
     activeType === "all" ? FACILITIES : FACILITIES.filter((f) => f.type === activeType);
@@ -48,7 +50,7 @@ export function MapLeaflet({ height = "500px", showLegend = true }: MapLeafletPr
         dashArray: "6 6",
       })
         .addTo(map)
-        .bindPopup("Desa Seruni Mumbul");
+        .bindPopup(village);
 
       FACILITIES.forEach((facility) => {
         const cfg = TYPE_CONFIG[facility.type];
@@ -80,6 +82,7 @@ export function MapLeaflet({ height = "500px", showLegend = true }: MapLeafletPr
       mapInstanceRef.current?.remove();
       mapInstanceRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const types = Object.keys(TYPE_CONFIG);

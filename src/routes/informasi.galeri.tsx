@@ -1,21 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { useSettings, getSettings } from "@/lib/settings-store";
 import { Camera, Image as ImageIcon, Filter, Maximize2 } from "lucide-react";
 import { useState } from "react";
 import { type GaleriItem, useGaleriStore } from "@/lib/content-store";
 
 export const Route = createFileRoute("/informasi/galeri")({
-  head: () => ({
-    meta: [
-      { title: `Galeri Foto — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Koleksi foto kegiatan dan pemandangan di ${VILLAGE.name}.`,
-      },
-    ],
-  }),
+  head: () => {
+    const { village } = getSettings();
+    return {
+      meta: [
+        { title: `Galeri Foto — ${village.name}` },
+        {
+          name: "description",
+          content: `Koleksi foto kegiatan dan pemandangan di ${village.name}.`,
+        },
+      ],
+    };
+  },
   component: () => <GaleriPage />,
 });
 
@@ -44,6 +47,7 @@ function GaleriCard({ item }: { item: GaleriItem }) {
 }
 
 export function GaleriPage() {
+  const { village } = useSettings();
   const items = useGaleriStore((state) => state.items);
   const [activeTab, setActiveTab] = useState("Semua");
 
@@ -66,7 +70,7 @@ export function GaleriPage() {
               Jelajahi Desa Kami
             </h1>
             <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              Kumpulan momen berharga, keindahan alam, dan kemajuan pembangunan di {VILLAGE.name}{" "}
+              Kumpulan momen berharga, keindahan alam, dan kemajuan pembangunan di {village.name}{" "}
               yang terekam dalam lensa.
             </p>
           </div>

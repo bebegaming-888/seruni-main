@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { useSettings, getSettings } from "@/lib/settings-store";
 import { usePengumumanStore } from "@/lib/content-store";
 import { Bell, Info, AlertCircle, Search, Clock, Calendar, ArrowRight } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearch } from "@tanstack/react-router";
 import { type PengumumanItem } from "@/lib/content-store";
 
@@ -12,15 +12,18 @@ export const Route = createFileRoute("/informasi/pengumuman")({
   validateSearch: (search: Record<string, unknown>) => ({
     q: typeof search.q === "string" ? search.q : "",
   }),
-  head: () => ({
-    meta: [
-      { title: `Pengumuman Desa — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Informasi dan pengumuman penting bagi warga ${VILLAGE.name}.`,
-      },
-    ],
-  }),
+  head: () => {
+    const { village } = getSettings();
+    return {
+      meta: [
+        { title: `Pengumuman Desa — ${village.name}` },
+        {
+          name: "description",
+          content: `Informasi dan pengumuman penting bagi warga ${village.name}.`,
+        },
+      ],
+    };
+  },
   component: () => <PengumumanPage />,
 });
 
@@ -95,7 +98,14 @@ function AnnouncementCard({ item }: { item: PengumumanItem }) {
 }
 
 export function PengumumanPage() {
-  const items = usePengumumanStore((state) => state.items);
+  const { village } = useSettings();
+  const store = usePengumumanStore();
+  const items = store.items;
+
+  useEffect(() => {
+    store.load();
+  }, [store]);
+
   const search = useSearch({ from: "/informasi/pengumuman" });
   const navigate = Route.useNavigate();
   const [inputValue, setInputValue] = useState(search.q || "");
@@ -127,7 +137,7 @@ export function PengumumanPage() {
               Pengumuman Warga
             </h1>
             <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              Informasi resmi, himbauan, dan pengumuman penting dari Pemerintah {VILLAGE.name} untuk
+              Informasi resmi, himbauan, dan pengumuman penting dari Pemerintah {village.name} untuk
               seluruh masyarakat.
             </p>
             <div className="flex flex-wrap gap-2">

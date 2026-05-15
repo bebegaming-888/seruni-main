@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { useSettings, getSettings } from "@/lib/settings-store";
+
 import { Link } from "@/components/Link";
 import { CATEGORIES, formatRelativeDate, type Article, type ArticleCategory } from "@/data/berita";
 import { useBeritaStore } from "@/lib/content-store";
 import { Newspaper, Eye, Clock, ArrowRight, Search } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearch } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/informasi/berita")({
@@ -153,7 +154,15 @@ function SearchBar({
 }
 
 export function BeritaPage() {
-  const items = useBeritaStore((state) => state.items);
+  const { village } = useSettings();
+
+  const store = useBeritaStore();
+  const items = store.items;
+
+  useEffect(() => {
+    store.load();
+  }, [store]);
+
   const search = useSearch({ from: "/informasi/berita" });
   const navigate = Route.useNavigate();
   const [inputValue, setInputValue] = useState(search.q);
@@ -196,7 +205,7 @@ export function BeritaPage() {
               Berita & Artikel
             </h1>
             <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              Kabar terkini dari {VILLAGE.name}. Berita desa, pengumuman penting, dan informasi
+              Kabar terkini dari {village.name}. Berita desa, pengumuman penting, dan informasi
               kegiatan masyarakat.
             </p>
             <div className="flex flex-wrap gap-2">

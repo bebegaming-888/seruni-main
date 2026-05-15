@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { getSettings, useSettings } from "@/lib/settings-store";
 import { Link } from "@/components/Link";
 import {
   Store,
@@ -20,16 +20,18 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/ekonomi/bumdes")({
-  head: () => ({
-    meta: [
-      { title: `BUMDes Seruni Mumbul — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content:
-          "Badan Usaha Milik Desa Seruni Mumbul. Wisata, usaha, dan pemberdayaan ekonomi rakyat.",
-      },
-    ],
-  }),
+  head: () => {
+    const { village } = getSettings();
+    return {
+      meta: [
+        { title: `BUMDes — ${village.name}` },
+        {
+          name: "description",
+          content: `Badan Usaha Milik Desa ${village.name}. Wisata, usaha, dan pemberdayaan ekonomi rakyat.`,
+        },
+      ],
+    };
+  },
   component: () => <BumdesPage />,
 });
 
@@ -112,6 +114,7 @@ const PELAYANAN = [
 ];
 
 export function BumdesPage() {
+  const { village } = useSettings();
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -128,7 +131,7 @@ export function BumdesPage() {
             <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-4 leading-tight">
               BUMDes
               <br />
-              <span className="text-primary">{VILLAGE.name}</span>
+              <span className="text-primary">{village.name}</span>
             </h1>
             <p className="font-body text-muted-foreground max-w-xl text-base sm:text-lg leading-relaxed mb-8">
               Membangun kemandirian ekonomi desa melalui usaha produktif, pemberdayaan masyarakat,
@@ -181,9 +184,9 @@ export function BumdesPage() {
                 Membangun Ekonomi Desa dari Desa, Untuk Desa
               </h2>
               <p className="font-body text-muted-foreground leading-relaxed mb-4">
-                BUMDes Seruni Mumbul didirikan tahun 2019 berdasarkan Undang-Undang Desa No.
-                6/2014.-unit usaha kami lahir dari potensi lokal — mulai dari wisata alam, kerajinan
-                tenun, hingga pengelolaan hasil bumi Lombok Timur.
+                BUMDes {village.name} didirikan tahun 2019 berdasarkan Undang-Undang Desa No.
+                6/2014. Unit usaha kami lahir dari potensi lokal — mulai dari wisata alam, kerajinan
+                tenun, hingga pengelolaan hasil bumi di wilayah {village.name}.
               </p>
               <p className="font-body text-muted-foreground leading-relaxed">
                 Saat ini BUMDes mengelola 6 unit usaha dengan 23 karyawan tetap dan melibatkan lebih
@@ -197,8 +200,8 @@ export function BumdesPage() {
                   "BUMDes Wisata — Pengelolaan objek wisata",
                   "Pasar Desa — Pusat niaga warga",
                   "Bank Sampah — Lingkungan & ekonomi",
-                  "Koperasi Seruni Sejahtera",
-                  "Pengelolaan Embung Mumbul",
+                  `Koperasi ${village.name} Sejahtera`,
+                  "Pengelolaan Embung Desa",
                   "Sentra Kerajinan Tenun",
                 ].map((u) => (
                   <div key={u} className="flex items-center gap-3 font-ui text-sm">
@@ -279,7 +282,7 @@ export function BumdesPage() {
               <p className="font-ui text-xs font-semibold uppercase tracking-wider text-primary mb-2">
                 Layanan
               </p>
-              <h2 className="font-display text-3xl font-bold text-ink">6 Unit Usaha, 1 Misi</h2>
+              <h2 className="font-display text-3xl font-bold text-ink">Unit Usaha BUMDes</h2>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {PELAYANAN.map((p) => {
@@ -319,10 +322,10 @@ export function BumdesPage() {
                   {[
                     {
                       icon: MapPin,
-                      text: "Jl. Raya Pringgabaya No. 88, Seruni Mumbul, Lombok Timur",
+                      text: village.address,
                     },
-                    { icon: Phone, text: "+62 812-3456-7890" },
-                    { icon: Store, text: "info@serunimumbul.desa.id" },
+                    { icon: Phone, text: village.whatsapp },
+                    { icon: Store, text: village.email },
                   ].map(({ icon: Icon, text }) => (
                     <div key={text} className="flex items-center gap-3 font-ui text-sm">
                       <Icon className="h-4 w-4 text-primary shrink-0" />

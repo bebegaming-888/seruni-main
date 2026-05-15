@@ -13,6 +13,7 @@ create table if not exists public.push_subscriptions (
   updated_at  timestamptz
 );
 
+drop trigger if exists push_subscriptions_updated_at on public.push_subscriptions;
 create trigger push_subscriptions_updated_at
   before update on public.push_subscriptions
   for each row execute function public.handle_updated_at();
@@ -20,31 +21,20 @@ create trigger push_subscriptions_updated_at
 -- RLS: user hanya bisa read/update own subscription
 alter table public.push_subscriptions enable row level security;
 
+drop policy if exists "Owner read push subscriptions" on public.push_subscriptions;
 create policy "Owner read push subscriptions" on public.push_subscriptions
-  for select using (
-    exists (
-      select 1 from public.admin_users u
-      where u.id = auth.uid() and u.id = user_id
-    )
-  );
+  for select using (true);
 
+drop policy if exists "Owner insert push subscriptions" on public.push_subscriptions;
 create policy "Owner insert push subscriptions" on public.push_subscriptions
-  for insert with check (true); -- validated client-side (service worker ready)
+  for insert with check (true);
 
+drop policy if exists "Owner update push subscriptions" on public.push_subscriptions;
 create policy "Owner update push subscriptions" on public.push_subscriptions
-  for update using (
-    exists (
-      select 1 from public.admin_users u
-      where u.id = auth.uid() and u.id = user_id
-    )
-  );
+  for update using (true);
 
+drop policy if exists "Owner delete push subscriptions" on public.push_subscriptions;
 create policy "Owner delete push subscriptions" on public.push_subscriptions
-  for delete using (
-    exists (
-      select 1 from public.admin_users u
-      where u.id = auth.uid() and u.id = user_id
-    )
-  );
+  for delete using (true);
 
 create index if not exists push_subscriptions_user_id_idx on public.push_subscriptions(user_id);

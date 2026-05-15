@@ -5,8 +5,28 @@
  */
 
 import Papa from "papaparse";
-import { normalizeNIK, normalizeJK, normalizeDate, normalizeNoHP } from "./utils";
 import type { Penduduk } from "@/data/penduduk";
+import { DEFAULT_SETTINGS, getSettings } from "@/lib/settings-store";
+
+// Lazy access ke wilayah data — null jika belum di-init
+let _w: ReturnType<typeof getSettings>["wilayah"] | null = null;
+function _getWilayah() {
+  if (!_w) {
+    try {
+      _w = getSettings().wilayah;
+    } catch {
+      _w = null;
+    }
+  }
+  return _w;
+}
+
+// Fallback terakhir — only if both Supabase and IDB are unavailable.
+// Import dari DEFAULT_SETTINGS agar selalu sinkron dengan konfigurasi admin.
+const FALLBACK_DESA = DEFAULT_SETTINGS.wilayah.village;
+const FALLBACK_KECAMATAN = DEFAULT_SETTINGS.wilayah.district;
+const FALLBACK_KABUPATEN = DEFAULT_SETTINGS.wilayah.regency;
+const FALLBACK_PROVINSI = DEFAULT_SETTINGS.wilayah.province;
 
 // ── Column alias map ──────────────────────────────────────────────────────────
 
@@ -20,12 +40,23 @@ export const ALIASES: Record<string, string> = {
   "no. ktp": "nik",
   "no ktp": "nik",
   ktp: "nik",
+  "no. kk": "no_kk",
+  "no kk": "no_kk",
+  "nomor kk": "no_kk",
+  kk: "no_kk",
+  "kartu keluarga": "no_kk",
+  "nomor kartu keluarga": "no_kk",
+  "kartu keluarga (kk)": "no_kk",
+  "no. kk (nomor kartu keluarga)": "no_kk",
   nama: "nama",
   name: "nama",
   "nama lengkap": "nama",
+  "nama wajib pajak": "nama",
+  "nama penduduk": "nama",
   "tempat lahir": "tempat_lahir",
   ttl: "tempat_lahir",
   "tempat/tgl lahir": "tempat_lahir",
+  "tempat / tgl lahir": "tempat_lahir",
   "tanggal lahir": "tanggal_lahir",
   "tgl lahir": "tanggal_lahir",
   lahir: "tanggal_lahir",
@@ -34,21 +65,33 @@ export const ALIASES: Record<string, string> = {
   jk: "jenis_kelamin",
   gender: "jenis_kelamin",
   seks: "jenis_kelamin",
+  "l/p": "jenis_kelamin",
+  "status dalam kk": "status_dalam_kk",
+  "hubungan keluarga": "status_dalam_kk",
+  hubungan: "status_dalam_kk",
+  "status kk": "status_dalam_kk",
   agama: "agama",
   religion: "agama",
-  "status nikah": "status_nikah",
-  "status pernikahan": "status_nikah",
-  kawin: "status_nikah",
-  marital: "status_nikah",
+  "status nikah": "status_perkawinan",
+  "status pernikahan": "status_perkawinan",
+  kawin: "status_perkawinan",
+  marital: "status_perkawinan",
   pendidikan: "pendidikan",
   education: "pendidikan",
   "pendidikan terakhir": "pendidikan",
   pekerjaan: "pekerjaan",
   job: "pekerjaan",
   occupation: "pekerjaan",
+  pendapatan: "pendapatan_bulan",
+  penghasilan: "pendapatan_bulan",
+  gaji: "pendapatan_bulan",
+  income: "pendapatan_bulan",
   kewarganegaraan: "kewarganegaraan",
   wna: "kewarganegaraan",
   wni: "kewarganegaraan",
+  suku: "suku",
+  bangsa: "suku",
+  etnis: "suku",
   "alamat lengkap": "alamat",
   alamat: "alamat",
   address: "alamat",
@@ -58,6 +101,8 @@ export const ALIASES: Record<string, string> = {
   dusun: "dusun",
   kampong: "dusun",
   village: "dusun",
+  lingkungan: "dusun",
+  wilayah: "dusun",
   "desa/kel": "desa",
   kelurahan: "desa",
   village_name: "desa",
@@ -80,10 +125,68 @@ export const ALIASES: Record<string, string> = {
   "golongan darah": "golongan_darah",
   "gol. darah": "golongan_darah",
   "blood type": "golongan_darah",
+  "milik rumah": "kepemilikan_rumah",
+  "status rumah": "kepemilikan_rumah",
+  "kepemilikan rumah": "kepemilikan_rumah",
+  "luas rumah": "luas_rumah",
+  "jumlah lantai": "jumlah_lantai",
+  "jenis lantai": "jenis_lantai",
+  "jenis dinding": "jenis_dinding",
+  "jenis atap": "jenis_atap",
+  "milik tanah": "kepemilikan_tanah",
+  "status tanah": "kepemilikan_tanah",
+  "kepemilikan tanah": "kepemilikan_tanah",
+  "luas tanah": "luas_tanah",
+  penerangan: "penerangan",
+  listrik: "penerangan",
+  "energi masak": "sumber_energi_masak",
+  "bahan bakar masak": "sumber_energi_masak",
+  masak: "sumber_energi_masak",
+  mck: "mck",
+  toilet: "mck",
+  sanitasi: "mck",
+  "sumber air": "sumber_air",
+  "air bersih": "sumber_air",
+  air: "sumber_air",
+  bansos: "bantuan_sosial",
+  "bantuan sosial": "bantuan_sosial",
+  pkh: "bantuan_sosial",
+  bpnt: "bantuan_sosial",
+  "bantuan extra": "bantuan_extra",
+  blt: "bantuan_extra",
+  "bpjs kesehatan": "bpjs_kesehatan",
+  kis: "bpjs_kesehatan",
+  "bpjs ketenagakerjaan": "bpjs_ketenagakerjaan",
+  jamsostek: "bpjs_ketenagakerjaan",
+  aset: "kepemilikan_aset",
+  "milik aset": "kepemilikan_aset",
+  kendaraan: "kepemilikan_aset",
+  "kondisi fisik": "kondisi_fisik",
+  cacat: "kondisi_fisik",
+  disabilitas: "kondisi_fisik",
+  "nama ibu": "nama_ibu",
+  ibu: "nama_ibu",
+  "nama bapak": "nama_bapak",
+  ayah: "nama_bapak",
+  bapak: "nama_bapak",
+  "nama kepala keluarga": "nama",
+  "status kawin": "status_perkawinan",
+  "pendapatan per bulan": "pendapatan_bulan",
+  domisili: "alamat",
+  goldar: "golongan_darah",
+  shdk: "status_dalam_kk",
 };
 
 export function resolveHeader(raw: string): string | null {
-  const key = raw.toLowerCase().trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  if (!raw) return null;
+  // Clean header: lowercase, remove special chars, remove parentheses contents
+  const key = raw
+    .toLowerCase()
+    .replace(/\(.*\)/g, "") // remove (anything)
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+
   return ALIASES[key] ?? null;
 }
 
@@ -98,19 +201,43 @@ export function buildHeaderMap(headers: string[]): Record<string, string> {
 
 // ── Value Normalizers ─────────────────────────────────────────────────────────
 
-export function normalizeNIK(v: string): string {
-  return String(v ?? "")
-    .replace(/[^\d]/g, "")
-    .slice(0, 16);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function normalizeNIK(v: any): string {
+  if (v === null || v === undefined) return "";
+  let s = String(v).trim();
+
+  // Handle Excel scientific notation (e.g., 5.2030115019E15)
+  // We use regex to try and reconstruct the digits if it looks like a standard NIK
+  if (/^\d\.\d+E\+\d+$/i.test(s) || /^\d\.\d+E\d+$/i.test(s)) {
+    try {
+      // BigInt(Number(s)) is safer for large integers than just Number(s)
+      // but if precision was ALREADY lost by Excel/XLSX parser, it stays lost.
+      s = BigInt(Math.floor(Number(s))).toString();
+    } catch {
+      s = s.split(".")[0];
+    }
+  }
+
+  // Strip decimals (.0 from Excel) and non-digits
+  let cleaned = s.split(".")[0].replace(/[^\d]/g, "");
+
+  // Pad 15-digit NIK with leading zero (Excel often strips leading zero)
+  if (cleaned.length === 15) {
+    cleaned = "0" + cleaned;
+  }
+
+  // NIK must be at least 16 digits for validation in normalizeRow,
+  // but we return whatever we have here.
+  return cleaned;
 }
 
 export function normalizeJK(v: string): Penduduk["jenis_kelamin"] {
   const s = String(v ?? "")
     .toLowerCase()
     .trim();
-  if (["laki-laki", "laki", "l", "male", "man", "m"].includes(s)) return "Laki-laki";
+  if (["laki-laki", "laki", "l", "male", "man", "m"].includes(s)) return "Laki-Laki";
   if (["perempuan", "wanita", "p", "female", "woman", "f"].includes(s)) return "Perempuan";
-  return "Laki-laki";
+  return "Laki-Laki";
 }
 
 export function normalizeAgama(v: string): string {
@@ -121,8 +248,9 @@ export function normalizeAgama(v: string): string {
     islam: "Islam",
     kristen: "Kristen",
     protestan: "Kristen",
-    khatolik: "Katolik",
-    katolik: "Katolik",
+    khatolik: "Katholik",
+    katholik: "Katholik",
+    katolik: "Katholik",
     hindu: "Hindu",
     buddha: "Buddha",
     budha: "Buddha",
@@ -143,24 +271,32 @@ export function normalizeStatus(v: string): string {
   return "Belum Kawin";
 }
 
-export function normalizeDate(v: string): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function normalizeDate(v: any): string {
   if (!v) return "";
   const s = String(v).trim();
-  // Excel serial number
+
+  // Handle Excel serial number
   const num = Number(s);
-  if (!isNaN(num) && num > 1000 && num < 100000) {
-    const d = new Date((num - 25569) * 86400 * 1000);
+  if (!isNaN(num) && num > 25569 && num < 100000) {
+    const d = new Date(Math.round((num - 25569) * 86400 * 1000));
     if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
   }
+
   // DD/MM/YYYY or DD-MM-YYYY
   const dmy = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+
   // YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
   // YYYYMMDD
   if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+
   const pd = new Date(s);
-  return isNaN(pd.getTime()) ? "" : pd.toISOString().slice(0, 10);
+  if (!isNaN(pd.getTime())) return pd.toISOString().slice(0, 10);
+
+  return "";
 }
 
 export function normalizeNoHP(v: string): string {
@@ -223,36 +359,116 @@ export async function parseFile(
   });
 }
 
-export function normalizeRow(row: Record<string, string>): Penduduk | null {
-  const raw = Object.fromEntries(Object.entries(row).map(([k, v]) => [k.trim().toLowerCase(), v]));
+/**
+ * Resolves a field value from a row using the ALIASES mapping system.
+ * This ensures that various header names (e.g., "Nama", "Name", "NAMA LENGKAP")
+ * all map correctly to the standard internal fields.
+ */
+function resolveValue(
+  row: Record<string, unknown>,
+  targetField: string,
+  defaultValue: string = "",
+): string {
+  // 1. Try exact match in row keys first (case sensitive)
+  if (row[targetField] !== undefined && row[targetField] !== "")
+    return String(row[targetField]).trim();
 
-  const nik = normalizeNIK(raw.nik ?? raw["nik"] ?? row["NIK"] ?? "");
-  if (!nik || nik.length !== 16) return null;
+  // 2. Try case-insensitive exact matches from ALIASES
+  const normalizedRow: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) {
+    normalizedRow[k.toLowerCase().trim()] = v;
+  }
 
-  return {
-    nik,
-    nama: (row["Nama Lengkap"] ?? row["Nama"] ?? row["nama"] ?? "").trim(),
-    tempat_lahir: (row["Tempat Lahir"] ?? row["ttl"] ?? "").trim(),
-    tanggal_lahir: normalizeDate(row["Tanggal Lahir"] ?? row["tgl lahir"] ?? ""),
-    jenis_kelamin: normalizeJK(row["Jenis Kelamin"] ?? row["jk"] ?? "Laki-laki"),
-    agama: normalizeAgama(row["Agama"] ?? ""),
-    status_nikah: normalizeStatus(row["Status Nikah"] ?? row["kawin"] ?? ""),
-    pendidikan: (row["Pendidikan"] ?? row["pendidikan"] ?? "").trim(),
-    pekerjaan: (row["Pekerjaan"] ?? row["pekerjaan"] ?? "").trim(),
-    kewarganegaraan: (row["Kewarganegaraan"] ?? row["wna"] ?? "WNI").trim(),
-    alamat: (row["Alamat"] ?? row["alamat"] ?? "").trim(),
-    rt: (row["RT"] ?? row["rt"] ?? "").trim(),
-    rw: (row["RW"] ?? row["rw"] ?? "").trim(),
-    dusun: (row["Dusun"] ?? row["dusun"] ?? "").trim(),
-    desa: (row["Desa"] ?? row["Kelurahan"] ?? "Seruni Mumbul").trim(),
-    kecamatan: (row["Kecamatan"] ?? row["kecamatan"] ?? "Pringgabaya").trim(),
-    kabupaten: (row["Kabupaten"] ?? row["Kabupaten/Kota"] ?? "Lombok Timur").trim(),
-    provinsi: (row["Provinsi"] ?? row["provinsi"] ?? "Nusa Tenggara Barat").trim(),
-    kode_pos: (row["Kode Pos"] ?? row["kode pos"] ?? "83653").trim(),
-    telepon: normalizeNoHP(row["Telepon"] ?? row["hp"] ?? row["no hp"] ?? ""),
-    hp: normalizeNoHP(row["HP"] ?? row["No HP"] ?? row["Nomor HP"] ?? ""),
-    golongan_darah: (row["Golongan Darah"] ?? row["golda"] ?? "-").trim().toUpperCase(),
+  // Find all aliases that map to this targetField
+  const validAliases = Object.entries(ALIASES)
+    .filter(([_, field]) => field === targetField)
+    .map(([alias]) => alias.toLowerCase().trim());
+
+  for (const alias of validAliases) {
+    if (normalizedRow[alias] !== undefined && normalizedRow[alias] !== "") {
+      return String(normalizedRow[alias]).trim();
+    }
+  }
+
+  // 3. Fuzzy search in row keys
+  const rowKeys = Object.keys(row);
+  for (const key of rowKeys) {
+    const resolved = resolveHeader(key);
+    if (resolved === targetField && row[key] !== "") {
+      return String(row[key]).trim();
+    }
+  }
+
+  return defaultValue;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function normalizeRow(row: Record<string, any>): Penduduk | null {
+  const rawNIK = resolveValue(row, "nik");
+  const nik = normalizeNIK(rawNIK);
+
+  if (!nik) {
+    throw new Error("NIK tidak ditemukan atau kosong");
+  }
+
+  if (nik.length < 16) {
+    throw new Error(`NIK terlalu pendek (${nik.length} digit). Harus 16 digit.`);
+  }
+
+  const nama = resolveValue(row, "nama");
+  if (!nama) {
+    throw new Error(`Nama tidak ditemukan untuk NIK ${nik}`);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const p: any = {
+    nik: nik.slice(0, 16),
+    nama,
+    no_kk: normalizeNIK(resolveValue(row, "no_kk")),
+    status_dalam_kk: resolveValue(row, "status_dalam_kk", "Anggota Keluarga"),
+    tempat_lahir: resolveValue(row, "tempat_lahir"),
+    tanggal_lahir: normalizeDate(resolveValue(row, "tanggal_lahir")),
+    jenis_kelamin: normalizeJK(resolveValue(row, "jenis_kelamin")),
+    agama: normalizeAgama(resolveValue(row, "agama")),
+    status_perkawinan: normalizeStatus(resolveValue(row, "status_perkawinan")),
+    pendidikan: resolveValue(row, "pendidikan"),
+    pekerjaan: resolveValue(row, "pekerjaan"),
+    pendapatan_bulan: resolveValue(row, "pendapatan_bulan", "0"),
+    kewarganegaraan: resolveValue(row, "kewarganegaraan", "Indonesia"),
+    suku: resolveValue(row, "suku", "Sasak"),
+    alamat: resolveValue(row, "alamat"),
+    rt: resolveValue(row, "rt"),
+    rw: resolveValue(row, "rw"),
+    dusun: resolveValue(row, "dusun"),
+    desa: resolveValue(row, "desa", _getWilayah()?.village ?? FALLBACK_DESA),
+    kecamatan: resolveValue(row, "kecamatan", _getWilayah()?.district ?? FALLBACK_KECAMATAN),
+    kabupaten: resolveValue(row, "kabupaten", _getWilayah()?.regency ?? FALLBACK_KABUPATEN),
+    provinsi: resolveValue(row, "provinsi", _getWilayah()?.province ?? FALLBACK_PROVINSI),
+    no_hp: normalizeNoHP(resolveValue(row, "hp") || resolveValue(row, "telepon")),
+    golongan_darah: resolveValue(row, "golongan_darah", "Tidak Diketahui").toUpperCase(),
+    kepemilikan_rumah: resolveValue(row, "kepemilikan_rumah", "-"),
+    luas_rumah: resolveValue(row, "luas_rumah", "-"),
+    jumlah_lantai: resolveValue(row, "jumlah_lantai", "-"),
+    jenis_lantai: resolveValue(row, "jenis_lantai", "-"),
+    jenis_dinding: resolveValue(row, "jenis_dinding", "-"),
+    jenis_atap: resolveValue(row, "jenis_atap", "-"),
+    kepemilikan_tanah: resolveValue(row, "kepemilikan_tanah", "-"),
+    luas_tanah: resolveValue(row, "luas_tanah", "-"),
+    penerangan: resolveValue(row, "penerangan", "-"),
+    sumber_energi_masak: resolveValue(row, "sumber_energi_masak", "-"),
+    mck: resolveValue(row, "mck", "-"),
+    sumber_air: resolveValue(row, "sumber_air", "-"),
+    bantuan_sosial: resolveValue(row, "bantuan_sosial", "Tidak"),
+    bantuan_extra: resolveValue(row, "bantuan_extra", "Tidak"),
+    bpjs_kesehatan: resolveValue(row, "bpjs_kesehatan", "Tidak"),
+    bpjs_ketenagakerjaan: resolveValue(row, "bpjs_ketenagakerjaan", "Tidak"),
+    kepemilikan_aset: resolveValue(row, "kepemilikan_aset", "Tidak"),
+    kondisi_fisik: resolveValue(row, "kondisi_fisik", "Normal"),
+    nama_ibu: resolveValue(row, "nama_ibu"),
+    nama_bapak: resolveValue(row, "nama_bapak"),
   };
+
+  return p as Penduduk;
 }
 
 // ── Smart Import for penduduk-store ─────────────────────────────────────────

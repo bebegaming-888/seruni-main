@@ -1,19 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { useVillage } from "@/hooks/use-village";
+import { getVillage } from "@/lib/village-dynamic";
+
 import { Info, History, Target, Shield, Map as MapIcon, Users } from "lucide-react";
 
 export const Route = createFileRoute("/profil/desa")({
-  head: () => ({
-    meta: [
-      { title: `Profil Desa — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Sejarah, visi, misi, dan profil umum Pemerintah ${VILLAGE.name}.`,
-      },
-    ],
-  }),
+  head: () => {
+    const v = getVillage();
+    return {
+      meta: [
+        { title: `Profil Desa — ${v.name}` },
+        {
+          name: "description",
+          content: `Sejarah, visi, misi, dan profil umum Pemerintah ${v.name}.`,
+        },
+      ],
+    };
+  },
   component: () => <ProfilDesaPage />,
 });
 
@@ -40,6 +45,8 @@ function SectionTitle({
 }
 
 export function ProfilDesaPage() {
+  const v = useVillage();
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -52,8 +59,9 @@ export function ProfilDesaPage() {
               Tentang Kami
             </div>
             <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-ink mb-6 tracking-tight">
-              Profil {VILLAGE.name}
+              Profil {v.name}
             </h1>
+
             <p className="font-body text-muted-foreground text-lg sm:text-xl leading-relaxed max-w-2xl mx-auto">
               Mengenal lebih dekat sejarah, nilai-nilai, dan cita-cita besar kami dalam membangun
               desa yang mandiri dan berbudaya.
@@ -129,15 +137,14 @@ export function ProfilDesaPage() {
 
             <div className="prose prose-lg prose-slate mx-auto font-body text-muted-foreground leading-relaxed space-y-6">
               <p>
-                {VILLAGE.name} memiliki akar sejarah yang kuat yang bermula dari pemukiman nelayan
-                tradisional di pesisir Pringgabaya. Nama "Seruni Mumbul" sendiri diambil dari
-                filosofi bunga Seruni yang melambangkan keindahan dan kemandirian, serta "Mumbul"
-                yang berarti bangkit atau menjulang tinggi.
+                {v.name} memiliki akar sejarah yang kuat yang bermula dari pemukiman nelayan
+                tradisional di pesisir Pringgabaya. Nama "{v.village}" sendiri diambil dari filosofi
+                keindahan dan kemandirian, serta semangat untuk bangkit atau menjulang tinggi.
               </p>
               <p>
-                Sejak diresmikan sebagai desa definitif, {VILLAGE.name} terus bertransformasi dari
-                pusat perdagangan hasil laut menjadi desa wisata yang mengedepankan kearifan lokal
-                tenun Sasak dan keindahan pesisir pantainya.
+                Sejak diresmikan sebagai desa definitif, {v.name} terus bertransformasi dari pusat
+                perdagangan hasil laut menjadi desa wisata yang mengedepankan kearifan lokal dan
+                keindahan pesisir pantainya.
               </p>
               <p>
                 Melalui pergantian kepemimpinan dari masa ke masa, komitmen untuk tetap menjaga jati

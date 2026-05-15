@@ -1,4 +1,4 @@
-// Data APBDes 2026 — Desa Seruni Mumbul
+// Data APBDes 2026 — Desa
 // Sumber: data simulasi untuk prototype dashboard transparansi
 // Production: gantikan dengan query ke tabel `apbdes_*` di Supabase
 

@@ -8,8 +8,9 @@ import {
   getWargaSession,
   saveWargaSession,
   logoutWarga,
+  refreshWargaSession,
 } from "@/lib/warga-auth";
-import { VILLAGE } from "@/data/site";
+import { getSettings, useSettings } from "@/lib/settings-store";
 import {
   ArrowLeft,
   Smartphone,
@@ -25,21 +26,25 @@ import {
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/masuk/warga")({
-  head: () => ({
-    meta: [
-      { title: `Login Warga — Ajukan & Lacak Surat di ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Masuk dengan NIK untuk mengajukan surat atau melacak status pengajuan di ${VILLAGE.name}.`,
-      },
-    ],
-  }),
+  head: () => {
+    const { village } = getSettings();
+    return {
+      meta: [
+        { title: `Login Warga — Ajukan & Lacak Surat di ${village.name}` },
+        {
+          name: "description",
+          content: `Masuk dengan NIK untuk mengajukan surat atau melacak status pengajuan di ${village.name}.`,
+        },
+      ],
+    };
+  },
   component: MasukWargaPage,
 });
 
 type Step = "nik" | "otp" | "success";
 
 function MasukWargaPage() {
+  const { village } = useSettings();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("nik");
   const [nik, setNik] = useState("");
@@ -49,6 +54,40 @@ function MasukWargaPage() {
   const [otpValue, setOtpValue] = useState(""); // untuk dev mode
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const [showOtp, setShowOtp] = useState(false);
+  // Session expiry countdown
+  const [sessionRemaining, setSessionRemaining] = useState<number>(0);
+
+  // Refresh session on mount and periodically
+  useEffect(() => {
+    refreshWargaSession().then((updated) => {
+      if (updated) setSessionRemaining(updated.expires_at - Date.now());
+    });
+    // Refresh every 4 hours
+    const interval = setInterval(
+      () => {
+        refreshWargaSession().then((updated) => {
+          if (updated) setSessionRemaining(updated.expires_at - Date.now());
+        });
+      },
+      4 * 60 * 60 * 1000,
+    );
+    return () => clearInterval(interval);
+  }, []);
+
+  // Tick countdown timer
+  useEffect(() => {
+    if (!sessionRemaining) return;
+    const tick = setInterval(() => {
+      setSessionRemaining((r) => {
+        if (r <= 1000) {
+          logoutWarga();
+          return 0;
+        }
+        return r - 1000;
+      });
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [sessionRemaining]);
 
   // Redirect jika sudah login
   useEffect(() => {
@@ -130,10 +169,10 @@ function MasukWargaPage() {
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-display text-base font-bold">
-              {VILLAGE.name[0]}
+              {village.name[0]}
             </div>
             <div>
-              <div className="font-display text-sm font-bold leading-tight">{VILLAGE.name}</div>
+              <div className="font-display text-sm font-bold leading-tight">{village.name}</div>
               <div className="font-ui text-[10px] text-muted-foreground">Sistem Informasi Desa</div>
             </div>
           </Link>
@@ -361,7 +400,7 @@ function MasukWargaPage() {
 
         {/* Logged in state */}
         {isWargaLoggedIn() && getWargaSession() && (
-          <div className="mt-6 rounded-2xl border border-success/20 bg-success/5 p-4">
+          <div className="mt-6 rounded-2xl border border-success/20 bg-success/5 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-ui text-xs font-semibold text-success">Logged in as</p>
@@ -379,6 +418,24 @@ function MasukWargaPage() {
                 Keluar
               </button>
             </div>
+            <Link
+              to="/masuk/pengajuan-saya"
+              className="flex items-center justify-between h-10 px-4 rounded-xl bg-success/10 border border-success/20 font-ui text-xs font-semibold text-success hover:bg-success/20 transition"
+            >
+              <span>Lihat Pengajuan Saya</span>
+              <span>→</span>
+            </Link>
+            {sessionRemaining > 0 && (
+              <div className="pt-1 border-t border-success/20">
+                <p
+                  className={`font-ui text-[11px] ${sessionRemaining < 24 * 60 * 60 * 1000 ? "text-warning" : "text-success/60"}`}
+                >
+                  Session aktif: {Math.floor(sessionRemaining / (1000 * 60 * 60 * 24))}d{" "}
+                  {Math.floor((sessionRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))}h{" "}
+                  {Math.floor((sessionRemaining % (1000 * 60 * 60)) / (1000 * 60))}m
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

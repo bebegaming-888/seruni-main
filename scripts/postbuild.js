@@ -1,15 +1,14 @@
 /**
- * postbuild.js — Fix index.html for Cloudflare Pages deployment
+ * postbuild.js — Generate production index.html for SPA deployment
  *
- * Runs after `npm run build`. Reads the TanStack Start manifest from dist/client/assets/
- * (falls back to dist/server/assets/) and rewrites dist/client/index.html with the
- * correct client entry script path.
+ * Runs after `npm run build`. Reads the TanStack Start manifest from dist/server/assets/
+ * (or dist/client/assets/) and rewrites dist/client/index.html with the correct
+ * client entry script path.
  *
  * Background: @lovable.dev/vite-tanstack-config does not generate a
  * production-ready index.html for the client bundle — it only works in dev mode
  * where Vite's dev server resolves `virtual:tanstack-start-client-entry` at runtime.
- * In production (Cloudflare Pages), the index.html must reference the hashed
- * client entry chunk directly.
+ * In production, the index.html must reference the hashed client entry chunk directly.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -20,15 +19,13 @@ const distClient = path.resolve(__dirname, "../dist/client");
 const distServer = path.resolve(__dirname, "../dist/server");
 
 function findManifest() {
-  const clientDir = path.join(distClient, "assets");
-  const serverDir = path.join(distServer, "assets");
-  for (const dir of [clientDir, serverDir]) {
+  for (const dir of [path.join(distServer, "assets"), path.join(distClient, "assets")]) {
     try {
       const files = fs.readdirSync(dir);
       const found = files.find((f) => f.startsWith("_tanstack-start-manifest_v-"));
       if (found) return { file: found, dir };
     } catch {
-      // dir may not exist
+      // dir may not exist yet
     }
   }
   return null;
@@ -36,7 +33,7 @@ function findManifest() {
 
 const manifest = findManifest();
 if (!manifest) {
-  console.warn("[postbuild] TanStack manifest not found in dist/client or dist/server, skipping");
+  console.warn("[postbuild] TanStack manifest not found, skipping");
   process.exit(0);
 }
 
@@ -50,7 +47,7 @@ if (!match) {
 }
 const clientEntry = match[1];
 
-// If manifest was found in server assets, copy all server .js files to client assets
+// Copy server .js assets to client directory (TanStack Start puts them in server/)
 if (manifest.dir !== path.join(distClient, "assets")) {
   const serverDir = path.join(distServer, "assets");
   const clientDir = path.join(distClient, "assets");
@@ -59,11 +56,10 @@ if (manifest.dir !== path.join(distClient, "assets")) {
       fs.copyFileSync(path.join(serverDir, file), path.join(clientDir, file));
     }
   }
-  console.info("[postbuild] Copied server JS assets to client assets directory");
+  console.info("[postbuild] Copied server assets to client directory");
 }
 
-// Generate clean production index.html for Cloudflare Pages SPA deployment.
-// This replaces the virtual module reference that only works in Vite dev mode.
+// Generate production index.html
 const html = `<!doctype html>
 <html lang="id">
   <head>
@@ -75,6 +71,7 @@ const html = `<!doctype html>
   </head>
   <body>
     <div id="app"></div>
+    <script>window.$_TSR={h(){this.hydrated=!0,this.c()},c(){this.hydrated&&this.streamEnded&&delete window.$_TSR},e(){this.streamEnded=!0,this.c()}};</script>
     <script type="module" crossorigin="anonymous" src="${clientEntry}"></script>
   </body>
 </html>

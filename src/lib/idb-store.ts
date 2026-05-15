@@ -2,7 +2,7 @@
  * idb-store.ts — Central IndexedDB Engine for MitraDesa
  *
  * Database : seruni_mumbul_db  (v2 — upgrade dari v1 yg hanya punya 'penduduk')
- * Stores   : 15 object stores, masing-masing punya keyPath sendiri.
+ * Stores   : 19 object stores, masing-masing punya keyPath sendiri.
  *
  * Prinsip  : SSR-safe (semua akses dibungkus typeof window check)
  *            Write-through (langsung ke IndexedDB, bukan cache dulu)
@@ -11,7 +11,7 @@
 
 // ── Konfigurasi DB ────────────────────────────────────────────────────────────
 export const IDB_NAME = "seruni_mumbul_db";
-export const IDB_VER = 2;
+export const IDB_VER = 5;
 
 /** Semua object store beserta keyPath-nya */
 export const IDB_STORES = {
@@ -19,6 +19,7 @@ export const IDB_STORES = {
   settings: "id", // single record, id = "main"
   users: "id",
   perangkat: "id",
+  perangkat_struktur: "id", // tree struktur jabatan perangkat
   berita: "id",
   agenda: "id",
   galeri: "id",
@@ -30,6 +31,11 @@ export const IDB_STORES = {
   templates: "id",
   audit_log: "id",
   nomor_surat: "id", // id = "YYYY" (tahun)
+  offline_queue: "id", // id = "offline_<timestamp>_<random>"
+  lembaga: "id",
+  pengaduan: "ticket",
+  wilayah: "kode", // Kode Kemendagri (13 digit untuk village)
+  subdiv: "id", // village_subdivisions, id = auto
 } as const;
 
 export type IDBStoreName = keyof typeof IDB_STORES;

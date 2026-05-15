@@ -1,107 +1,105 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { VILLAGE } from "@/data/site";
+import { useVillage } from "@/hooks/use-village";
+import { getVillage } from "@/lib/village-dynamic";
+import { useSettings, getSettings } from "@/lib/settings-store";
+
 import { ShoppingBag, Star, Tag, MapPin, ArrowRight, Store, Heart } from "lucide-react";
 
 export const Route = createFileRoute("/wisata/umkm")({
-  head: () => ({
-    meta: [
-      { title: `UMKM & Produk Unggulan — ${VILLAGE.name}` },
-      {
-        name: "description",
-        content: `Dukung ekonomi lokal dengan membeli produk-produk unggulan UMKM ${VILLAGE.name}.`,
-      },
-    ],
-  }),
+  head: () => {
+    const v = getVillage();
+    return {
+      meta: [
+        { title: `UMKM & Produk Unggulan — ${v.village}` },
+        {
+          name: "description",
+          content: `Dukung ekonomi lokal dengan membeli produk-produk unggulan UMKM ${v.village}.`,
+        },
+      ],
+    };
+  },
   component: () => <UMKMPage />,
 });
 
-const PRODUCTS = [
-  {
-    id: "1",
-    name: "Kain Tenun Seruni",
-    price: "Rp 350.000 - 1.200.000",
-    category: "Kerajinan",
-    rating: 4.9,
-    image:
-      "https://images.unsplash.com/photo-1574279603932-f29731b40abc?auto=format&fit=crop&q=80&w=800",
-    seller: "Koperasi Tenun Maju",
-  },
-  {
-    id: "2",
-    name: "Madu Hutan Mumbul",
-    price: "Rp 85.000",
-    category: "Makanan",
-    rating: 4.8,
-    image:
-      "https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&q=80&w=800",
-    seller: "Kelompok Tani Lestari",
-  },
-  {
-    id: "3",
-    name: "Kopi Arabika Pesisir",
-    price: "Rp 45.000",
-    category: "Minuman",
-    rating: 4.7,
-    image:
-      "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&q=80&w=800",
-    seller: "Kedai Kopi Desa",
-  },
-  {
-    id: "4",
-    name: "Keripik Rumput Laut",
-    price: "Rp 15.000",
-    category: "Camilan",
-    rating: 4.6,
-    image:
-      "https://images.unsplash.com/photo-1599490659213-e2b9527bb087?auto=format&fit=crop&q=80&w=800",
-    seller: "Ibu-ibu PKK Seruni",
-  },
-];
+export function UMKMPage() {
+  const { village: villageName } = useVillage();
 
-function ProductCard({ product }: { product: (typeof PRODUCTS)[number] }) {
-  return (
-    <div className="group bg-card border border-border rounded-[2rem] overflow-hidden hover:shadow-lg transition-all duration-300">
-      <div className="relative aspect-square overflow-hidden bg-muted">
-        <img
-          src={product.image}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-        />
-        <button className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/20 backdrop-blur-md text-white flex items-center justify-center hover:bg-white hover:text-primary transition-all">
-          <Heart className="h-5 w-5" />
-        </button>
-      </div>
-      <div className="p-6">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">
-            {product.category}
-          </span>
-          <div className="flex items-center gap-1 text-warning ml-auto">
-            <Star className="h-3 w-3 fill-current" />
-            <span className="font-ui text-xs font-bold">{product.rating}</span>
+  // Inline ProductCard — renders a single product tile
+  function ProductCard({ product }: { product: (typeof products)[number] }) {
+    return (
+      <div className="group cursor-pointer">
+        <div className="relative overflow-hidden rounded-2xl aspect-[4/3] mb-4 bg-muted">
+          <img
+            src={product.image}
+            alt={product.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+          <div className="absolute top-3 left-3">
+            <span className="rounded-full bg-background/80 backdrop-blur-sm px-2 py-0.5 font-ui text-[10px] font-semibold">
+              {product.category}
+            </span>
           </div>
         </div>
-        <h3 className="font-display text-lg font-bold text-ink mb-1 group-hover:text-primary transition-colors">
+        <h3 className="font-display text-base font-bold text-ink mb-1 leading-snug">
           {product.name}
         </h3>
-        <p className="font-ui text-xs text-muted-foreground mb-4 flex items-center gap-1">
-          <Store className="h-3 w-3" />
-          {product.seller}
-        </p>
-        <div className="flex items-center justify-between mt-auto pt-4 border-t border-border/50">
-          <span className="font-display text-sm font-bold text-ink">{product.price}</span>
-          <button className="h-9 w-9 rounded-full bg-ink text-white flex items-center justify-center hover:bg-primary transition-colors">
-            <ShoppingBag className="h-4 w-4" />
-          </button>
+        <p className="font-ui text-xs text-muted-foreground mb-2">{product.seller}</p>
+        <div className="flex items-center justify-between">
+          <span className="font-body text-sm font-semibold text-ink">{product.price}</span>
+          <div className="flex items-center gap-1 text-warning">
+            <Star className="h-3 w-3 fill-warning" />
+            <span className="font-ui text-xs font-semibold">{product.rating}</span>
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-export function UMKMPage() {
+  const products = [
+    {
+      id: "1",
+      name: `Kain Tenun ${villageName}`,
+      price: "Rp 350.000 - 1.200.000",
+      category: "Kerajinan",
+      rating: 4.9,
+      image:
+        "https://images.unsplash.com/photo-1574279603932-f29731b40abc?auto=format&fit=crop&q=80&w=800",
+      seller: "Koperasi Tenun Maju",
+    },
+    {
+      id: "2",
+      name: `Madu Hutan ${villageName}`,
+      price: "Rp 85.000",
+      category: "Makanan",
+      rating: 4.8,
+      image:
+        "https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&q=80&w=800",
+      seller: "Kelompok Tani Lestari",
+    },
+    {
+      id: "3",
+      name: "Kopi Arabika Pesisir",
+      price: "Rp 45.000",
+      category: "Minuman",
+      rating: 4.7,
+      image:
+        "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&q=80&w=800",
+      seller: "Kedai Kopi Desa",
+    },
+    {
+      id: "4",
+      name: "Keripik Rumput Laut",
+      price: "Rp 15.000",
+      category: "Camilan",
+      rating: 4.6,
+      image:
+        "https://images.unsplash.com/photo-1599490659213-e2b9527bb087?auto=format&fit=crop&q=80&w=800",
+      seller: `Ibu-ibu PKK ${villageName}`,
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -117,7 +115,7 @@ export function UMKMPage() {
               Produk Unggulan <span className="text-warning">Desa</span>
             </h1>
             <p className="font-body text-muted-foreground text-lg leading-relaxed max-w-2xl mx-auto mb-10">
-              Mendukung kreativitas dan kemandirian ekonomi masyarakat {VILLAGE.name} melalui
+              Mendukung kreativitas dan kemandirian ekonomi masyarakat {villageName} melalui
               produk-produk berkualitas tinggi.
             </p>
             <div className="max-w-2xl mx-auto relative">
@@ -153,8 +151,8 @@ export function UMKMPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
               {[
-                { name: "Tenun Seruni", items: "12 Produk", icon: Tag },
-                { name: "Madu Mumbul", items: "4 Produk", icon: Tag },
+                { name: `Tenun ${villageName}`, items: "12 Produk", icon: Tag },
+                { name: `Madu ${villageName}`, items: "4 Produk", icon: Tag },
                 { name: "Kopi Pesisir", items: "8 Produk", icon: Tag },
                 { name: "Oleh-oleh", items: "24 Produk", icon: Tag },
               ].map((cat, i) => (
@@ -185,8 +183,8 @@ export function UMKMPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {PRODUCTS.map((product) => (
-                <ProductCard key={product.id} product={product} />
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product as (typeof products)[number]} />
               ))}
             </div>
             <div className="mt-16 text-center">
@@ -208,7 +206,7 @@ export function UMKMPage() {
             </h2>
             <p className="font-body text-lg opacity-80 mb-8 max-w-xl relative z-10 leading-relaxed">
               Setiap rupiah yang Anda belanjakan untuk produk lokal membantu kesejahteraan puluhan
-              keluarga di {VILLAGE.name}.
+              keluarga di {villageName}.
             </p>
             <div className="flex items-center gap-4 relative z-10">
               <div className="flex -space-x-4">

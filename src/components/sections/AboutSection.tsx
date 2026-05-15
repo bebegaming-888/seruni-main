@@ -1,59 +1,58 @@
 import { SectionTitle } from "@/components/site/SectionTitle";
 import { Link } from "@/components/Link";
-import { ArrowUpRight, Users, Home, MapPin, Building2 } from "lucide-react";
+import { ArrowUpRight, Users, Home, MapPin, Building2, Palmtree, Trophy, Map } from "lucide-react";
+import { getSettings } from "@/lib/settings-store";
+import { resolveImageUrl } from "@/lib/media-upload";
 import aboutImg from "@/assets/about-village.jpg";
 import kepalaImg from "@/assets/kepala-desa.jpg";
 
-const stats = [
-  { icon: Users, value: "4.823", label: "Jiwa" },
-  { icon: Home, value: "1.456", label: "KK" },
-  { icon: MapPin, value: "1.287 ha", label: "Luas" },
-  { icon: Building2, value: "6", label: "Dusun" },
-];
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  users: Users,
+  home: Home,
+  map: Map,
+  mappin: MapPin,
+  building: Building2,
+  palmtree: Palmtree,
+  trophy: Trophy,
+};
 
 export function AboutSection() {
+  const settings = getSettings();
+  const { content, village } = settings;
+
   return (
     <section id="tentang" className="py-20 sm:py-28 px-4 sm:px-8">
       <div className="mx-auto max-w-7xl">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <div>
             <p className="eyebrow text-primary mb-4">Tentang Desa</p>
-            <SectionTitle first="Warisan" second="Sasak" className="text-ink mb-6" />
+            <SectionTitle first="Warisan" second="Budaya" className="text-ink mb-6" />
             <div className="space-y-4 font-body text-base text-muted-foreground leading-relaxed">
-              <p>
-                Desa Seruni Mumbul terletak di lereng timur Gunung Rinjani, Kecamatan Pringgabaya,
-                Kabupaten Lombok Timur. Berdiri sejak tahun 1923, desa kami menyimpan sejarah
-                panjang sebagai pusat tenun tradisional Sasak.
-              </p>
-              <p>
-                Kini, dengan 4.823 jiwa dan 6 dusun, kami terus berinovasi menjadi desa mandiri —
-                memadukan kearifan lokal dengan layanan publik digital yang modern dan transparan.
-              </p>
+              <p>{content.about_text}</p>
             </div>
 
             <blockquote className="mt-8 border-l-4 border-primary pl-5 py-1">
               <p className="font-display italic text-xl text-ink leading-snug">
-                "Mewujudkan Desa Seruni Mumbul yang mandiri, sejahtera, berbudaya, dan berbasis
-                teknologi pada tahun 2030."
+                "{content.vision}"
               </p>
               <cite className="block mt-3 font-ui text-sm text-muted-foreground not-italic">
-                — Visi Desa 2025–2030
+                — Visi Desa
               </cite>
             </blockquote>
 
-            <div className="mt-8 flex items-center gap-4 p-4 rounded-2xl bg-cream">
+            <div className="mt-8 flex items-center gap-4 p-4 rounded-2xl bg-card">
               <img
-                src={kepalaImg}
-                alt="H. Lalu Mahsun, Kepala Desa Seruni Mumbul"
+                src={resolveImageUrl(village.logo_storage_path, village.logo_url) || kepalaImg}
+                alt={village.head}
                 className="h-16 w-16 rounded-full object-cover"
                 width={768}
                 height={768}
                 loading="lazy"
               />
               <div className="flex-1">
-                <div className="font-display font-bold text-ink">H. Lalu Mahsun</div>
+                <div className="font-display font-bold text-foreground">{village.head}</div>
                 <div className="font-ui text-xs text-muted-foreground">
-                  Kepala Desa Seruni Mumbul
+                  Kepala Desa {village.name}
                 </div>
               </div>
               <Link
@@ -77,7 +76,7 @@ export function AboutSection() {
             <div className="overflow-hidden rounded-3xl">
               <img
                 src={aboutImg}
-                alt="Perangkat dan warga Desa Seruni Mumbul di depan kantor desa"
+                alt={`Wilayah ${village.name}`}
                 className="w-full h-[420px] object-cover hover:scale-105 transition-transform duration-700"
                 width={1280}
                 height={960}
@@ -85,20 +84,23 @@ export function AboutSection() {
               />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {stats.map((s) => (
-                <div
-                  key={s.label}
-                  className="rounded-2xl bg-cream p-4 hover:bg-primary hover:text-primary-foreground transition-colors group"
-                >
-                  <s.icon className="h-5 w-5 text-primary group-hover:text-primary-foreground" />
-                  <div className="font-display text-2xl font-bold mt-3 text-ink group-hover:text-primary-foreground">
-                    {s.value}
+              {content.stats.map((s) => {
+                const Icon = ICON_MAP[s.icon.toLowerCase()] || Users;
+                return (
+                  <div
+                    key={s.label}
+                    className="rounded-2xl bg-card p-4 hover:bg-primary hover:text-primary-foreground transition-colors group"
+                  >
+                    <Icon className="h-5 w-5 text-primary group-hover:text-primary-foreground" />
+                    <div className="font-display text-2xl font-bold mt-3 text-foreground group-hover:text-primary-foreground">
+                      {s.value}
+                    </div>
+                    <div className="font-ui text-xs text-muted-foreground group-hover:text-primary-foreground/80 mt-0.5">
+                      {s.label}
+                    </div>
                   </div>
-                  <div className="font-ui text-xs text-muted-foreground group-hover:text-primary-foreground/80 mt-0.5">
-                    {s.label}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
