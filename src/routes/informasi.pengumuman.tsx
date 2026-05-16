@@ -3,6 +3,7 @@ import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { useSettings, getSettings } from "@/lib/settings-store";
 import { usePengumumanStore } from "@/lib/content-store";
+import { PageHero } from "@/components/sections/PageHero";
 import { Bell, Info, AlertCircle, Search, Clock, Calendar, ArrowRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSearch } from "@tanstack/react-router";
@@ -126,37 +127,17 @@ export function PengumumanPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="relative pt-32 pb-12 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <Bell className="h-3.5 w-3.5" />
-              Pusat Informasi
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
-              Pengumuman Warga
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              Informasi resmi, himbauan, dan pengumuman penting dari Pemerintah {village.name} untuk
-              seluruh masyarakat.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
-                <Bell className="h-3.5 w-3.5" />
-                {items.length} Pengumuman
-              </span>
-              {urgentCount > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary animate-pulse-soft">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  {urgentCount} Urgent
-                </span>
-              )}
-            </div>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Pengumuman"
+          titleSecond="Desa"
+          description={`Informasi resmi dan pengumuman penting dari Pemerintah ${village.name}.`}
+          badge="Pusat Informasi"
+          badgeIcon={<Bell className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Informasi" }, { label: "Pengumuman" }]}
+        />
 
         {/* Filter & Search */}
-        <section className="px-4 mb-8 -mt-4">
+        <section className="px-4 mb-8">
           <div className="max-w-5xl mx-auto">
             <div className="relative max-w-md">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

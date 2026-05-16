@@ -3,6 +3,7 @@ import { Link } from "@/components/Link";
 
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
+import { PageHero } from "@/components/sections/PageHero";
 import { Input } from "@/components/ui/input";
 import {
   Search,
@@ -20,7 +21,7 @@ import {
   Timer,
 } from "lucide-react";
 
-import { initEsuratStore, searchSuratRequests } from "@/lib/useSupabaseSync";
+import { initEsuratStore, searchSuratRequests, syncPullAllRecords } from "@/lib/useSupabaseSync";
 import { listRecords, type SuratRecord, fetchEstimasi, fmtEstimasi } from "@/lib/esurat-store";
 import { getOfflineQueue, hasOfflineQueueItems, type OfflineSubmission } from "@/lib/offline-queue";
 import { Loader2 } from "lucide-react";
@@ -63,11 +64,16 @@ export default function MonitoringSurat() {
 
   useEffect(() => {
     let mounted = true;
-    initEsuratStore().then(() => {
-      if (mounted) {
-        setRecords(listRecords());
-      }
-    });
+    // Awal: tunggu store init selesai → pull dari IDB+cloud → baru render
+    initEsuratStore()
+      .then(() => syncPullAllRecords())
+      .then(() => {
+        if (mounted) setRecords(listRecords());
+      })
+      .catch((err) => {
+        console.warn("[MonitoringSurat] Gagal load records:", err);
+        if (mounted) setRecords(listRecords()); // fallback ke cache lokal
+      });
     hasOfflineQueueItems().then((has) => setOfflineCount(has ? 1 : 0));
     getOfflineQueue().then((items) => {
       if (mounted) {
@@ -195,24 +201,13 @@ export default function MonitoringSurat() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <section className="pt-28 pb-10 px-4 sm:px-8 bg-gradient-to-br from-ink to-ink/90 text-background">
-        <div className="mx-auto max-w-7xl">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-background/70 hover:text-background mb-6 font-ui text-sm"
-          >
-            <ArrowLeft className="h-4 w-4" /> Beranda
-          </Link>
-          <p className="eyebrow text-primary mb-3">Monitoring</p>
-          <h1 className="hero-title text-background">
-            Lacak <em className="not-italic text-primary">pengajuan</em> Anda.
-          </h1>
-          <p className="font-body text-background/70 mt-4 max-w-xl">
-            Pantau status setiap permohonan surat secara real-time. Masukkan nomor tracking, NIK,
-            atau nama untuk mencari.
-          </p>
-        </div>
-      </section>
+      <PageHero
+        titleFirst="Lacak"
+        titleSecond="Pengajuan"
+        description="Pantau status setiap permohonan surat secara real-time."
+        badge="Monitoring"
+        badgeIcon={<Search className="h-3.5 w-3.5" />}
+      />
 
       <section className="py-10 px-4 sm:px-8">
         <div className="mx-auto max-w-5xl space-y-6">
@@ -317,6 +312,17 @@ export default function MonitoringSurat() {
                           timeStyle: "short",
                         })}
                       </p>
+                      {/* Quick action: verifikasi link untuk surat yang sudah disetujui */}
+                      {r.status === "Disetujui" && r.no && (
+                        <Link
+                          to="/verifikasi/$no"
+                          params={{ no: r.no }}
+                          className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/10 text-success text-xs font-ui font-semibold hover:bg-success/20 transition"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Lihat & Verifikasi Surat
+                        </Link>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <SyncDot synced={r.cloudSynced} />

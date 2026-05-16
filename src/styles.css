@@ -69,98 +69,148 @@
   --font-ui: "Poppins", "Segoe UI", sans-serif;
 }
 
+/*
+ * MitraDesa — STRICT BRAND PALETTE
+ * Only these 7 colors may be used in the entire system:
+ *
+ *   E37222  — Primary Brand (warm orange)
+ *   078898  — Secondary Brand (deep teal)
+ *   66B9BF  — Tertiary Accent (light teal)
+ *   EEAA78  — Warm Accent (peach)
+ *   FFFFFF  — White
+ *   F4F4F4  — Light Gray background
+ *   D5D5D5  — Medium Gray border/divider
+ *
+ * No other colors permitted anywhere in the codebase.
+ */
+
 :root {
-  --background: 40 33% 97%;
-  --cream: 40 33% 94%;
-  --foreground: 220 15% 13%;
-  --ink: 220 15% 10%;
-
-  --card: 0 0% 100%;
-  --card-foreground: 220 15% 13%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 220 15% 13%;
-
-  --primary: 10 78% 50%;
-  --primary-hover: 10 78% 44%;
+  /* ── Brand Palette ───────────────────────────── */
+  /* E37222 → hsl(27, 80%, 50%)  */
+  --primary:           27 80% 50%;
+  --primary-hover:     27 82% 46%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 155 45% 35%;
+  /* 078898 → hsl(187, 66%, 33%) */
+  --secondary:         187 66% 33%;
   --secondary-foreground: 0 0% 100%;
 
-  --muted: 40 20% 92%;
-  --muted-foreground: 220 8% 42%;
-  --accent: 40 25% 93%;
-  --accent-foreground: 220 15% 13%;
+  /* 66B9BF → hsl(187, 34%, 69%) */
+  --tertiary:          187 34% 69%;
+  --tertiary-foreground: 187 40% 20%;
 
-  --destructive: 10 78% 50%;
+  /* EEAA78 → hsl(29, 71%, 71%) */
+  --warm:              29 71% 71%;
+  --warm-foreground:   29 50% 25%;
+
+  /* ── Neutrals ───────────────────────────────── */
+  --white:             0 0% 100%;
+  --light-gray:        0 0% 96%;
+  --medium-gray:       0 0% 84%;
+
+  /* ── Semantic mapping ────────────────────────── */
+  --background:         0 0% 98%;   /* FFFFFF / F4F4F4 */
+  --foreground:        187 40% 20%; /* dark text on white */
+  --ink:               187 40% 12%;  /* headings */
+  --cream:             0 0% 97%;    /* subtle surface */
+
+  --card:              0 0% 100%;
+  --card-foreground:   187 40% 20%;
+  --popover:           0 0% 100%;
+  --popover-foreground: 187 40% 20%;
+
+  --muted:             0 0% 96%;
+  --muted-foreground:  0 0% 46%;
+  --accent:            0 0% 96%;
+  --accent-foreground:  187 40% 20%;
+
+  --destructive:        27 80% 50%;
   --destructive-foreground: 0 0% 100%;
-  --success: 155 55% 40%;
-  --warning: 40 92% 60%;
-  --info: 220 75% 55%;
+  --success:           187 66% 33%;
+  --success-foreground: 0 0% 100%;
+  --warning:           29 71% 71%;
+  --warning-foreground: 29 50% 25%;
+  --info:              187 34% 69%;
+  --info-foreground:   187 40% 20%;
 
-  --border: 40 15% 88%;
-  --input: 40 15% 90%;
-  --ring: 10 78% 50%;
+  --border:             0 0% 84%;
+  --input:              0 0% 90%;
+  --ring:               27 80% 50%;
 
   --radius: 0.75rem;
 
-  --chart-1: 10 78% 50%;
-  --chart-2: 155 45% 35%;
-  --chart-3: 220 75% 55%;
-  --chart-4: 40 92% 60%;
-  --chart-5: 280 60% 55%;
+  --chart-1: 27 80% 50%;
+  --chart-2: 187 66% 33%;
+  --chart-3: 187 34% 69%;
+  --chart-4: 29 71% 71%;
+  --chart-5: 0 0% 54%;
 
-  --sidebar: 40 33% 97%;
-  --sidebar-foreground: 220 15% 13%;
-  --sidebar-primary: 10 78% 50%;
+  --sidebar: 0 0% 98%;
+  --sidebar-foreground: 187 40% 20%;
+  --sidebar-primary: 27 80% 50%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 40 25% 93%;
-  --sidebar-accent-foreground: 220 15% 13%;
-  --sidebar-border: 40 15% 88%;
-  --sidebar-ring: 10 78% 50%;
+  --sidebar-accent: 0 0% 96%;
+  --sidebar-accent-foreground: 187 40% 20%;
+  --sidebar-border: 0 0% 84%;
+  --sidebar-ring: 27 80% 50%;
 }
 
 .dark {
-  --background: 220 15% 10%;
-  --cream: 220 12% 14%;
-  --foreground: 40 30% 95%;
-  --ink: 40 30% 98%;
+  --background:         187 66% 8%;   /* deep teal base */
+  --foreground:        0 0% 97%;      /* white text */
+  --ink:               0 0% 100%;     /* pure white headings */
+  --cream:             187 66% 11%;
 
-  --card: 220 14% 14%;
-  --card-foreground: 40 30% 95%;
-  --popover: 220 14% 14%;
-  --popover-foreground: 40 30% 95%;
+  --card:              187 60% 12%;
+  --card-foreground:   0 0% 97%;
+  --popover:           187 60% 12%;
+  --popover-foreground: 0 0% 97%;
 
-  --primary: 10 80% 58%;
-  --primary-hover: 10 82% 64%;
+  --primary:           27 85% 60%;    /* lighter orange */
+  --primary-hover:     27 88% 66%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 155 50% 48%;
-  --secondary-foreground: 0 0% 100%;
+  --secondary:         187 34% 69%;   /* light teal */
+  --secondary-foreground: 187 40% 12%;
 
-  --muted: 220 10% 18%;
-  --muted-foreground: 220 10% 65%;
-  --accent: 220 10% 18%;
-  --accent-foreground: 40 30% 95%;
+  --tertiary:          187 30% 80%;   /* lighter teal accent */
+  --tertiary-foreground: 187 40% 12%;
 
-  --destructive: 10 80% 58%;
+  --warm:              29 60% 80%;    /* light peach */
+  --warm-foreground:   29 50% 20%;
+
+  --muted:             187 30% 18%;
+  --muted-foreground:  187 15% 60%;
+  --accent:            187 30% 18%;
+  --accent-foreground: 0 0% 90%;
+
+  --destructive:        27 85% 60%;
   --destructive-foreground: 0 0% 100%;
-  --success: 155 55% 55%;
-  --warning: 40 92% 65%;
-  --info: 220 75% 65%;
+  --success:           187 34% 69%;
+  --success-foreground: 187 40% 12%;
+  --warning:           29 60% 80%;
+  --warning-foreground: 29 50% 20%;
+  --info:              187 30% 80%;
+  --info-foreground:   187 40% 12%;
 
-  --border: 220 10% 22%;
-  --input: 220 10% 22%;
-  --ring: 10 80% 58%;
+  --border:             187 20% 22%;
+  --input:              187 20% 22%;
+  --ring:               27 85% 60%;
 
-  --sidebar: 220 14% 14%;
-  --sidebar-foreground: 40 30% 95%;
-  --sidebar-primary: 10 80% 58%;
+  --chart-1: 27 85% 60%;
+  --chart-2: 187 34% 69%;
+  --chart-3: 187 20% 80%;
+  --chart-4: 29 60% 80%;
+  --chart-5: 0 0% 50%;
+
+  --sidebar: 187 60% 10%;
+  --sidebar-foreground: 0 0% 90%;
+  --sidebar-primary: 27 85% 60%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 220 10% 18%;
-  --sidebar-accent-foreground: 40 30% 95%;
-  --sidebar-border: 220 10% 22%;
-  --sidebar-ring: 10 80% 58%;
+  --sidebar-accent: 187 30% 18%;
+  --sidebar-accent-foreground: 0 0% 90%;
+  --sidebar-border: 187 20% 22%;
+  --sidebar-ring: 27 85% 60%;
 }
 
 @layer base {
@@ -284,4 +334,15 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ── E-Surat Stepper Flash Animation ────────────────────────────────────── */
+/* Aktif saat step berubah — beri flash pada step indicator agar terlihat bergerak */
+@keyframes stepper-flash {
+  0%   { box-shadow: 0 0 0 0   hsl(var(--primary) / 0.6); }
+  50%  { box-shadow: 0 0 0 8px hsl(var(--primary) / 0); }
+  100% { box-shadow: 0 0 0 0   hsl(var(--primary) / 0); }
+}
+.stepper-flash {
+  animation: stepper-flash 0.8s ease-out forwards;
 }

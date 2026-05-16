@@ -63,11 +63,11 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
     };
     saveTemplate(copy);
     refresh();
-    toast.success("Template diduplikasi");
+    toast.success("Template diduplikasi", { description: "Salinan template telah dibuat dengan kode baru." });
   };
   const handleDelete = (t: SuratTemplate) => {
     if (SURAT_MASTER[t.code]) {
-      toast.error("Template Master Sistem tidak dapat dihapus");
+      toast.error("Template Master Sistem tidak dapat dihapus", { description: "Template sistem dilindungi dan tidak dapat dihapus." });
       return;
     }
     setConfirmTarget({
@@ -75,7 +75,7 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
       action: () => {
         deleteTemplate(t.id);
         refresh();
-        toast.success("Template dihapus");
+        toast.success("Template dihapus", { description: "Template telah dihapus dari sistem." });
       },
     });
   };
@@ -83,13 +83,13 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
   const onSave = () => {
     if (!editing) return;
     if (!editing.code.trim() || !editing.name.trim()) {
-      toast.error("Kode dan Nama Surat wajib diisi");
+      toast.error("Kode dan Nama Surat wajib diisi", { description: "Isikan kode surat (3-5 karakter) dan nama surat." });
       return;
     }
     saveTemplate(editing);
     refresh();
     setEditing(null);
-    toast.success("Template tersimpan");
+    toast.success("Template tersimpan", { description: "Template surat telah disimpan ke database." });
   };
 
   const exportCsv = () => {
@@ -111,7 +111,7 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
     a.download = `template-surat-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success(`${rows.length} template diekspor`);
+    toast.success(`${rows.length} template diekspor`, { description: `File CSV dengan ${rows.length} template telah diunduh.` });
   };
 
   const onImport = (file: File) => {
@@ -139,7 +139,7 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
           n += 1;
         });
         refresh();
-        toast.success(`Imported ${n} template`);
+        toast.success(`Imported ${n} template`, { description: `${n} template surat telah diimpor ke database.` });
       },
     });
   };
@@ -298,7 +298,7 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
           </DialogHeader>
 
           {editing?.code && SURAT_MASTER[editing.code] && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-amber-800">
+            <div className="p-3 bg-[#EEAA78]/10 border border-[#EEAA78]/30 rounded-lg flex items-start gap-3 text-[#1a1918]">
               <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
               <div className="text-xs space-y-1">
                 <p className="font-bold">Peringatan: Template Sistem</p>

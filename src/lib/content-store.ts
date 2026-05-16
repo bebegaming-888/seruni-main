@@ -136,6 +136,190 @@ export type ApbdesItem = {
   updated_at?: string;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. Konten halaman statis (Profil Lembaga, Program kerja, produk hukum, dll)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type PageContentItem = {
+  id: string;
+  page_key: string; // e.g. "profil_bpd", "profil_lpm", "ekonomi_bumdes"
+  title: string;
+  description?: string;
+  content_type: string; // "programs" | "documents" | "stats" | "custom"
+  items: PageContentEntry[];
+  extras: Record<string, string>;
+};
+
+export type PageContentEntry = {
+  id: string;
+  label: string; // nama program / judul dokumen
+  description?: string;
+  status?: string; // "Aktif" | "Selesai" | "Berjalan"
+  icon?: string; // Lucide icon name
+  value?: string; // untuk stats: "Rp 1.2 M" | "65%"
+  unit?: string; // untuk numeric: "jiwa" | "unit"
+  category?: string; // untuk dokumen: "Perdes" | "Perkades"
+  year?: string; // untuk dokumen hukum
+  size?: string; // untuk file size
+  href?: string; // link download / detail
+};
+
+export type ProfildesaContent = {
+  id: string;
+  key: string; // always "profil_desa"
+  sejarah: string;
+  extras: Record<string, string>;
+};
+
+// --- Additional CMS content types for new pages ---
+
+export type KwtItem = {
+  id: string;
+  nama: string;
+  dusun: string;
+  anggota: number;
+  produk: string;
+};
+
+export type ProdukHukumItem = {
+  id: string;
+  type: string; // "Perdes" | "Perkades" | "Kepdes"
+  title: string;
+  year: string;
+  size: string;
+};
+
+export type RealisasiItem = {
+  id: string;
+  tahun: number;
+  total_pendapatan: number;
+  total_belanja: number;
+  silpa: number;
+  progress_per_bidang: Record<string, number>; // kategori → percent
+  kegiatan: Array<{
+    name: string;
+    status: string;
+    date: string;
+    type: "success" | "process" | "warning";
+  }>;
+};
+
+export type BumdesItem = {
+  id: string;
+  key: string; // always "bumdes"
+  produk_unggulan: Array<{
+    id: string;
+    nama: string;
+    kategori: string;
+    harga: string;
+    satuan: string;
+    desc: string;
+    icon: string;
+  }>;
+  stats: Array<{ label: string; value: string; icon: string }>;
+  unit_usaha: string[];
+};
+
+export type PengaduanKategoriItem = {
+  id: string;
+  nama: string;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8b. Koprasi (Koperasi Desa)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type KoprasiItem = {
+  id: string;
+  key: string; // always "koperasi"
+  stats: Array<{ label: string; value: string; icon: string }>;
+  layanan: Array<{
+    id: string;
+    nama: string;
+    deskripsi: string;
+    icon: string;
+    status: "Aktif" | "Nonaktif";
+  }>;
+  produk: Array<{
+    id: string;
+    nama: string;
+    harga: string;
+    satuan: string;
+    desc: string;
+    icon: string;
+  }>;
+  updated_at?: string;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. Marketplace (Produk UMKM Desa)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type MarketplaceItem = {
+  id: string;
+  name: string;
+  price: number; // Rupiah, number
+  unit: string; // "kg", "lembar", "pack 250g"
+  category: string; // "Kerajinan" | "Makanan" | "Minuman" | "Camilan" | "Alam" | "Pertanian" | "Lainnya"
+  description: string;
+  image_url: string;
+  stock: number; // 0 = "Habis"
+  seller_name: string;
+  seller_wa: string; // format "08xxxxxxxxxx"
+  badge?: string; // "Best Seller" | "New" | "Pre-order"
+  badgeClass?: string;
+  icon?: string; // Lucide icon name
+  published_at?: string;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8c. Marketplace Config (Shopee-style banner, flash deal, category icons)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type MarketplaceConfigItem = {
+  id: string;
+  key: string; // always "marketplace_config"
+  // Flash Sale section
+  flashSaleEnabled: boolean;
+  flashSaleLabel: string;
+  flashSaleEndTime?: string; // ISO date string
+  // Banner / hero carousel
+  banners: Array<{
+    id: string;
+    image_url: string;
+    alt: string;
+    href?: string;
+  }>;
+  // Category shortcut grid (icon grid below search, like Shopee's)
+  categoryShortcuts: Array<{
+    id: string;
+    label: string;
+    icon: string; // Lucide icon name
+    category: string; // maps to MarketplaceItem.category filter
+  }>;
+  // Trust badges / shop info
+  shopBadge: string;
+  shopBadgeClass: string;
+  trustNote: string;
+  updated_at?: string;
+};
+
+export const MarketplaceSchema = z.object({
+  name: z.string().min(3, "Nama produk minimal 3 karakter"),
+  price: z.number().min(1000, "Harga minimal Rp 1.000"),
+  unit: z.string().min(1, "Satuan wajib diisi"),
+  category: z.string().min(1, "Kategori wajib dipilih"),
+  description: z.string().min(10, "Deskripsi minimal 10 karakter"),
+  image_url: z.string().optional().default(""),
+  stock: z.number().min(0).default(100),
+  seller_name: z.string().min(2, "Nama penjual wajib diisi"),
+  seller_wa: z.string().min(9, "Nomor WA wajib diisi"),
+  badge: z.string().optional(),
+  badgeClass: z.string().optional(),
+  icon: z.string().optional(),
+  discount: z.number().min(0).max(100).optional().default(0),
+});
+
 // --- Store Interface ---
 
 type ContentState<T> = {
@@ -349,3 +533,14 @@ export const useAgendaStore = createContentStore<AgendaItem>("agenda");
 export const useKomoditasStore = createContentStore<KomoditasItem>("komoditas");
 export const useGaleriStore = createContentStore<GaleriItem>("galeri");
 export const useApbdesStore = createContentStore<ApbdesItem>("apbdes");
+
+// Halaman statis content stores
+export const usePageContentStore = createContentStore<PageContentItem>("page_content");
+export const useKwtStore = createContentStore<KwtItem>("kwt");
+export const useProdukHukumStore = createContentStore<ProdukHukumItem>("produk_hukum");
+export const useRealisasiStore = createContentStore<RealisasiItem>("realisasi");
+export const useBumdesStore = createContentStore<BumdesItem>("bumdes");
+export const usePengaduanKategoriStore = createContentStore<PengaduanKategoriItem>("pengaduan_kategori");
+export const useMarketplaceStore = createContentStore<MarketplaceItem>("marketplace");
+export const useMarketplaceConfigStore = createContentStore<MarketplaceConfigItem>("marketplace_config");
+export const useKoprasiStore = createContentStore<KoprasiItem>("koperasi");

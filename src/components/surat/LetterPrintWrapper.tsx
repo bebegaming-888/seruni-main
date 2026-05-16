@@ -5,11 +5,21 @@
  * - Tombol "Cetak" dan "Download PDF" di screen mode
  * - @media print CSS untuk output printer A4 yang presisi
  * - Fungsi printElement() menggunakan window.print()
+ *
+ * Brand palette: E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5
  */
 import React, { useRef, useCallback, useEffect, useState } from "react";
 import { LetterRenderer } from "./LetterRenderer";
 import type { RenderedLetter } from "@/lib/letter-engine";
 import { getSettings } from "@/lib/settings-store";
+
+const BRAND_PRIMARY = "#E37222";
+const BRAND_SECONDARY = "#078898";
+const BRAND_WHITE = "#ffffff";
+const BRAND_LIGHT = "#f4f4f4";
+const BRAND_BORDER = "#D5D5D5";
+const BRAND_MUTED = "#5c5a56";
+const BRAND_TEXT = "#1a1918";
 
 type Props = {
   letter: RenderedLetter;
@@ -25,7 +35,7 @@ type Props = {
 export function LetterPrintWrapper({
   letter,
   namaPemohon,
-  primaryColor = "#0f7a4a",
+  primaryColor = BRAND_PRIMARY,
   nomorSurat,
   onDownloadPdf,
   isGeneratingPdf,
@@ -117,10 +127,10 @@ export function LetterPrintWrapper({
             style={{
               fontFamily: "monospace",
               fontSize: 12,
-              color: "#666",
+              color: BRAND_MUTED,
               marginRight: "auto",
               padding: "4px 10px",
-              background: "#f5f5f5",
+              background: BRAND_LIGHT,
               borderRadius: 4,
             }}
           >
@@ -151,7 +161,7 @@ export function LetterPrintWrapper({
             disabled={isGeneratingPdf}
             style={{
               padding: "8px 20px",
-              background: isGeneratingPdf ? "#aaa" : "#1a56db",
+              background: isGeneratingPdf ? BRAND_BORDER : BRAND_SECONDARY,
               color: "white",
               border: "none",
               borderRadius: 6,

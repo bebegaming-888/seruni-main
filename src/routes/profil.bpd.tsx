@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { Link } from "@/components/Link";
@@ -6,7 +6,9 @@ import { useVillage } from "@/hooks/use-village";
 import { getVillage } from "@/lib/village-dynamic";
 import { getLembagaWithStruktur } from "@/lib/lembaga-store";
 import { getMediaUrl } from "@/lib/media-upload";
+import { usePageContentStore } from "@/lib/content-store";
 import { useEffect, useState } from "react";
+import { PageHero } from "@/components/sections/PageHero";
 
 import {
   Users,
@@ -27,7 +29,7 @@ export const Route = createFileRoute("/profil/bpd")({
     const v = getVillage();
     return {
       meta: [
-        { title: `BPD — ${v.name}` },
+        { title: `BPD â€” ${v.name}` },
         {
           name: "description",
           content: `Badan Permusyawaratan Desa ${v.name}. Suara rakyat, pengawasan tata kelola desa.`,
@@ -38,33 +40,19 @@ export const Route = createFileRoute("/profil/bpd")({
   component: () => <BPDPage />,
 });
 
-const TUGAS = [
-  {
-    icon: Scale,
-    title: "Pembentukan Peraturan Desa",
-    desc: "Melakukan pembahasan dan memberikan persetujuan terhadap Raperdes sebelum ditetapkan Kades.",
-  },
-  {
-    icon: FileText,
-    title: "Pembahasan APBDes",
-    desc: "Menampung dan meniscus aspirasi masyarakat dalam rancangan APBDes yang diajukan Kades.",
-  },
-  {
-    icon: UserCheck,
-    title: "Pengawasan Kinerja",
-    desc: "Mengawasi kinerja pemerintah desa dan menyampaikan hasil pengawasan kepada perangkat desa.",
-  },
-  {
-    icon: CalendarDays,
-    title: "Pelaksanaan Musdes",
-    desc: "Mengumpulkan masyarakat dalam musyawarah desa untuk membahas program dan kegiatan pembangunan.",
-  },
-];
+const TUGAS_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Scale, FileText, UserCheck, CalendarDays,
+};
 
-export function BPDPage() {
+function resolveTugasIcon(name?: string) {
+  return name && TUGAS_ICON_MAP[name] ? TUGAS_ICON_MAP[name] : FileText;
+}
+
+function BPDPage() {
   const v = useVillage();
   const [data, setData] = useState<Awaited<ReturnType<typeof getLembagaWithStruktur>>>(null);
   const [loading, setLoading] = useState(true);
+  const { items: pageItems } = usePageContentStore();
 
   useEffect(() => {
     getLembagaWithStruktur("bpd").then((d) => {
@@ -73,59 +61,47 @@ export function BPDPage() {
     });
   }, []);
 
-  const logoUrl = data?.lembaga.logo_storage_path
-    ? getMediaUrl(data.lembaga.logo_storage_path, "public-media")
-    : data?.lembaga.logo_url;
+  const tugasItems = (() => {
+    const found = pageItems.find(
+      (p) => p.page_key === "profil_bpd" && p.content_type === "programs",
+    );
+    if (found?.items.length) return found.items;
+    return [
+      {
+        label: "Pembentukan Peraturan Desa",
+        description: "Melakukan pembahasan dan memberikan persetujuan terhadap Raperdes sebelum ditetapkan Kades.",
+        icon: "Scale",
+      },
+      {
+        label: "Pembahasan APBDes",
+        description: "Menampung dan meniscus aspirasi masyarakat dalam rancangan APBDes yang diajukan Kades.",
+        icon: "FileText",
+      },
+      {
+        label: "Pengawasan Kinerja",
+        description: "Mengawasi kinerja pemerintah desa dan menyampaikan hasil pengawasan kepada perangkat desa.",
+        icon: "UserCheck",
+      },
+      {
+        label: "Pelaksanaan Musdes",
+        description: "Mengumpulkan masyarakat dalam musyawarah desa untuk membahas program dan kegiatan pembangunan.",
+        icon: "CalendarDays",
+      },
+    ];
+  })();
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="relative pt-32 pb-16 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            {logoUrl && (
-              <img
-                src={logoUrl}
-                alt="Logo BPD"
-                className="h-20 w-20 rounded-2xl object-contain border border-border bg-white/50 mb-6"
-              />
-            )}
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <Users className="h-3.5 w-3.5" />
-              Badan Permusyawaratan Desa
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-4">
-              BPD
-              <br />
-              <span className="text-primary">{v.name}</span>
-            </h1>
-
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-6">
-              {data?.lembaga.deskripsi ||
-                "Wadah representam suara rakyat dalam pemerintahan desa. BPD menjalankan fungsi pembentukan peraturan, pembahasan anggaran, dan pengawasan kinerja pemerintah desa."}
-            </p>
-            {loading ? (
-              <div className="inline-flex items-center gap-2 rounded-full bg-muted text-muted-foreground px-3 py-1 font-ui text-xs font-semibold">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Memuat…
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex items-center gap-2 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {data?.allPengurus.length ?? 0} anggota aktif
-                </div>
-                {data?.lembaga.periode_mulai && (
-                  <div className="inline-flex items-center gap-2 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
-                    {data.lembaga.periode_mulai.slice(0, 4)}–
-                    {data.lembaga.periode_selesai?.slice(0, 4) ?? "—"}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
+        <PageHero
+          titleFirst="BPD"
+          titleSecond="Desa"
+          description="Badan Permusyawaratan Desa â€” wadah representasi suara rakyat dalam pemerintahan desa."
+          badge="Badan Permusyawaratan"
+          badgeIcon={<Users className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Profil" }, { label: "BPD" }]}
+        />
 
         {/* Tugas Pokok */}
         <section className="px-4 mb-14">
@@ -135,19 +111,19 @@ export function BPDPage() {
             </p>
             <h2 className="font-display text-3xl font-bold text-ink mb-8">Tugas & Wewenang BPD</h2>
             <div className="grid sm:grid-cols-2 gap-4">
-              {TUGAS.map((t) => {
-                const Icon = t.icon;
+              {tugasItems.map((t) => {
+                const Icon = resolveTugasIcon(t.icon);
                 return (
                   <div
-                    key={t.title}
+                    key={t.label}
                     className="rounded-2xl border border-border bg-card p-5 hover:border-primary/30 transition"
                   >
                     <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary inline-flex items-center justify-center mb-3">
                       <Icon className="h-5 w-5" />
                     </div>
-                    <h3 className="font-display font-bold text-ink mb-1.5">{t.title}</h3>
+                    <h3 className="font-display font-bold text-ink mb-1.5">{t.label}</h3>
                     <p className="font-body text-sm text-muted-foreground leading-relaxed">
-                      {t.desc}
+                      {t.description}
                     </p>
                   </div>
                 );
@@ -156,7 +132,7 @@ export function BPDPage() {
           </div>
         </section>
 
-        {/* Anggota — Kartu Nama */}
+        {/* Anggota â€” Kartu Nama */}
         <section className="px-4 mb-14">
           <div className="max-w-5xl mx-auto">
             <div className="flex items-end justify-between mb-8 gap-4">
@@ -169,8 +145,8 @@ export function BPDPage() {
                 </h2>
                 {data?.lembaga.periode_mulai && (
                   <p className="font-body text-sm text-muted-foreground mt-1">
-                    Periode {data.lembaga.periode_mulai.slice(0, 4)} —{" "}
-                    {data.lembaga.periode_selesai?.slice(0, 4) ?? "—"}
+                    Periode {data.lembaga.periode_mulai.slice(0, 4)} â€”{" "}
+                    {data.lembaga.periode_selesai?.slice(0, 4) ?? "â€”"}
                   </p>
                 )}
               </div>
@@ -223,7 +199,7 @@ export function BPDPage() {
                           <span
                             className={`text-[10px] font-ui font-semibold px-2 py-0.5 rounded-full border ${isRoot ? "bg-primary/15 text-primary border-primary/30" : "bg-muted text-muted-foreground"}`}
                           >
-                            {strukturNode?.nama_jabatan ?? "—"}
+                            {strukturNode?.nama_jabatan ?? "â€”"}
                           </span>
                         </div>
                         <p className="font-display text-base font-bold text-ink leading-tight">
@@ -241,7 +217,7 @@ export function BPDPage() {
                               : null,
                           ]
                             .filter(Boolean)
-                            .join(", ") || "—"}
+                            .join(", ") || "â€”"}
                         </p>
                         {p.pendidikan && (
                           <p className="font-ui text-xs text-muted-foreground">{p.pendidikan}</p>
@@ -271,9 +247,9 @@ export function BPDPage() {
                   </p>
                   <div className="space-y-2">
                     {[
-                      "Rapat koordinasi bulanan — minggu ke-2 setiap bulan",
-                      "Rapat Paristiwa — sesuai kebutuhan (quorum 2/3 anggota)",
-                      "Musyawarah Desa — minimal 2x per tahun",
+                      "Rapat koordinasi bulanan â€” minggu ke-2 setiap bulan",
+                      "Rapat Paristiwa â€” sesuai kebutuhan (quorum 2/3 anggota)",
+                      "Musyawarah Desa â€” minimal 2x per tahun",
                     ].map((r) => (
                       <div key={r} className="flex items-start gap-2.5">
                         <CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />
@@ -300,7 +276,7 @@ export function BPDPage() {
                         icon: Users,
                         text:
                           data?.lembaga.kontak_info?.jam_layanan ||
-                          "Jam layanan: Senin–Jumat, 08.00–15.00 WITA",
+                          "Jam layanan: Seninâ€“Jumat, 08.00â€“15.00 WITA",
                       },
                     ].map(({ icon: Icon, text }) => (
                       <div key={text} className="flex items-start gap-3">

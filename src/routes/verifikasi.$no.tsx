@@ -3,6 +3,9 @@ import { useState, useEffect } from "react";
 import { Link } from "@/components/Link";
 import { getRecord, type SuratRecord } from "@/lib/esurat-store";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { Navbar } from "@/components/site/Navbar";
+import { Footer } from "@/components/site/Footer";
+import { PageHero } from "@/components/sections/PageHero";
 import {
   CheckCircle2,
   XCircle,
@@ -114,7 +117,10 @@ function VerifikasiPage() {
           const res = await fetch("/api/verify-surat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ no }),
+            body: JSON.stringify({
+              no,
+              qr_secret: getSettings().signature.qr_secret,
+            }),
           });
           if (res.ok) {
             const data = (await res.json()) as {
@@ -146,44 +152,17 @@ function VerifikasiPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-display text-base font-bold">
-              {v.village[0]}
-            </div>
-            <div>
-              <div className="font-display text-sm font-bold leading-tight">{v.name}</div>
-
-              <div className="font-ui text-[10px] text-muted-foreground">Sistem Informasi Desa</div>
-            </div>
-          </Link>
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 font-ui text-xs text-muted-foreground hover:text-foreground transition"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Kembali
-          </Link>
-        </div>
-      </header>
+      <Navbar />
+      <PageHero
+        titleFirst="Verifikasi"
+        titleSecond="Surat"
+        description={"Pengecekan keabsahan dokumen dari " + (v as { village?: string }).village + "."}
+        badge="Verifikasi Surat"
+        badgeIcon={<QrCode className="h-3.5 w-3.5" />}
+      />
 
       {/* Content */}
       <div className="max-w-2xl mx-auto px-4 py-10">
-        {/* Page title */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20">
-            <QrCode className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="font-display text-2xl font-bold">Verifikasi Dokumen Surat</h1>
-            <p className="font-body text-sm text-muted-foreground">
-              Pengecekan keabsahan dokumen dari {v.village}
-            </p>
-          </div>
-        </div>
-
         {/* Loading */}
         {loading && (
           <div className="rounded-2xl border border-border bg-card p-12 text-center">
@@ -394,6 +373,7 @@ function VerifikasiPage() {
           </div>
         )}
       </div>
+      <Footer />
     </main>
   );
 }
@@ -487,7 +467,7 @@ async function handleDownload(record: SuratRecord) {
     a.download = `${record.no}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("PDF diunduh");
+    toast.success("PDF diunduh", { description: `File PDF ${record.no}.pdf telah diunduh.` });
   } catch {
     toast.error("Gagal mengunduh PDF", { description: "Tidak dapat terhubung ke server." });
   }
@@ -499,17 +479,17 @@ async function handleShare(record: SuratRecord) {
     await navigator.share({ title: `Surat ${record.nama_surat}`, url });
   } else {
     await navigator.clipboard.writeText(url);
-    toast.success("Link berhasil disalin");
+    toast.success("Link berhasil disalin", { description: "Tautan verifikasi dapat dibagikan ke pihak lain." });
   }
 }
 
 async function handleCopyNo(no: string) {
   await navigator.clipboard.writeText(no);
-  toast.success("Nomor surat disalin");
+  toast.success("Nomor surat disalin", { description: "Nomor surat siap dicantumkan atau dibagikan." });
 }
 
 async function handleCopyLink(no: string) {
   const url = `${window.location.origin}/verifikasi/${no}`;
   await navigator.clipboard.writeText(url);
-  toast.success("Link verifikasi disalin");
+  toast.success("Link verifikasi disalin", { description: "Tautan verifikasi dapat dibagikan untuk cek status." });
 }

@@ -11,6 +11,7 @@ import {
 import { getMediaUrl } from "@/lib/media-upload";
 import { useEffect, useState } from "react";
 import { Users, ChevronDown, ChevronRight, CheckCircle2, ShieldCheck, Phone } from "lucide-react";
+import { PageHero } from "@/components/sections/PageHero";
 
 export const Route = createFileRoute("/profil/perangkat")({
   head: () => {
@@ -329,38 +330,14 @@ export function PerangkatPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="relative pt-32 pb-16 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <Users className="h-3.5 w-3.5" />
-              Pemerintah Desa
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-4">
-              Perangkat Desa
-              <br />
-              <span className="text-primary">{v.name}</span>
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-6">
-              Pemerintahan desa dijalankan oleh perangkat yang terdiri dari Kepala Desa,
-              Sekretariat, dan Kepala Seksi yang mengabdi untuk melayani masyarakat.
-            </p>
-            {loading ? (
-              <div className="font-ui text-xs text-muted-foreground">Memuat…</div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {totalPersons} Perangkat Aktif
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  {totalPersons} Perangkat Aktif
-                </span>
-              </div>
-            )}
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Perangkat"
+          titleSecond="Desa"
+          description={`Pemerintahan desa terdiri dari Kepala Desa, Sekretariat, dan Kepala Seksi.`}
+          badge="Pemerintah Desa"
+          badgeIcon={<Users className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Profil" }, { label: "Perangkat Desa" }]}
+        />
 
         {/* Grouped list by kategori */}
         <section className="px-4 mb-14">

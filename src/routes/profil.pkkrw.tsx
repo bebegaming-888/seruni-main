@@ -7,7 +7,9 @@ import { getVillage } from "@/lib/village-dynamic";
 import { useSettings, getSettings } from "@/lib/settings-store";
 import { getLembagaWithStruktur } from "@/lib/lembaga-store";
 import { getMediaUrl } from "@/lib/media-upload";
+import { usePageContentStore, useKwtStore } from "@/lib/content-store";
 import { useEffect, useState } from "react";
+import { PageHero } from "@/components/sections/PageHero";
 
 import {
   ScrollText,
@@ -38,50 +40,12 @@ export const Route = createFileRoute("/profil/pkkrw")({
   component: () => <PKKRWPage />,
 });
 
-const PROGRAM_PKK = [
-  {
-    title: "Pendidikan & Keterampilan",
-    desc: "Kursus menjahit, Microsoft Office, dan literasi digital untuk ibu-ibu rumah tangga.",
-    status: "Aktif",
-  },
-  {
-    title: "Kesehatan Keluarga",
-    desc: "Posyandu balita & lansia, pemeriksaan ibu hamil, dan GERMAS (Gerakan Masyarakat Hidup Sehat).",
-    status: "Aktif",
-  },
-  {
-    title: "Perencanaan Keluarga",
-    desc: "Kelas KB, konsultasi kesehatan reproduksi, dan edukasi gizi balita.",
-    status: "Aktif",
-  },
-  {
-    title: "Kelompok Usaha Bersama",
-    desc: "Pembinaan 12 kelompok usaha produktif: kue tradisional, kerajinan, dan pertanian organik.",
-    status: "Aktif",
-  },
-  {
-    title: "Penguatan Rumah Tangga",
-    desc: "Bantuan pangan, bedah rumah, dan program keluarga harapan untuk rumah tangga kurang mampu.",
-    status: "Aktif",
-  },
-  {
-    title: "Keterlibatan Masyarakat",
-    desc: "Gotong royong, kerja bakti bulanan, dan pengelolaan sampah berbasis komunitas.",
-    status: "Aktif",
-  },
-];
-
-const KWT = [
-  { nama: "KWT Melati", dusun: "Mandar", anggota: 28, produk: "Kue tradisional & jajanan pasar" },
-  { nama: "KWT Mawar", dusun: "Sasak", anggota: 22, produk: "Manisan & dodol lombok" },
-  { nama: "KWT Sejahtera", dusun: "Dames", anggota: 35, produk: "Keripik & emping" },
-  { nama: "KWT Anggrek", dusun: "Brantapen Asri", anggota: 19, produk: "Tenun & bordir" },
-];
-
 export function PKKRWPage() {
   const v = useVillage();
   const [data, setData] = useState<Awaited<ReturnType<typeof getLembagaWithStruktur>>>(null);
   const [loading, setLoading] = useState(true);
+  const { items: pageItems } = usePageContentStore();
+  const { items: kwtItems } = useKwtStore();
 
   useEffect(() => {
     getLembagaWithStruktur("pkk").then((d) => {
@@ -90,63 +54,51 @@ export function PKKRWPage() {
     });
   }, []);
 
+  const programPkkItems = (() => {
+    const found = pageItems.find(
+      (p) => p.page_key === "profil_pkkrw" && p.content_type === "programs",
+    );
+    if (found?.items.length) return found.items;
+    return [
+      { label: "Pendidikan & Keterampilan", description: "Kursus menjahit, Microsoft Office, dan literasi digital untuk ibu-ibu rumah tangga.", status: "Aktif" },
+      { label: "Kesehatan Keluarga", description: "Posyandu balita & lansia, pemeriksaan ibu hamil, dan GERMAS.", status: "Aktif" },
+      { label: "Perencanaan Keluarga", description: "Kelas KB, konsultasi kesehatan reproduksi, dan edukasi gizi balita.", status: "Aktif" },
+      { label: "Kelompok Usaha Bersama", description: "Pembinaan kelompok usaha produktif: kue tradisional, kerajinan, dan pertanian organik.", status: "Aktif" },
+      { label: "Penguatan Rumah Tangga", description: "Bantuan pangan, bedah rumah, dan program keluarga harapan.", status: "Aktif" },
+      { label: "Keterlibatan Masyarakat", description: "Gotong royong, kerja bakti bulanan, dan pengelolaan sampah berbasis komunitas.", status: "Aktif" },
+    ];
+  })();
+
   const logoUrl = data?.lembaga.logo_storage_path
     ? getMediaUrl(data.lembaga.logo_storage_path, "public-media")
     : data?.lembaga.logo_url;
 
   const aktifCount = data?.allPengurus.length ?? 0;
 
+  const kwtData = kwtItems.length ? kwtItems.map((k) => ({
+    nama: k.nama,
+    dusun: k.dusun,
+    anggota: k.anggota,
+    produk: k.produk,
+  })) : [
+    { nama: "KWT Melati", dusun: "Mandar", anggota: 28, produk: "Kue tradisional & jajanan pasar" },
+    { nama: "KWT Mawar", dusun: "Sasak", anggota: 22, produk: "Manisan & dodol lombok" },
+    { nama: "KWT Sejahtera", dusun: "Dames", anggota: 35, produk: "Keripik & emping" },
+    { nama: "KWT Anggrek", dusun: "Brantapen Asri", anggota: 19, produk: "Tenun & bordir" },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="relative pt-32 pb-16 px-4 bg-gradient-to-br from-primary/5 via-background to-accent/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            {logoUrl && (
-              <img
-                src={logoUrl}
-                alt="Logo PKK"
-                className="h-20 w-20 rounded-2xl object-contain border border-border bg-white/50 mb-6"
-              />
-            )}
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <Heart className="h-3.5 w-3.5" />
-              Pemberdayaan Keluarga
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-4">
-              PKK & Kelompok Wanita Tani
-              <br />
-              <span className="text-primary">{v.name}</span>
-            </h1>
-
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-6">
-              {data?.lembaga.deskripsi ||
-                "TP-PKK berperan dalam pemberdayaan keluarga melalui program pendidikan, kesehatan, ekonomi kreatif, dan kesejahteraan sosial."}
-            </p>
-            {loading ? (
-              <div className="flex items-center gap-2 rounded-full bg-muted text-muted-foreground px-3 py-1 font-ui text-xs font-semibold">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Memuat…
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {KWT.length} KWT Aktif
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
-                  <Users className="h-3.5 w-3.5" />
-                  {aktifCount} Pengurus Aktif
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary">
-                  <Star className="h-3.5 w-3.5" />
-                  {PROGRAM_PKK.length} Program Aktif
-                </span>
-              </div>
-            )}
-          </div>
-        </section>
+        <PageHero
+          titleFirst="PKK &"
+          titleSecond="KWT"
+          description="Pemberdayaan keluarga melalui pendidikan, kesehatan, ekonomi kreatif, dan kesejahteraan sosial."
+          badge="Pemberdayaan Keluarga"
+          badgeIcon={<Heart className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Profil" }, { label: "PKK" }]}
+        />
 
         {/* Program Kerja */}
         <section className="px-4 mb-14">
@@ -156,19 +108,19 @@ export function PKKRWPage() {
             </p>
             <h2 className="font-display text-3xl font-bold text-ink mb-8">6 Bidang Kegiatannya</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {PROGRAM_PKK.map((p) => (
+              {programPkkItems.map((p) => (
                 <div
-                  key={p.title}
+                  key={p.label}
                   className="rounded-2xl border border-border bg-card p-5 hover:border-primary/30 transition group"
                 >
                   <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary inline-flex items-center justify-center mb-3 group-hover:bg-primary group-hover:text-primary-foreground transition">
                     <ClipboardCheck className="h-5 w-5" />
                   </div>
                   <h3 className="font-display font-bold text-ink mb-1.5 leading-tight">
-                    {p.title}
+                    {p.label}
                   </h3>
                   <p className="font-body text-sm text-muted-foreground leading-relaxed mb-3">
-                    {p.desc}
+                    {p.description}
                   </p>
                   <span className="text-[10px] font-ui font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success">
                     {p.status}
@@ -220,7 +172,7 @@ export function PKKRWPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {KWT.map((k) => (
+                  {kwtData.map((k) => (
                     <tr
                       key={k.nama}
                       className="border-t border-border hover:bg-muted/30 transition"

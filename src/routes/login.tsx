@@ -88,7 +88,7 @@ function LoginPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      toast.error("Username dan password wajib diisi");
+      toast.error("Username dan password wajib diisi", { description: "Masukkan email/username dan password untuk masuk." });
       return;
     }
 
@@ -112,7 +112,7 @@ function LoginPage() {
 
     const session = result.session!;
     logAudit(session.username, "Login", session.role);
-    toast.success(`Selamat datang, ${session.name}`);
+    toast.success(`Selamat datang, ${session.name}`, { description: "Anda telah masuk ke dashboard admin." });
     navigate({ to: "/admin" });
   };
 
@@ -257,7 +257,7 @@ function LoginPage() {
               </label>
               <button
                 type="button"
-                onClick={() => toast.info("Hubungi operator desa untuk reset password")}
+                onClick={() => toast.info("Hubungi operator desa untuk reset password", { description: "Hubungi Sekretariat Desa jika lupa password." })}
                 className="font-ui text-xs font-semibold text-primary hover:underline"
               >
                 Lupa password?

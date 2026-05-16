@@ -8,6 +8,13 @@
 import React, { useEffect, useState } from "react";
 import type { RenderedLetter } from "@/lib/letter-engine";
 
+// ── Brand palette (STRICT: E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5) ──
+const BRAND_PRIMARY = "#E37222";
+const BRAND_SECONDARY = "#078898";
+const BRAND_BORDER = "#D5D5D5";
+const BRAND_TEXT = "#1a1918";
+const BRAND_MUTED = "#5c5a56";
+
 type Props = {
   signature: RenderedLetter["signature"];
   namaPemohon?: string;
@@ -73,7 +80,7 @@ export function LetterSignature({ signature, namaPemohon }: Props) {
               alt="QR Verifikasi"
               style={{ width: 80, height: 80 }}
             />
-            <p style={{ fontSize: 8, margin: 0, color: "#666" }}>Scan untuk verifikasi</p>
+            <p style={{ fontSize: 8, margin: 0, color: BRAND_MUTED }}>Scan untuk verifikasi</p>
           </div>
         )}
       </div>

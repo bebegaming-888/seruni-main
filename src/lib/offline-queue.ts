@@ -100,50 +100,98 @@ export async function processOfflineQueue(): Promise<void> {
   console.info(`[offline-queue] Processing ${eligible.length} queued submissions`);
 
   for (const item of eligible) {
-    if (item.type !== "surat") {
-      console.warn(`[offline-queue] Unknown submission type: ${item.type}`);
-      continue;
-    }
+    if (item.type === "surat") {
+      try {
+        const record = item.data as unknown as SuratRecord;
+        const { syncSaveRecord } = await import("@/lib/useSupabaseSync");
+        const { notifySurat } = await import("@/lib/esurat-notif");
 
-    try {
-      // Reconstruct SuratRecord from stored data
-      const record = item.data as unknown as SuratRecord;
+        const result = await syncSaveRecord(record, record.pemohon ?? "Warga");
 
-      // Import syncSaveRecord lazily to avoid circular deps
-      const { syncSaveRecord } = await import("@/lib/useSupabaseSync");
-      const { notifySurat } = await import("@/lib/esurat-notif");
-
-      const result = await syncSaveRecord(record, record.pemohon ?? "Warga");
-
-      if (result.ok) {
-        // Notify warga — WA confirm after online sync
-        await notifySurat(record, "submit").catch((e) =>
-          console.warn("[offline-queue] WA notify failed:", e),
-        );
-        console.info(`[offline-queue] Queued submission ${item.id} sent successfully`);
-        await dequeueOfflineSubmission(item.id);
-      } else {
-        // Sync failed — increment retry + set nextRetry with backoff
+        if (result.ok) {
+          await notifySurat(record, "submit").catch((e) =>
+            console.warn("[offline-queue] WA notify failed:", e),
+          );
+          console.info(`[offline-queue] Queued submission ${item.id} sent successfully`);
+          await dequeueOfflineSubmission(item.id);
+        } else {
+          const updated: OfflineSubmission = {
+            ...item,
+            retries: item.retries + 1,
+            nextRetry: Date.now() + backoffDelay(item.retries + 1),
+          };
+          await idbPut(OFFLINE_QUEUE_STORE, updated);
+          console.warn(
+            `[offline-queue] Submission ${item.id} sync failed (${result.error}), retry #${updated.retries} in ${backoffDelay(item.retries) / 1000 / 60} min`,
+          );
+        }
+      } catch (err) {
         const updated: OfflineSubmission = {
           ...item,
           retries: item.retries + 1,
           nextRetry: Date.now() + backoffDelay(item.retries + 1),
         };
         await idbPut(OFFLINE_QUEUE_STORE, updated);
-        console.warn(
-          `[offline-queue] Submission ${item.id} sync failed (${result.error}), retry #${updated.retries} in ${backoffDelay(item.retries) / 1000 / 60} min`,
-        );
+        console.warn(`[offline-queue] Network error for ${item.id}:`, err);
       }
-    } catch (err) {
-      // Network error — backoff
-      const updated: OfflineSubmission = {
-        ...item,
-        retries: item.retries + 1,
-        nextRetry: Date.now() + backoffDelay(item.retries + 1),
-      };
-      await idbPut(OFFLINE_QUEUE_STORE, updated);
-      console.warn(`[offline-queue] Network error for ${item.id}:`, err);
+      continue;
     }
+
+    if (item.type === "CREATE_ORDER") {
+      try {
+        const { useOrdersStore } = await import("@/stores/orders-store");
+        const { useMarketplaceStore } = await import("@/lib/content-store");
+        const { useCartStore } = await import("@/lib/cart-store");
+        const { useMarketplaceConfigStore } = await import("@/lib/content-store");
+
+        const data = item.data as {
+          cart: Array<{ id: string; quantity: number }>;
+          buyer: { name: string; wa: string; address: string };
+          paymentMethod: "bank_transfer" | "cod";
+        };
+
+        // Reconstruct cart items from stored IDs
+        const marketplaceStore = useMarketplaceStore.getState();
+        await marketplaceStore.load();
+
+        const cartStore = useCartStore.getState();
+        const configStore = useMarketplaceConfigStore.getState();
+        await configStore.load();
+
+        const cartItems = data.cart
+          .map((ci) => {
+            const product = marketplaceStore.items.find((p) => p.id === ci.id);
+            if (!product) return null;
+            return { product, quantity: ci.quantity };
+          })
+          .filter(Boolean) as ReturnType<typeof cartStore.items extends (infer T)[] ? T[] : never[]>;
+
+        if (cartItems.length === 0) {
+          // Products no longer exist — remove from queue
+          await dequeueOfflineSubmission(item.id);
+          continue;
+        }
+
+        const ordersStore = useOrdersStore.getState();
+        await ordersStore.load();
+
+        await ordersStore.createOrder(cartItems, data.buyer, data.paymentMethod);
+
+        console.info(`[offline-queue] CREATE_ORDER ${item.id} synced successfully`);
+        await dequeueOfflineSubmission(item.id);
+      } catch (err) {
+        const updated: OfflineSubmission = {
+          ...item,
+          retries: item.retries + 1,
+          nextRetry: Date.now() + backoffDelay(item.retries + 1),
+        };
+        await idbPut(OFFLINE_QUEUE_STORE, updated);
+        console.warn(`[offline-queue] CREATE_ORDER ${item.id} failed:`, err);
+      }
+      continue;
+    }
+
+    console.warn(`[offline-queue] Unknown submission type: ${item.type}`);
   }
 }
 

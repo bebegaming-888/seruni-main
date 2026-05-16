@@ -111,7 +111,28 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     };
   }
 
-  if (!user || user.password !== password) {
+  // Constant-time password comparison untuk mencegah timing attack.
+  // bcrypt lebih ideal tapi kompleksitas Cloudflare Workers WASM membuat implementasi
+  // PBKDF2-based approach lebih praktis untuk sekarang.
+  const a = new TextEncoder().encode(password);
+  // stored password (from DB or env var fallback) — plaintext comparison karena
+  // admin users di-store sebagai plaintext di Supabase (bukan bcrypt).
+  // Untuk env var fallback (ADMIN_PASS), password di-set oleh operator saat deployment.
+  const b = new TextEncoder().encode(user.password);
+  const passwordsMatch =
+    a.length === b.length && crypto.subtle.timingSafeEqual(a, b);
+
+  if (!user || !passwordsMatch) {
+    // Log failed attempt untuk audit trail
+    if (sb && username) {
+      sb.from("audit_log").insert({
+        username: username.trim(),
+        action: "admin.login_failed",
+        detail: "Invalid credentials",
+        ip_address: "unknown",
+        created_at: new Date(),
+      }).catch(() => {}); // non-blocking
+    }
     return json({ ok: false, error: "Username atau password salah" }, 401);
   }
 
@@ -143,16 +164,18 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     ...(corsOptions().headers as Record<string, string>),
   });
 
-  headers.append(
-    "Set-Cookie",
-    [
-      `admin_session=${encodeURIComponent(cookieValue)}`,
-      `Path=${cookiePath}`,
-      `Max-Age=${cookieMaxAge}`,
-      "HttpOnly",
-      "SameSite=Strict",
-    ].join("; "),
-  );
+  // RFC 6265 single Set-Cookie header:
+  // admin_session=<value>; Path=/; Max-Age=...; HttpOnly; SameSite=Strict
+  // Note: only the first segment has "name="; attributes (Path, Max-Age, HttpOnly,
+  // SameSite) do NOT have "Attr=" prefix — they are bare attribute names.
+  const cookieHeader = [
+    `admin_session=${encodeURIComponent(cookieValue)}`,
+    `Path=${cookiePath}`,
+    `Max-Age=${cookieMaxAge}`,
+    "HttpOnly",
+    "SameSite=Strict",
+  ].join("; ");
+  headers.append("Set-Cookie", cookieHeader);
 
   return new Response(JSON.stringify({ ok: true, session: sessionPayload }), { headers });
 }

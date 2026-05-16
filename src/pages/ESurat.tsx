@@ -4,6 +4,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
+import { PageHero } from "@/components/sections/PageHero";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,7 +30,6 @@ import {
   ClipboardList,
   Send,
   Sparkles,
-  Trophy,
   Loader2,
   Copy,
   AlertCircle,
@@ -40,6 +40,7 @@ import {
   X,
   FileIcon,
   Upload,
+  Camera,
 } from "lucide-react";
 import { type Penduduk, PENDUDUK_MOCK } from "@/data/penduduk";
 import { initTemplateStore, listTemplates, type SuratTemplate } from "@/lib/template-store";
@@ -165,12 +166,14 @@ export default function ESurat() {
     };
   }, []);
   const [templates, setTemplates] = useState<SuratTemplate[]>([]);
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     initTemplateStore().then(() => {
       if (mounted) {
         setTemplates(listTemplates().filter((t) => t.status === "Disetujui"));
+        setTemplatesLoaded(true);
       }
     });
     return () => {
@@ -209,6 +212,30 @@ export default function ESurat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
+  // ── Live autofill: listen to auto-trigger events from StepVerifikasiNik ───
+  // Fires when user types 16 digits and waits 800ms
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const { nik: autoNik } = (e as CustomEvent<{ nik: string }>).detail;
+      if (autoNik !== nik) return; // ignore stale events
+      setNik(autoNik);
+      setAutoChecking(true);
+      const found = await lookupPenduduk(autoNik);
+      setAutoChecking(false);
+      if (found) {
+        setPenduduk(found);
+        setContactWa(found.no_hp ?? "");
+        toast.success("NIK terverifikasi!", { description: `Selamat datang, ${found.nama}` });
+        setStep(2);
+      } else {
+        setNikError("NIK tidak ditemukan dalam database desa. Silakan hubungi kantor desa.");
+      }
+    };
+    window.addEventListener("esurat-autofill-nik", handler);
+    return () => window.removeEventListener("esurat-autofill-nik", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nik]);
+
   // ── Autofill extraData dari data penduduk saat masuk Step 4 ───────────────
   useEffect(() => {
     if (step === 3 && penduduk && schema) {
@@ -234,18 +261,22 @@ export default function ESurat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  // ── Scroll to form top when step changes ────────────────────────────────
+  // ── Scroll to stepper when step changes ────────────────────────────────
   useEffect(() => {
-    if (step > 0 && !submitted) {
-      const el = document.getElementById("form-content");
-      if (el) {
-        // Jika Hero hilang, kita perlu scroll ke atas container form
-        const offset = 100; // navbar + spacing
-        const top = el.offsetTop - offset;
-        window.scrollTo({ top: top > 0 ? top : 0, behavior: "smooth" });
+    if (!submitted) {
+      if (step === 0) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        // Scroll stepper into view: navbar (64px) + stepper section padding
+        window.scrollTo({ top: 64 + 16, behavior: "smooth" });
+        // Flash animation: active step indicator pulse agar terlihat bergerak
+        const activeStepEl = document.getElementById(`step-indicator-${step}`);
+        if (activeStepEl) {
+          activeStepEl.classList.remove("stepper-flash");
+          void activeStepEl.offsetWidth; // force reflow
+          activeStepEl.classList.add("stepper-flash");
+        }
       }
-    } else if (step === 0 || submitted) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [step, submitted]);
 
@@ -310,6 +341,13 @@ export default function ESurat() {
     const session = isWargaLoggedIn() ? getWargaSession() : null;
     const wargaId: string | undefined = session?.warga?.id;
 
+    // Extract selfie from attachments array — store separately per SuratRecord.foto_selfie type
+    const selfieEntry = attachments.find(
+      (a) =>
+        a.name.toLowerCase().includes("selfie") ||
+        a.name.toLowerCase().includes("foto"),
+    );
+
     const record: SuratRecord = {
       no,
       kode: selectedCode,
@@ -320,13 +358,14 @@ export default function ESurat() {
       warga_id: wargaId,
       data: extraData,
       attachments,
+      foto_selfie: selfieEntry,
       status: "Menunggu Verifikasi",
       created_at: new Date().toISOString(),
     };
 
     // CAPTCHA guard — offline submissions skip CAPTCHA (enqueued, not submitted directly)
     if (navigator.onLine && TURNSTILE_SITE_KEY && !turnstileToken) {
-      toast.error("Verifikasi CAPTCHA diperlukan");
+      toast.error("Verifikasi CAPTCHA diperlukan", { description: "Selesaikan verifikasi CAPTCHA untuk melanjutkan pengajuan." });
       setSubmitting(false);
       return;
     }
@@ -366,73 +405,13 @@ export default function ESurat() {
 
       {/* HERO */}
       {step === 0 && !submitted && (
-        <section className="relative pt-28 pb-12 px-4 sm:px-8 bg-gradient-to-br from-ink via-ink to-ink/90 text-background overflow-hidden">
-          <div
-            className="absolute inset-0 opacity-[0.06] pointer-events-none"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 20% 30%, hsl(var(--primary)) 0, transparent 50%), radial-gradient(circle at 80% 70%, hsl(var(--secondary)) 0, transparent 50%)",
-            }}
-          />
-          <div className="relative mx-auto max-w-7xl">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 text-background/70 hover:text-background mb-6 font-ui text-sm"
-            >
-              <ArrowLeft className="h-4 w-4" /> Kembali ke beranda
-            </Link>
-            <div className="flex items-end justify-between flex-wrap gap-6">
-              <div className="max-w-2xl">
-                <p className="eyebrow text-primary mb-3">Layanan Publik · E-Surat</p>
-                <h1 className="hero-title text-background">
-                  Ajukan surat <em className="not-italic text-primary">online</em> dalam menit.
-                </h1>
-                <p className="font-body text-background/70 mt-5 text-lg">
-                  Verifikasi otomatis lewat NIK, isi formulir terpandu, lacak status real-time.
-                  Dokumen final dikirim langsung via WhatsApp.
-                </p>
-              </div>
-              <div className="flex flex-col items-end gap-2 shrink-0">
-                {isWargaLoggedIn() && getWargaSession() ? (
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-success/20 border border-success/30 text-success">
-                    <UserCircle className="h-4 w-4" />
-                    <div className="text-right">
-                      <p className="font-ui text-xs font-semibold leading-tight">
-                        {getWargaSession()!.warga.nama}
-                      </p>
-                      <p className="font-mono text-[10px] opacity-80">
-                        {getWargaSession()!.warga.nik}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        logoutWarga();
-                        toast.success("Berhasil keluar");
-                      }}
-                      className="ml-1 text-success/70 hover:text-success transition"
-                      title="Logout"
-                    >
-                      <LogOut className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <Link
-                    to="/masuk/warga"
-                    className="btn-pill bg-background/10 text-background border border-background/20 hover:bg-background/20"
-                  >
-                    <Smartphone className="h-4 w-4" /> Login Warga
-                  </Link>
-                )}
-                <Link
-                  to="/pelayanan/monitoring"
-                  className="btn-pill bg-background/10 text-background border border-background/20 hover:bg-background/20"
-                >
-                  <Search className="h-4 w-4" /> Lacak Pengajuan
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Ajukan"
+          titleSecond="Surat"
+          description="Verifikasi otomatis lewat NIK, isi formulir terpandu, lacak status real-time."
+          badge="Layanan Publik"
+          badgeIcon={<FileText className="h-3.5 w-3.5" />}
+        />
       )}
 
       {/* STEPPER */}
@@ -455,11 +434,12 @@ export default function ESurat() {
               return (
                 <li key={s.id} className="flex items-center gap-2 sm:gap-3 shrink-0">
                   <div
-                    className={`h-9 w-9 rounded-full flex items-center justify-center font-ui text-sm font-bold transition-all ${
+                    id={`step-indicator-${s.id}`}
+                    className={`h-9 w-9 rounded-full flex items-center justify-center font-ui text-sm font-bold transition-all duration-300 ${
                       done
-                        ? "bg-success text-background"
+                        ? "bg-success text-background scale-95"
                         : active
-                          ? "bg-primary text-primary-foreground shadow-pill scale-105"
+                          ? "bg-primary text-primary-foreground scale-110 shadow-[0_0_0_3px_var(--primary)/0.25]"
                           : "bg-muted text-muted-foreground"
                     }`}
                   >
@@ -467,19 +447,23 @@ export default function ESurat() {
                   </div>
                   <div className="hidden md:block">
                     <div
-                      className={`font-ui text-xs font-bold ${active ? "text-foreground" : "text-muted-foreground"}`}
+                      className={`font-ui text-xs font-bold transition-colors ${
+                        active ? "text-primary" : done ? "text-success" : "text-muted-foreground"
+                      }`}
                     >
-                      Langkah {i + 1}
+                      {active ? "↓" : done ? "✓" : `${i + 1}.`} {i === 0 ? "Mulai" : `Langkah ${i + 1}`}
                     </div>
                     <div
-                      className={`font-display text-sm ${active ? "text-foreground" : "text-muted-foreground"}`}
+                      className={`font-display text-sm transition-colors ${
+                        active ? "text-foreground font-bold" : done ? "text-success" : "text-muted-foreground"
+                      }`}
                     >
                       {s.title}
                     </div>
                   </div>
                   {i < STEPS.length - 1 && (
                     <div
-                      className={`hidden sm:block h-px w-8 lg:w-16 ${done ? "bg-success" : "bg-border"}`}
+                      className={`hidden sm:block h-px w-8 lg:w-16 transition-colors ${done ? "bg-success" : "bg-border"}`}
                     />
                   )}
                 </li>
@@ -497,7 +481,9 @@ export default function ESurat() {
           ) : (
             <>
               {step === 0 && <StepPilihSurat onSelect={selectSurat} templates={templates} />}
-              {step === 1 && (
+              {!templatesLoaded && step > 0 ? (
+                <TemplateLoadingSkeleton />
+              ) : step === 1 && schema ? (
                 <StepVerifikasiNik
                   schema={schema!}
                   nik={nik}
@@ -506,7 +492,19 @@ export default function ESurat() {
                   checking={checking || autoChecking}
                   error={nikError}
                 />
-              )}
+              ) : step === 1 && !schema ? (
+                <div className="text-center py-16 rounded-2xl border border-dashed border-border">
+                  <p className="font-body text-muted-foreground">
+                    Template tidak ditemukan.{" "}
+                    <button
+                      onClick={() => setStep(0)}
+                      className="text-primary underline hover:no-underline"
+                    >
+                      Pilih jenis surat
+                    </button>
+                  </p>
+                </div>
+              ) : null}
               {step === 2 && penduduk && (
                 <StepIdentitas
                   penduduk={penduduk}
@@ -680,6 +678,49 @@ function StepVerifikasiNik({
   checking: boolean;
   error: string | null;
 }) {
+  // Smart autofill: auto-trigger check 800ms after user stops typing 16-digit NIK
+  const [autoFiring, setAutoFiring] = useState(false);
+  const [hintMsg, setHintMsg] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastNikRef = useRef(nik);
+
+  const handleNikChange = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 16);
+    setNik(digits);
+
+    // Clear pending timer
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (digits.length < 16) {
+      setHintMsg(digits.length > 0 ? `${16 - digits.length} digit lagi…` : null);
+      setAutoFiring(false);
+      return;
+    }
+
+    if (digits === lastNikRef.current) return; // no change
+    lastNikRef.current = digits;
+
+    setHintMsg("⏳ Mengecek otomatis…");
+    setAutoFiring(true);
+
+    debounceRef.current = setTimeout(async () => {
+      // Only fire if still on step 1 and nik hasn't changed
+      if (digits !== lastNikRef.current) return;
+      setAutoFiring(true);
+      setHintMsg("⏳ Mengecek otomatis…");
+      // Trigger the parent's check via a direct lookup hint
+      // We communicate back via onCheck but need to pass the nik value
+      // Use a custom event so the parent ESurat can handle it
+      window.dispatchEvent(new CustomEvent("esurat-autofill-nik", { detail: { nik: digits } }));
+      setHintMsg(null);
+      setAutoFiring(false);
+    }, 800);
+  };
+
+  // The parent will listen to the custom event; also expose checkNik directly
+  // We add a ref-based approach: expose onCheck to also accept the nik
+  // Since we can't change the signature, we use a window event approach
+
   return (
     <div className="grid lg:grid-cols-[1fr_320px] gap-8">
       <div className="space-y-6">
@@ -697,20 +738,34 @@ function StepVerifikasiNik({
             Nomor Induk Kependudukan
           </Label>
           <div className="flex flex-col sm:flex-row gap-3 mt-2">
-            <Input
-              id="nik"
-              value={nik}
-              onChange={(e) => setNik(e.target.value.replace(/\D/g, "").slice(0, 16))}
-              placeholder="16 digit NIK pada KTP"
-              className="font-ui text-lg tracking-wider h-12"
-              inputMode="numeric"
-            />
+            <div className="relative flex-1">
+              <Input
+                id="nik"
+                value={nik}
+                onChange={(e) => handleNikChange(e.target.value)}
+                placeholder="16 digit NIK pada KTP"
+                className="font-ui text-lg tracking-wider h-12 pr-10"
+                inputMode="numeric"
+                autoComplete="off"
+              />
+              {/* Live status indicator */}
+              {autoFiring && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                </span>
+              )}
+              {!autoFiring && nik.length === 16 && !error && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Check className="h-4 w-4 text-success" />
+                </span>
+              )}
+            </div>
             <Button
               onClick={onCheck}
               disabled={checking || nik.length < 16}
               className="btn-pill bg-primary hover:bg-primary-hover h-12 px-6"
             >
-              {checking ? (
+              {checking || autoFiring ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Mengecek...
                 </>
@@ -721,6 +776,11 @@ function StepVerifikasiNik({
               )}
             </Button>
           </div>
+
+          {/* Progress hint */}
+          {hintMsg && (
+            <p className="mt-2 text-xs text-muted-foreground font-ui animate-pulse">{hintMsg}</p>
+          )}
           {error && (
             <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -734,13 +794,16 @@ function StepVerifikasiNik({
           {import.meta.env.DEV && PENDUDUK_MOCK.length > 0 && (
             <div className="mt-6 p-4 rounded-xl bg-info/5 border border-info/20">
               <p className="font-ui text-xs font-bold text-info mb-2 uppercase tracking-wider">
-                💡 NIK contoh (mode development)
+                NIK contoh (mode development)
               </p>
               <div className="space-y-1.5">
                 {PENDUDUK_MOCK.map((p) => (
                   <button
                     key={p.nik}
-                    onClick={() => setNik(p.nik)}
+                    onClick={() => {
+                      setNik(p.nik);
+                      lastNikRef.current = p.nik;
+                    }}
                     className="w-full flex items-center justify-between gap-3 text-left text-xs font-mono hover:bg-info/10 rounded px-2 py-1 transition-colors"
                   >
                     <span className="text-info font-semibold">{p.nik}</span>
@@ -883,14 +946,14 @@ function StepDetail({
 
     const remaining = 10 - attachments.length;
     if (files.length > remaining) {
-      toast.error(`Maksimal 10 lampiran. Anda bisa menambahkan ${remaining} file lagi.`);
+      toast.error("Maksimal 10 lampiran. Anda bisa menambahkan ${remaining} file lagi.", { description: "Kurangi jumlah lampiran atau hapus file yang tidak diperlukan." });
       return;
     }
 
     const newFiles: Lampiran[] = [];
     for (const file of files) {
       if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} terlalu besar. Maks 5MB per file.`);
+        toast.error(`${file.name} terlalu besar. Maks 5MB per file.`, { description: "Perkecil ukuran file atau gunakan format lain." });
         continue;
       }
       const data_url = await new Promise<string>((resolve) => {
@@ -985,64 +1048,168 @@ function StepDetail({
         </div>
       </div>
 
+      {/* Foto Selfie section */}
+      <div className="rounded-2xl bg-card border border-border p-6 sm:p-8 shadow-card">
+        <div className="flex items-center gap-2 mb-1">
+          <Camera className="h-4 w-4 text-success" />
+          <h3 className="font-display font-bold text-base">Foto Selfie dengan KTP</h3>
+        </div>
+        <p className="font-body text-xs text-muted-foreground mb-4">
+          Wajib: foto wajah Anda memegang KTP. Dokumen ini sebagai verifikasi bahwa pemohon
+          adalah benar pemilik NIK tersebut.
+        </p>
+
+        {(() => {
+          const selfie = attachments.find((a) =>
+            a.name.toLowerCase().includes("selfie") || a.name.toLowerCase().includes("foto")
+          );
+          if (selfie?.data_url) {
+            return (
+              <div className="relative inline-block">
+                <img
+                  src={selfie.data_url}
+                  alt="Foto selfie"
+                  className="h-40 w-40 rounded-xl object-cover border-2 border-success/40"
+                />
+                <span className="absolute -top-2 -right-2 bg-success text-white rounded-full p-1">
+                  <Check className="h-3 w-3" />
+                </span>
+                <button
+                  onClick={() => {
+                    const idx = attachments.findIndex(
+                      (a) =>
+                        a.name.toLowerCase().includes("selfie") ||
+                        a.name.toLowerCase().includes("foto"),
+                    );
+                    if (idx >= 0) {
+                      const next = [...attachments];
+                      next.splice(idx, 1);
+                      setAttachments(next);
+                    }
+                  }}
+                  className="absolute -bottom-2 -right-2 bg-destructive text-white rounded-full p-1 hover:bg-destructive/80"
+                  title="Hapus foto selfie"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          }
+          return (
+            <label
+              className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
+                selfie
+                  ? "border-success/40 bg-success/5"
+                  : "border-border hover:border-success hover:bg-success/5 text-muted-foreground hover:text-success"
+              }`}
+            >
+              <Camera className="h-8 w-8" />
+              <p className="font-body text-sm text-center">Ambil atau upload foto selfie</p>
+              <p className="font-ui text-[11px] text-muted-foreground">JPG/PNG · maks 5MB</p>
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                className="sr-only"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 5 * 1024 * 1024) {
+                    toast.error("Ukuran foto terlalu besar. Maks 5MB.", { description: "Kompres foto atau gunakan format dengan ukuran lebih kecil." });
+                    return;
+                  }
+                  const data_url = await new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => resolve(ev.target?.result as string);
+                    reader.readAsDataURL(file);
+                  });
+                  // Hapus selfie lama jika ada
+                  const filtered = attachments.filter(
+                    (a) =>
+                      !a.name.toLowerCase().includes("selfie") &&
+                      !a.name.toLowerCase().includes("foto"),
+                  );
+                  setAttachments([...filtered, { name: `selfie_${Date.now()}.jpg`, type: file.type, size: file.size, data_url }]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          );
+        })()}
+      </div>
+
       {/* Lampiran section */}
       <div className="rounded-2xl bg-card border border-border p-6 sm:p-8 shadow-card">
         <div className="flex items-center gap-2 mb-4">
           <Paperclip className="h-4 w-4 text-primary" />
-          <h3 className="font-display font-bold text-base">Lampiran Dokumen</h3>
+          <h3 className="font-display font-bold text-base">Dokumen Pendukung Lainnya</h3>
           <span className="ml-auto font-ui text-xs text-muted-foreground">
-            {attachments.length}/10 file · maks 5MB per file
+            {attachments.filter((a) => !a.name.includes("selfie") && !a.name.includes("foto")).length}/10 file · maks 5MB per file
           </span>
         </div>
 
-        {attachments.length > 0 && (
+        {attachments.filter((a) => !a.name.includes("selfie") && !a.name.includes("foto")).length > 0 && (
           <div className="space-y-2 mb-4">
-            {attachments.map((a, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 p-3 rounded-xl bg-muted border border-border"
-              >
-                <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-body text-sm truncate">{a.name}</p>
-                  <p className="font-ui text-[11px] text-muted-foreground">{formatSize(a.size)}</p>
-                </div>
-                <button
-                  onClick={() => removeAttachment(i)}
-                  className="text-muted-foreground hover:text-destructive transition shrink-0"
+            {attachments
+              .filter((a) => !a.name.includes("selfie") && !a.name.includes("foto"))
+              .map((a, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-muted border border-border"
                 >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+                  <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-body text-sm truncate">{a.name}</p>
+                    <p className="font-ui text-[11px] text-muted-foreground">{formatSize(a.size)}</p>
+                  </div>
+                  <button
+                    onClick={() => removeAttachment(i)}
+                    className="text-muted-foreground hover:text-destructive transition shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
           </div>
         )}
 
-        <label
-          className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
-            attachments.length >= 10
-              ? "border-muted text-muted-foreground cursor-not-allowed"
-              : "border-border hover:border-primary hover:bg-primary/5 text-muted-foreground hover:text-primary"
-          }`}
-        >
-          <Upload className="h-6 w-6" />
-          <p className="font-body text-sm text-center">
-            {attachments.length >= 10
-              ? "Maksimal 10 lampiran tercapai"
-              : "Klik untuk pilih file atau drag &amp; drop di sini"}
-          </p>
-          <p className="font-ui text-[11px] text-muted-foreground">
-            PDF, JPG, PNG · maks 5MB per file
-          </p>
-          <input
-            type="file"
-            multiple
-            accept=".pdf,.jpg,.jpeg,.png,image/jpeg,image/png,application/pdf"
-            onChange={handleFileChange}
-            disabled={attachments.length >= 10}
-            className="sr-only"
-          />
-        </label>
+        {(() => {
+          const hasSelfie = attachments.some(
+            (a) =>
+              a.name.toLowerCase().includes("selfie") || a.name.toLowerCase().includes("foto"),
+          );
+          const maxDocs = 10 - (hasSelfie ? 1 : 0);
+          const docCount = attachments.filter(
+            (a) => !a.name.includes("selfie") && !a.name.includes("foto"),
+          ).length;
+          const uploadLimit = maxDocs - docCount;
+          return (
+            <label
+              className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
+                uploadLimit <= 0
+                  ? "border-muted text-muted-foreground cursor-not-allowed"
+                  : "border-border hover:border-primary hover:bg-primary/5 text-muted-foreground hover:text-primary"
+              }`}
+            >
+              <Upload className="h-6 w-6" />
+              <p className="font-body text-sm text-center">
+                {uploadLimit <= 0
+                  ? "Maksimal 10 lampiran tercapai"
+                  : "Klik untuk pilih file atau drag &amp; drop di sini"}
+              </p>
+              <p className="font-ui text-[11px] text-muted-foreground">
+                PDF, JPG, PNG · maks 5MB per file
+              </p>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,image/jpeg,image/png,application/pdf"
+                onChange={handleFileChange}
+                disabled={uploadLimit <= 0}
+                className="sr-only"
+              />
+            </label>
+          );
+        })()}
       </div>
 
       <div className="flex justify-end">
@@ -1228,6 +1395,25 @@ function SuratInfoCard({ schema }: { schema: SuratTemplate }) {
             </li>
           ))}
         </ul>
+      </div>
+    </div>
+  );
+}
+
+/* ── Loading Skeleton untuk template yang belum selesai load ─── */
+function TemplateLoadingSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="h-6 w-48 rounded-lg bg-muted" />
+      <div className="h-10 w-72 rounded-xl bg-muted" />
+      <div className="rounded-2xl bg-card border border-border p-6 sm:p-8 space-y-4">
+        <div className="h-4 w-3/4 rounded-lg bg-muted" />
+        <div className="h-4 w-1/2 rounded-lg bg-muted" />
+        <div className="h-12 w-full rounded-xl bg-muted" />
+        <div className="flex gap-3">
+          <div className="h-12 w-32 rounded-xl bg-muted" />
+          <div className="h-12 w-24 rounded-xl bg-muted" />
+        </div>
       </div>
     </div>
   );

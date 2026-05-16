@@ -4,6 +4,7 @@ import { Footer } from "@/components/site/Footer";
 import { getSettings, useSettings } from "@/lib/settings-store";
 import { getVillage } from "@/lib/village-dynamic";
 import { Link } from "@/components/Link";
+import { PageHero } from "@/components/sections/PageHero";
 import { MessageCircle, Users, Clock, Phone, Calendar, ArrowRight, Star } from "lucide-react";
 
 export const Route = createFileRoute("/pelayanan/konsultasi")({
@@ -88,21 +89,14 @@ export function KonsultasiPage() {
       <Navbar />
       <main>
         {/* Hero */}
-        <section className="relative pt-32 pb-12 px-4 bg-gradient-to-br from-info/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info mb-5">
-              <MessageCircle className="h-3.5 w-3.5" />
-              Layanan Interaktif
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
-              Konsultasi Langsung
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed">
-              Punya pertanyaan mengenai layanan desa atau butuh solusi untuk masalah warga? Kami
-              siap membantu Anda secara online maupun tatap muka.
-            </p>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Layanan"
+          titleSecond="Konsultasi"
+          description="Konsultasi langsung dengan perangkat desa untuk berbagai keperluan administratif dan sosial."
+          badge="Layanan Interaktif"
+          badgeIcon={<MessageCircle className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Pelayanan" }, { label: "Konsultasi" }]}
+        />
 
         {/* Features */}
         <section className="px-4 py-16">

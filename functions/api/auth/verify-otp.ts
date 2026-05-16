@@ -23,7 +23,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { hashOtp, json, corsOptions } from "../../_lib/utils";
+import { hashOtp, verifyOtpHash, json, corsOptions } from "../../_lib/utils";
 import { createRateLimiter, getClientIp } from "../../_lib/rate-limit";
 
 interface Env {
@@ -125,28 +125,20 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     return json({ ok: false, error: "Kode OTP tidak valid atau sudah kadaluarsa" }, 401);
   }
 
-  // Verifikasi OTP hash SHA-256
+  // Verifikasi OTP hash — support PBKDF2 ( baru, aman ) + SHA-256 legacy (backward compat ).
+  // verifyOtpHash() menggunakan constant-time comparison + per-OTP random salt (PBKDF2).
+  const storedHash = otpRecord.otp_hash as string;
+  const valid = await verifyOtpHash(otp, storedHash);
+  if (!valid) {
+    return json({ ok: false, error: "Kode OTP tidak valid atau sudah kadaluarsa" }, 401);
+  }
+
+  // Ambil data warga setelah OTP valid
   const { data: warga } = await sb
     .from("warga")
     .select("id, nik, nama, no_hp")
     .eq("nik", nik)
     .single();
-
-  // Verifikasi hash secara manual (bandingkan hasil hash OTP input dengan stored hash)
-  // Gunakan constant-time comparison untuk mencegah timing attack pada string hash SHA-256.
-  // Crypto timingSafeEqual (ArrayBuffer) lebih baik daripada === string comparison.
-  const computedHash = await hashOtp(otp);
-  const storedHash = otpRecord.otp_hash as string;
-
-  let valid = false;
-  if (computedHash.length === storedHash.length) {
-    const a = new TextEncoder().encode(computedHash);
-    const b = new TextEncoder().encode(storedHash);
-    valid = a.length === b.length && crypto.subtle.timingSafeEqual(a, b);
-  }
-  if (!valid) {
-    return json({ ok: false, error: "Kode OTP tidak valid atau sudah kadaluarsa" }, 401);
-  }
 
   // CRITICAL: Mark OTP as used SEBELUM membuat session.
   // Jika ini gagal, DO NOT proceed — prevents replay attack window.

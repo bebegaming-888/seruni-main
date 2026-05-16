@@ -49,7 +49,16 @@ import {
   SlidersHorizontal,
   User,
   LayoutGrid,
+  RotateCcw as RotateCcwIcon,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 // ── Preset Options ────────────────────────────────────────────────────────────
 
@@ -68,23 +77,25 @@ const MARQUEE_SPEED_OPTIONS = [
   { label: "Sangat Cepat", value: 8 },
 ];
 
+// ── Font options — ONLY brand fonts ─────────────────────────────────────────────
 const MARQUEE_FONT_OPTIONS = [
-  { label: "Fraunces", value: "Fraunces, serif" },
-  { label: "Playfair Display", value: "Playfair Display, serif" },
-  { label: "Lora", value: "Lora, serif" },
-  { label: "Georgia", value: "Georgia, serif" },
-  { label: "Arial Black", value: "Arial Black, sans-serif" },
+  { label: "Fraunces (Display)", value: "Fraunces, serif" },
+  { label: "Raleway (Body)", value: "Raleway, sans-serif" },
+  { label: "Poppins (UI)", value: "Poppins, sans-serif" },
 ];
 
+// ── Marquee color options — STRICT brand palette ────────────────────────────────
+// Brand: E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5
 const MARQUEE_COLOR_OPTIONS = [
   { label: "Putih", value: "#ffffff" },
-  { label: "Putih Muda", value: "#f5f5f5" },
-  { label: "Emas", value: "#f5c842" },
-  { label: "Hijau Mudi", value: "#86efac" },
-  { label: "Biru Langit", value: "#93c5fd" },
-  { label: "Abu-abu", value: "#d1d5db" },
-  { label: "Hitam", value: "#111111" },
-  { label: "Transparan", value: "rgba(255,255,255,0.3)" },
+  { label: "Putih Muda", value: "#f4f4f4" },
+  { label: "Orange (E37222)", value: "#E37222" },
+  { label: "Teal (078898)", value: "#078898" },
+  { label: "Teal Muda (66B9BF)", value: "#66B9BF" },
+  { label: "Peach (EEAA78)", value: "#EEAA78" },
+  { label: "Abu (D5D5D5)", value: "#D5D5D5" },
+  { label: "Hitam", value: "#1a1918" },
+  { label: "Transparan", value: "rgba(255,255,255,0.4)" },
 ];
 
 const MARQUEE_OPACITY_OPTIONS = [
@@ -503,7 +514,7 @@ function TabMarquee({
                       className={cn(
                         "h-9 w-9 shrink-0 rounded-lg border flex items-center justify-center transition-colors",
                         line.enabled
-                          ? "bg-green-50 border-green-300 text-green-600"
+                          ? "bg-[#078898]/10 border-[#078898]/30 text-[#078898]"
                           : "bg-muted border-transparent text-muted-foreground",
                       )}
                     >
@@ -811,6 +822,7 @@ export function HeroSettings() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<HeroTab>("video");
+  const [resetOpen, setResetOpen] = useState(false);
 
   // Sync local state on first store load
   const loadedRef = useRef(false);
@@ -856,11 +868,15 @@ export function HeroSettings() {
   };
 
   const handleReset = () => {
-    if (!confirm("Reset pengaturan hero ke default?")) return;
+    setResetOpen(true);
+  };
+
+  const confirmReset = () => {
     resetHeroConfig();
     setConfig({ ...DEFAULT_HERO_CONFIG });
     loadedRef.current = false;
     setDirty(false);
+    setResetOpen(false);
     toast.success("Pengaturan hero direset ke default");
   };
 
@@ -913,7 +929,7 @@ export function HeroSettings() {
           {saving ? "Menyimpan..." : "Simpan Pengaturan Hero"}
         </Button>
         <Button variant="outline" onClick={handleReset} className="gap-2">
-          <RotateCcw className="h-4 w-4" />
+          <RotateCcwIcon className="h-4 w-4" />
           Reset ke Default
         </Button>
         {!dirty && (
@@ -922,6 +938,34 @@ export function HeroSettings() {
           </p>
         )}
       </div>
+
+      {/* ── Reset Confirmation Dialog ── */}
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcwIcon className="h-5 w-5 text-destructive" />
+              Reset Pengaturan Hero
+            </DialogTitle>
+            <DialogDescription>
+              Semua pengaturan hero akan dikembalikan ke nilai default sistem.
+              Perubahan yang belum disimpan akan hilang.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setResetOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmReset}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Ya, Reset Sekarang
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

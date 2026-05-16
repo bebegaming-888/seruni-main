@@ -36,7 +36,7 @@ function buildMessage(
       return `Halo ${nama}, data pengajuan ${jenis} (${no}) telah diverifikasi oleh admin desa.\nSaat ini sedang menunggu persetujuan Kepala Desa. Mohon tunggu.`;
 
     case "forward":
-      return `Halo ${nama}, pengajuan ${jenis} (${no}) telah diverifikasi dan sedang diajukan kepada Kepala Desa untuk persetujuan. Mohon tunggu hasilnya.`;
+      return `Halo ${nama}, pengajuan ${jenis} (${no}) telah diverifikasi dan sedang diajukan kepada Kepala Desa untuk persetujuan.\nMohon tunggu hasilnya. Terima kasih.`;
 
     case "approve":
       return n.template_approve

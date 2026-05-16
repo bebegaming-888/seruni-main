@@ -176,7 +176,7 @@ create or replace function public.list_surat_requests(
 )
 returns table (
   id          uuid,
-  no_surat    text,
+  no          text,
   kode        text,
   nama_surat  text,
   category    text,
@@ -191,7 +191,7 @@ as $$
 begin
   return query
   select
-    sr.id, sr.no_surat, sr.kode, sr.nama_surat,
+    sr.id, sr.no, sr.kode, sr.nama_surat,
     coalesce(sr.category, st.category, 'Lainnya') as category,
     sr.nik, sr.pemohon, sr.status, sr.created_at
   from public.surat_requests sr

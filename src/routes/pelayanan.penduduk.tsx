@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { useSettings, getSettings } from "@/lib/settings-store";
+import { getVillage } from "@/lib/village-dynamic";
+import { getSettings, useSettings } from "@/lib/settings-store";
+import { PageHero } from "@/components/sections/PageHero";
 import {
   BarChart,
   Bar,
@@ -38,6 +40,8 @@ import {
 } from "@/lib/penduduk-store";
 import { DUSUN_LIST, PEKERJAAN_LIST, PENDIDIKAN_LIST } from "@/data/penduduk";
 
+const DYNAMIC_DUSUN_LIST = getVillage("dusun_list");
+
 export const Route = createFileRoute("/pelayanan/penduduk")({
   head: () => {
     const { village } = getSettings();
@@ -52,8 +56,8 @@ export const Route = createFileRoute("/pelayanan/penduduk")({
 });
 
 const PAGE_SIZE = 15;
-const JK_COLORS = ["#0f7a4a", "#dc2626"];
-const PIE_COLORS = ["#0891b2", "#0f7a4a", "#d97706", "#6b7280"];
+const JK_COLORS = ["#078898", "#E37222"];
+const PIE_COLORS = ["#66B9BF", "#078898", "#EEAA78", "#D5D5D5"];
 
 function StatCard({
   title,
@@ -199,29 +203,14 @@ export function PendudukPage() {
       <Navbar />
       <main>
         {/* Hero */}
-        <section className="relative pt-32 pb-12 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <Users className="h-3.5 w-3.5" />
-              Data Kependudukan
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
-              Statistik Demografi
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              Data kependudukan {village.name}. Informasi bersumber dari database desa yang dikelola
-              pemerintah desa.
-            </p>
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-ui text-xs font-semibold ${stat.is_mock ? "bg-warning/10 border-warning/20 text-warning" : "bg-success/10 border-success/20 text-success"}`}
-            >
-              <Activity className="h-3.5 w-3.5" />
-              {stat.is_mock
-                ? "Data Simulasi — Demo"
-                : `Data Aktif · ${stat.total.toLocaleString("id-ID")} jiwa`}
-            </span>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Data"
+          titleSecond="Kependudukan"
+          description={"Data kependudukan " + (village as { name?: string }).name + ". Informasi bersumber dari database desa."}
+          badge="Data Kependudukan"
+          badgeIcon={<Users className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Pelayanan" }, { label: "Penduduk" }]}
+        />
 
         {/* Summary Stats */}
         <section className="px-4 -mt-4 mb-10">
@@ -390,7 +379,7 @@ export function PendudukPage() {
                   />
                 </div>
                 {[
-                  { label: "Dusun", val: fDusun, set: setFDusun, opts: DUSUN_LIST },
+                  { label: "Dusun", val: fDusun, set: setFDusun, opts: DYNAMIC_DUSUN_LIST.length ? DYNAMIC_DUSUN_LIST : DUSUN_LIST },
                   {
                     label: "Jenis Kelamin",
                     val: fJK,
@@ -461,7 +450,7 @@ export function PendudukPage() {
                     <p className="font-ui text-xs text-muted-foreground">Total</p>
                   </div>
                   <div className="rounded-xl bg-card border border-border p-3 text-center">
-                    <p className="font-display text-2xl font-bold text-blue-600">{rekap.laki}</p>
+                    <p className="font-display text-2xl font-bold text-[#078898]">{rekap.laki}</p>
                     <p className="font-ui text-xs text-muted-foreground">Laki-laki</p>
                   </div>
                   <div className="rounded-xl bg-card border border-border p-3 text-center">
@@ -609,7 +598,7 @@ export function PendudukPage() {
                             </td>
                             <td className="px-3 py-3">
                               <span
-                                className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${p.jenis_kelamin === "Laki-Laki" ? "bg-blue-100 text-blue-700" : "bg-pink-100 text-pink-700"}`}
+                                className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${p.jenis_kelamin === "Laki-Laki" ? "bg-[#078898]/10 text-[#078898]" : "bg-[#E37222]/10 text-[#E37222]"}`}
                               >
                                 {p.jenis_kelamin === "Laki-Laki" ? "L" : "P"}
                               </span>
@@ -617,7 +606,7 @@ export function PendudukPage() {
                             <td className="px-3 py-3 text-xs">{umur > 0 ? `${umur} th` : "-"}</td>
                             <td className="px-3 py-3 text-xs whitespace-nowrap">
                               <span
-                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${umur <= 14 ? "bg-blue-100 text-blue-700" : umur <= 64 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${umur <= 14 ? "bg-[#078898]/10 text-[#078898]" : umur <= 64 ? "bg-[#66B9BF]/10 text-[#078898]" : "bg-[#EEAA78]/10 text-[#1a1918]"}`}
                               >
                                 {umur <= 14 ? "Anak" : umur <= 64 ? "Produktif" : "Lansia"}
                               </span>

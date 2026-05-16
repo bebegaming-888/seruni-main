@@ -7,6 +7,7 @@ import { listLembagaAktif } from "@/lib/lembaga-store";
 import { getMediaUrl } from "@/lib/media-upload";
 import { Link } from "@/components/Link";
 import { useEffect, useState } from "react";
+import { PageHero } from "@/components/sections/PageHero";
 import {
   Users,
   Store,
@@ -53,22 +54,22 @@ const JENIS_ICON: Record<string, React.ElementType> = {
   LAINNYA: Building2,
 };
 
-/** Gradient per jenis */
+/** Gradient per jenis — brand palette: E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5 */
 const JENIS_GRADIENT: Record<string, string> = {
-  BPD: "from-blue-50 to-blue-100",
-  LPM: "from-green-50 to-green-100",
-  PKK: "from-pink-50 to-pink-100",
-  KARANG_TARUNA: "from-purple-50 to-purple-100",
-  BUMDES: "from-amber-50 to-amber-100",
-  POSYANDU: "from-red-50 to-red-100",
-  LINMAS: "from-gray-50 to-gray-100",
-  FORUM_ANAK: "from-orange-50 to-orange-100",
-  POKDARWIS: "from-teal-50 to-teal-100",
-  KOPERASI: "from-indigo-50 to-indigo-100",
-  LEMBAGA_ADAT: "from-yellow-50 to-yellow-100",
-  POSBANKUM: "from-cyan-50 to-cyan-100",
-  TSBD: "from-red-50 to-red-100",
-  LEMBAGA_PEREMPUAN: "from-pink-50 to-pink-100",
+  BPD: "from-[#078898]/10 to-[#078898]/20",
+  LPM: "from-[#66B9BF]/10 to-[#66B9BF]/20",
+  PKK: "from-[#E37222]/10 to-[#E37222]/20",
+  KARANG_TARUNA: "from-[#078898]/10 to-[#66B9BF]/20",
+  BUMDES: "from-[#EEAA78]/10 to-[#EEAA78]/20",
+  POSYANDU: "from-[#E37222]/10 to-[#E37222]/20",
+  LINMAS: "from-[#D5D5D5]/10 to-[#D5D5D5]/20",
+  FORUM_ANAK: "from-[#EEAA78]/10 to-[#EEAA78]/20",
+  POKDARWIS: "from-[#66B9BF]/10 to-[#66B9BF]/20",
+  KOPERASI: "from-[#078898]/10 to-[#078898]/20",
+  LEMBAGA_ADAT: "from-[#EEAA78]/10 to-[#EEAA78]/20",
+  POSBANKUM: "from-[#66B9BF]/10 to-[#66B9BF]/20",
+  TSBD: "from-[#E37222]/10 to-[#E37222]/20",
+  LEMBAGA_PEREMPUAN: "from-[#E37222]/10 to-[#E37222]/20",
   LAINNYA: "from-muted to-muted",
 };
 
@@ -97,30 +98,14 @@ export function LembagaPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="relative pt-32 pb-16 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <Building2 className="h-3.5 w-3.5" />
-              Tata Kelola Desa
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-4">
-              Lembaga Desa
-              <br />
-              <span className="text-primary">{v.name}</span>
-            </h1>
-
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-6">
-              Beberapa lembaga desa yang bekerja sama menjalankan pemerintahan dan pemberdayaan
-              masyarakat. Setiap lembaga memiliki peran spesifik dalam tata kelola pemerintahan desa
-              yang transparan dan partisipatif.
-            </p>
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {loading ? "Memuat…" : `${lembagaList.length} Lembaga aktif`}
-            </div>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Lembaga"
+          titleSecond="Desa"
+          description="Berbagai lembaga yang bekerja sama dalam tata kelola pemerintahan desa yang transparan dan partisipatif."
+          badge="Tata Kelola"
+          badgeIcon={<Building2 className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Profil" }, { label: "Lembaga" }]}
+        />
 
         {/* Lembaga Cards */}
         <section className="px-4 mb-14">

@@ -11,6 +11,8 @@ import {
   refreshWargaSession,
 } from "@/lib/warga-auth";
 import { getSettings, useSettings } from "@/lib/settings-store";
+import { Navbar } from "@/components/site/Navbar";
+import { Footer } from "@/components/site/Footer";
 import {
   ArrowLeft,
   Smartphone,
@@ -94,7 +96,7 @@ function MasukWargaPage() {
     if (isWargaLoggedIn()) {
       const session = getWargaSession();
       if (session) {
-        toast.info(`Anda sudah login sebagai ${session.warga.nama}`);
+        toast.info(`Anda sudah login sebagai ${session.warga.nama}`, { description: "Abaikan jika Anda belum selesai menggunakan layanan." });
       }
       navigate({ to: "/pelayanan/e-surat" });
     }
@@ -111,7 +113,7 @@ function MasukWargaPage() {
   const handleRequestOtp = async () => {
     const cleanNik = nik.replace(/\D/g, "");
     if (cleanNik.length !== 16) {
-      toast.error("NIK harus 16 digit angka");
+      toast.error("NIK harus 16 digit angka", { description: "Periksa kembali nomor NIK pada KTP Anda." });
       return;
     }
     setLoading(true);
@@ -147,14 +149,14 @@ function MasukWargaPage() {
     }
 
     saveWargaSession(result.session!);
-    toast.success(`Login berhasil! Selamat datang, ${result.session!.warga.nama}`);
+    toast.success(`Login berhasil! Selamat datang, ${result.session!.warga.nama}`, { description: "Anda dapat mengajukan atau melacak surat di sini." });
     setStep("success");
     setTimeout(() => navigate({ to: "/pelayanan/e-surat" }), 1500);
   };
 
   const handleLogout = () => {
     logoutWarga();
-    toast.success("Berhasil keluar");
+    toast.success("Berhasil keluar", { description: "Anda telah keluar dari sesi warga." });
     setStep("nik");
     setNik("");
     setOtp("");
@@ -164,27 +166,7 @@ function MasukWargaPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-display text-base font-bold">
-              {village.name[0]}
-            </div>
-            <div>
-              <div className="font-display text-sm font-bold leading-tight">{village.name}</div>
-              <div className="font-ui text-[10px] text-muted-foreground">Sistem Informasi Desa</div>
-            </div>
-          </Link>
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 font-ui text-xs text-muted-foreground hover:text-foreground transition"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Kembali
-          </Link>
-        </div>
-      </header>
+      <Navbar />
 
       <div className="max-w-lg mx-auto px-4 py-10">
         {/* Page title */}
@@ -439,6 +421,7 @@ function MasukWargaPage() {
           </div>
         )}
       </div>
+      <Footer />
     </main>
   );
 }

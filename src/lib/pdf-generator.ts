@@ -70,6 +70,7 @@ export type PdfGenParams = {
       signer_name: string;
       signer_title: string;
       require_qr: boolean;
+      qr_secret?: string;
     };
   };
   includeQr?: boolean;

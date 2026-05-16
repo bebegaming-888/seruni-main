@@ -5,6 +5,8 @@ import { useSettings, getSettings } from "@/lib/settings-store";
 import { Camera, Image as ImageIcon, Filter, Maximize2 } from "lucide-react";
 import { useState } from "react";
 import { type GaleriItem, useGaleriStore } from "@/lib/content-store";
+import { PageHero } from "@/components/sections/PageHero";
+import galeriHero from "@/assets/galeri-1.jpg";
 
 export const Route = createFileRoute("/informasi/galeri")({
   head: () => {
@@ -59,22 +61,15 @@ export function GaleriPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="relative pt-32 pb-12 px-4 bg-gradient-to-br from-info/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-6xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info mb-5">
-              <Camera className="h-3.5 w-3.5" />
-              Galeri Visual
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
-              Jelajahi Desa Kami
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              Kumpulan momen berharga, keindahan alam, dan kemajuan pembangunan di {village.name}{" "}
-              yang terekam dalam lensa.
-            </p>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Galeri"
+          titleSecond="Desa"
+          description="Momen berharga, keindahan alam, dan kemajuan pembangunan desa yang terekam dalam lensa."
+          badge="Visual"
+          badgeIcon={<Camera className="h-3.5 w-3.5" />}
+          bgImage={galeriHero}
+          breadcrumbs={[{ label: "Galeri" }]}
+        />
 
         {/* Categories */}
         <section className="px-4 mb-8 -mt-4">

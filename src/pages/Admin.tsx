@@ -39,6 +39,7 @@ import {
   Loader2,
   AlertCircle,
   Building2,
+  Paperclip,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
@@ -48,7 +49,7 @@ import { CMSManager } from "@/components/admin/CMSManager";
 import { Newspaper, History } from "lucide-react";
 import { AuditLogManager } from "@/components/admin/AuditLogManager";
 import { AlertPanel } from "@/components/admin/AlertPanel";
-import { SuratPreviewPanel } from "@/components/admin/SuratPreviewPanel";
+import { SuratPreviewPanel, RejectionModal } from "@/components/admin/SuratPreviewPanel";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -124,6 +125,7 @@ export default function AdminPage() {
   const [records, setRecords] = useState<SuratRecord[]>([]);
   const [archive, setArchive] = useState<SuratRecord[]>([]);
   const [preview, setPreview] = useState<SuratRecord | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<SuratRecord | null>(null);
   const [qrUrl, setQrUrl] = useState<string>("");
   const [pendCount, setPendCount] = useState(0);
   const [pendIsMock, setPendIsMock] = useState(false);
@@ -152,7 +154,7 @@ export default function AdminPage() {
 
   const handleLogout = () => {
     logout();
-    toast.success("Berhasil keluar");
+    toast.success("Berhasil keluar", { description: "Anda telah keluar dari sesi admin." });
     navigate({ to: "/login" });
   };
 
@@ -183,7 +185,7 @@ export default function AdminPage() {
         });
       }
     } catch (err) {
-      toast.error("Sync Error", { description: String(err) });
+      toast.error("Sync Error", { description: err instanceof Error ? err.message : String(err) });
     } finally {
       setIsSyncing(false);
     }
@@ -284,12 +286,15 @@ export default function AdminPage() {
     const result = await syncSetStatus(r.no, "Diverifikasi", undefined, username);
     refresh();
     if (result.ok) {
+      // ⚠️ Gunakan result.record, BUKAN r — r masih punya status lama "Menunggu Verifikasi".
+      // notifySurat butuh status terkini agar pesan WA akurat.
+      const verified = result.record ?? { ...r, status: "Diverifikasi" as const };
       await logAudit({
         action: "surat.verify",
         detail: `Verifikasi: ${r.no} oleh ${username}`,
         username,
       });
-      const notify = await notifySurat(r, "verify");
+      const notify = await notifySurat(verified, "verify");
       if (notify.ok) toast.success("Diverifikasi & notifikasi WA dikirim", { description: r.no });
       else toast.warning("Diverifikasi OK, WA gagal", { description: notify.message });
     } else {
@@ -301,22 +306,21 @@ export default function AdminPage() {
       return n;
     });
   };
-  const reject = async (r: SuratRecord) => {
+  const reject = async (r: SuratRecord, alasan: string) => {
+    if (!alasan.trim()) return;
     if (pendingActions.has(r.no)) return;
-    const note = window.prompt("Alasan penolakan?") ?? "";
-    if (!note) return;
     setPendingActions((s) => new Set(s).add(r.no));
-    const result = await syncSetStatus(r.no, "Ditolak", note, username);
-    const updated = { ...r, status: "Ditolak" as const, catatan: note };
+    const result = await syncSetStatus(r.no, "Ditolak", alasan.trim(), username);
+    const updated = { ...r, status: "Ditolak" as const, catatan: alasan.trim() };
     await logAudit({
       action: "surat.reject",
-      detail: `Tolak: ${r.no} alasan "${note}" oleh ${username}`,
+      detail: `Tolak: ${r.no} alasan "${alasan}" oleh ${username}`,
       username,
     });
-    await notifySurat(updated, "reject", note);
+    await notifySurat(updated, "reject", alasan);
     refresh();
-    if (result.ok) toast.error("Ditolak", { description: r.no });
-    else toast.error("Gagal menyimpan", { description: result.error });
+    if (result.ok) toast.success("Pengajuan ditolak", { description: r.no });
+    else toast.error("Gagal menolak", { description: result.error });
     setPendingActions((s) => {
       const n = new Set(s);
       n.delete(r.no);
@@ -389,7 +393,7 @@ export default function AdminPage() {
       const notify = await notifySurat(updated, "approve");
       refresh();
       setPreview(updated);
-      if (notify.ok) toast.success("Disetujui & notifikasi WA dikirim");
+      if (notify.ok) toast.success("Disetujui & notifikasi WA dikirim", { description: "Surat telah ditandatangani dan warga akan menerima notifikasi WhatsApp." });
       else toast.warning("Disetujui, WA gagal", { description: notify.message });
     } catch (e) {
       toast.error("Gagal approve", { description: e instanceof Error ? e.message : String(e) });
@@ -521,13 +525,13 @@ export default function AdminPage() {
       detail: `Export arsip surat (${archive.length} record) ke CSV`,
       username,
     });
-    toast.success("Arsip diunduh");
+    toast.success("Arsip diunduh", { description: `File CSV arsip dengan ${archive.length} record telah diunduh.` });
   };
 
   /** Export arsip ke Excel (.xlsx) */
   const exportArchiveExcel = () => {
     if (archive.length === 0) {
-      toast.error("Tidak ada arsip untuk diekspor");
+      toast.error("Tidak ada arsip untuk diekspor", { description: "Ekspor tidak dapat dilakukan karena belum ada arsip surat." });
       return;
     }
     const rows = archive.map((r) => ({
@@ -564,13 +568,13 @@ export default function AdminPage() {
       detail: `Export ${archive.length} record ke XLSX`,
       username,
     });
-    toast.success("Arsip diekspor (.xlsx)");
+    toast.success("Arsip diekspor (.xlsx)", { description: `File Excel dengan ${archive.length} record arsip telah diunduh.` });
   };
 
   /** Export daftar surat (aktif) ke PDF */
   const exportSuratPdf = () => {
     if (records.length === 0) {
-      toast.error("Tidak ada surat untuk diekspor");
+      toast.error("Tidak ada surat untuk diekspor", { description: "Ekspor tidak dapat dilakukan karena belum ada surat aktif." });
       return;
     }
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -650,7 +654,7 @@ export default function AdminPage() {
       detail: `Export ${Math.min(records.length, 50)} record ke PDF`,
       username,
     });
-    toast.success("PDF diunduh");
+    toast.success("PDF diunduh", { description: `Daftar ${Math.min(records.length, 50)} surat telah diunduh sebagai PDF.` });
   };
 
   return (
@@ -704,7 +708,7 @@ export default function AdminPage() {
                   <p className="eyebrow mb-2">
                     <span
                       className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                        ok === false ? "bg-red-400" : ok ? "bg-green-400" : "bg-yellow-400"
+                        ok === false ? "bg-[#E37222]" : ok ? "bg-[#078898]" : "bg-[#EEAA78]"
                       }`}
                       title={
                         ok === false
@@ -988,13 +992,14 @@ export default function AdminPage() {
           </div>
         </section>
       ) : view === "monitoring" ? (
-        <section className="py-8 px-4 sm:px-8">
-          <div className="mx-auto max-w-7xl">
-            <MonitoringTable
-              records={records}
+        <>
+          <section className="py-8 px-4 sm:px-8">
+            <div className="mx-auto max-w-7xl">
+              <MonitoringTable
+                records={records}
               onPreview={setPreview}
               onVerify={verify}
-              onReject={reject}
+              onReject={(r) => setRejectTarget(r)}
               onLanjut={lanjutApproval}
               onApprove={approve}
               onSend={(r) =>
@@ -1007,16 +1012,17 @@ export default function AdminPage() {
                     detail: `Kirim notifikasi WA ke ${r.pemohon} (${r.kontak}) untuk surat ${r.no}`,
                     username,
                   });
-                  toast.success("Dikirim via WA");
+                  toast.success("Dikirim via WA", { description: `Notifikasi WA untuk ${r.pemohon} (${r.no}) telah dikirim.` });
                 })
               }
             />
-          </div>
-        </section>
+            </div>
+          </section>
+        </>
       ) : view === "archive" ? (
         <section className="py-8 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl">
-            <ArchiveTable archive={archive} onPreview={setPreview} onExport={exportArchive} />
+            <ArchiveTable archive={archive} onPreview={setPreview} onExport={exportArchive} onExportExcel={exportArchiveExcel} />
           </div>
         </section>
       ) : (
@@ -1288,7 +1294,7 @@ export default function AdminPage() {
                                     key={a}
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => reject(r)}
+                                    onClick={() => setRejectTarget(r)}
                                   >
                                     <XCircle className="h-4 w-4 mr-1" /> Tolak
                                   </Button>
@@ -1298,12 +1304,19 @@ export default function AdminPage() {
                                   <Button
                                     key={a}
                                     size="sm"
-                                    onClick={() =>
+                                    onClick={() => {
                                       sendWaNotification(
                                         r.kontak,
                                         `Dokumen ${r.nama_surat} (${r.no}) telah dikirim.`,
-                                      ).then(() => toast.success("Dikirim via WA"))
-                                    }
+                                      ).then(() => {
+                                        logAudit({
+                                          action: "surat.send_wa",
+                                          detail: `Kirim notifikasi WA ke ${r.pemohon} (${r.kontak}) untuk surat ${r.no}`,
+                                          username,
+                                        });
+                                        toast.success("Dikirim via WA", { description: `Notifikasi WA untuk ${r.pemohon} (${r.no}) telah dikirim.` });
+                                      });
+                                    }}
                                     className="bg-primary hover:bg-primary-hover"
                                   >
                                     <Send className="h-4 w-4 mr-1" /> Kirim
@@ -1340,7 +1353,13 @@ export default function AdminPage() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <SuratPreviewPanel preview={preview} />
+                      <SuratPreviewPanel
+                        preview={preview}
+                        onVerify={verify}
+                        onReject={reject}
+                        onLanjut={lanjutApproval}
+                        onApprove={approve}
+                      />
                       {preview.status === "Disetujui" && qrUrl && (
                         <div className="flex flex-col items-center mt-4">
                           <img
@@ -1359,6 +1378,17 @@ export default function AdminPage() {
           </div>
         </section>
       )}
+
+      {/* Rejection modal — triggered by both dashboard inline buttons and MonitoringTable */}
+      <RejectionModal
+        open={!!rejectTarget}
+        record={rejectTarget}
+        onClose={() => setRejectTarget(null)}
+        onConfirm={(alasan: string) => {
+          if (rejectTarget) reject(rejectTarget, alasan);
+          setRejectTarget(null);
+        }}
+      />
 
       <Footer />
     </div>
@@ -1553,7 +1583,7 @@ function MonitoringTable({
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={7} className="text-center py-12 text-muted-foreground">
                     Belum ada pengajuan.
                   </td>
                 </tr>
@@ -1695,12 +1725,33 @@ function ArchiveTable({
   archive,
   onPreview,
   onExport,
+  onExportExcel,
 }: {
   archive: SuratRecord[];
   onPreview: (r: SuratRecord) => void;
   onExport: () => void;
+  onExportExcel: () => void;
 }) {
   const [q, setQ] = useState("");
+
+  const stats = useMemo(() => {
+    const now = new Date();
+    const thisMonth = archive.filter((r) => {
+      if (!r.signed_at) return false;
+      const d = new Date(r.signed_at);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    const thisYear = archive.filter((r) => {
+      if (!r.signed_at) return false;
+      return new Date(r.signed_at).getFullYear() === now.getFullYear();
+    });
+    return {
+      total: archive.length,
+      bulanIni: thisMonth.length,
+      tahunIni: thisYear.length,
+    };
+  }, [archive]);
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return archive;
@@ -1711,6 +1762,27 @@ function ArchiveTable({
     );
   }, [archive, q]);
 
+  const downloadLink = async (r: SuratRecord) => {
+    // Generate PDF via edge function
+    try {
+      const res = await fetch("/api/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ no: r.no }),
+      });
+      if (!res.ok) throw new Error("Gagal generate PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${r.kode}_${r.no}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Gagal mengunduh PDF", { description: "Tidak dapat mengunduh PDF arsip. Coba lagi nanti." });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-border bg-card p-5 shadow-card flex flex-wrap items-center justify-between gap-3">
@@ -1718,9 +1790,17 @@ function ArchiveTable({
           <h2 className="font-display text-xl sm:text-2xl font-bold flex items-center gap-2">
             <Archive className="h-6 w-6 text-primary" /> Arsip Surat Keluar
           </h2>
-          <p className="font-body text-sm text-muted-foreground mt-1">
-            {archive.length} dokumen terkirim · ditandatangani digital
-          </p>
+          <div className="flex flex-wrap gap-4 mt-1">
+            <p className="font-body text-sm text-muted-foreground">
+              {stats.total} total arsip
+            </p>
+            <p className="font-body text-sm text-muted-foreground">
+              · {stats.bulanIni} bulan ini
+            </p>
+            <p className="font-body text-sm text-muted-foreground">
+              · {stats.tahunIni} tahun {new Date().getFullYear()}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -1732,8 +1812,11 @@ function ArchiveTable({
               className="pl-9 w-56 rounded-full"
             />
           </div>
+          <Button size="sm" onClick={onExportExcel} className="bg-success hover:bg-success/90 text-background hidden sm:inline-flex">
+            <TrendingUp className="h-4 w-4 mr-1.5" /> Excel
+          </Button>
           <Button size="sm" onClick={onExport} className="bg-primary hover:bg-primary-hover">
-            <Download className="h-4 w-4 mr-1.5" /> Export CSV
+            <Download className="h-4 w-4 mr-1.5" /> CSV
           </Button>
         </div>
       </div>
@@ -1754,7 +1837,7 @@ function ArchiveTable({
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={7} className="text-center py-12 text-muted-foreground">
                     Belum ada surat keluar.
                   </td>
                 </tr>
@@ -1769,6 +1852,14 @@ function ArchiveTable({
                     <td className="px-4 py-3">
                       <div className="font-ui font-semibold">{r.nama_surat}</div>
                       <div className="text-[11px] font-bold text-primary">{r.kode}</div>
+                      {r.attachments && r.attachments.length > 0 && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Paperclip className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-[10px] text-muted-foreground">
+                            {r.attachments.length} lampiran
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-xs">
                       {r.pemohon} <span className="text-muted-foreground">· {r.nik}</span>
@@ -1788,6 +1879,14 @@ function ArchiveTable({
                           }}
                         >
                           <Eye className="h-3.5 w-3.5 mr-1" /> Preview
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => downloadLink(r)}
+                          className="bg-primary hover:bg-primary-hover"
+                          title="Unduh PDF"
+                        >
+                          <Download className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </td>

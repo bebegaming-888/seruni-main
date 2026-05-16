@@ -100,6 +100,7 @@ export type SystemSettings = {
     instagram: string;
     youtube: string;
     twitter: string;
+    website: string;
   };
   notifications: {
     wa_enabled: boolean;
@@ -210,8 +211,8 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     consultants: [],
   },
   branding: {
-    primary_color: "#0f7a4a",
-    accent_color: "#c79a3a",
+    primary_color: "#E37222", // Brand: E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5
+    accent_color: "#078898",
     site_title: "Sistem Informasi Desa",
     tagline: "Bersama membangun desa yang mandiri, sejahtera, dan berbudaya.",
     favicon_url: "",
@@ -222,7 +223,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     mission: [],
     stats: [],
   },
-  social: { facebook: "", instagram: "", youtube: "", twitter: "" },
+  social: { facebook: "", instagram: "", youtube: "", twitter: "", website: "" },
   notifications: {
     wa_enabled: false,
     fonnte_token: "",
@@ -270,7 +271,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     logo_desa_url: "",
     logo_position: "separate",
     kop_lines: [],
-    header_bar_color: "#0f7a4a",
+    header_bar_color: "#E37222",
     footer_enabled: false,
     footer_text: "",
     signature_style: "text",

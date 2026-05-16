@@ -42,6 +42,7 @@ export type SyncAdminUser = {
 };
 
 // ── In-Memory Cache ───────────────────────────────────────────────────────────
+// _records/_archive null = belum pernah di-init (return []). [] = init berhasil, kosong.
 let _records: SuratRecord[] | null = null;
 let _archive: SuratRecord[] | null = null;
 
@@ -181,6 +182,11 @@ function toDbRecord(r: SuratRecord): Record<string, unknown> {
     status: r.status,
     catatan: r.catatan ?? null,
     attachments: cleanAttachments,
+    foto_selfie: r.foto_selfie ?? null,
+    rejection_reasons: r.rejection_reasons ?? null,
+    rejection_detail: r.rejection_detail ?? null,
+    edit_history: r.edit_history ?? null,
+    updated_by: r.updated_by ?? null,
     verified_at: r.verified_at ?? null,
     verified_by: r.verified_by ?? null,
     approved_at: r.approved_at ?? null,
@@ -243,6 +249,7 @@ function fromDbRecord(row: Record<string, unknown>): SuratRecord {
   return {
     no: String(row.no ?? ""),
     tracking_no: row.tracking_no ? String(row.tracking_no) : undefined,
+    warga_id: row.warga_id ? String(row.warga_id) : undefined,
     kode: String(row.kode ?? ""),
     nama_surat: String(row.nama_surat ?? ""),
     pemohon: String(row.pemohon ?? ""),
@@ -259,6 +266,11 @@ function fromDbRecord(row: Record<string, unknown>): SuratRecord {
     signed_at: row.signed_at ? String(row.signed_at) : undefined,
     signed_by: row.signed_by ? String(row.signed_by) : undefined,
     qr_payload: row.qr_payload ? String(row.qr_payload) : undefined,
+    foto_selfie: (row.foto_selfie as SuratRecord["foto_selfie"]) ?? undefined,
+    rejection_reasons: (row.rejection_reasons as SuratRecord["rejection_reasons"]) ?? undefined,
+    rejection_detail: row.rejection_detail ? String(row.rejection_detail) : undefined,
+    edit_history: (row.edit_history as SuratRecord["edit_history"]) ?? undefined,
+    updated_by: row.updated_by ? String(row.updated_by) : undefined,
     created_at: row.created_at
       ? new Date(row.created_at as string).toISOString()
       : new Date().toISOString(),
@@ -392,7 +404,20 @@ export async function syncSetStatus(
       status,
       catatan: catatan ?? null,
       updated_at: new Date(),
+      updated_by: username,
     };
+    if (status === "Ditolak" && catatan) {
+      // Parse alasan: format "reason1; reason2; custom reason"
+      // rejection_reasons: semicolon-separated list of reason keys
+      const parts = catatan.split(";").map((p: string) => p.trim()).filter(Boolean);
+      if (parts.length > 0) {
+        // First N-1 parts are structured reasons, last part may be custom
+        updates.rejection_detail = parts[parts.length - 1];
+        if (parts.length > 1) {
+          updates.rejection_reasons = parts.slice(0, -1);
+        }
+      }
+    }
     if (status === "Diverifikasi") {
       updates.verified_by = username;
       updates.verified_at = new Date();
@@ -451,10 +476,11 @@ export async function syncPullAllRecords(): Promise<SyncResult> {
     const sb = getSupabase();
     if (!sb) return { ok: false, source: "supabase", error: "Supabase instance missing" };
 
-    // 1. Pull dari Supabase
+    // 1. Pull dari Supabase — hanya record aktif (belum diarsipkan)
     const { data, error } = await sb
       .from("surat_requests")
       .select("*")
+      .eq("archived", false)
       .order("created_at", { ascending: false });
     if (error) throw error;
 
@@ -523,7 +549,7 @@ export async function syncArchive(no: string, username = "system"): Promise<Sync
   return { ok: true, source: "localStorage", record: r, cloudSynced };
 }
 
-/** Hapus record surat (terutama digunakan saat pergantian ID tracking ke no_surat resmi).
+/** Hapus record surat (terutama digunakan saat pergantian ID tracking ke no resmi).
  * Instead of hard-deleting from Supabase, mark as archived so it appears in archive tab. */
 export async function syncDeleteRecord(no: string, username = "system"): Promise<SyncResult> {
   const localRecords = [...getLocalRecords()];

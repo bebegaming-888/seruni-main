@@ -5,6 +5,7 @@ import { useSettings, getSettings } from "@/lib/settings-store";
 import { getVillage } from "@/lib/village-dynamic";
 
 import { useAgendaStore, type AgendaItem } from "@/lib/content-store";
+import { PageHero } from "@/components/sections/PageHero";
 import { Calendar, MapPin, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useVillage } from "@/hooks/use-village";
@@ -26,8 +27,9 @@ export const Route = createFileRoute("/informasi/agenda")({
 
 const KATEGORI_CONFIG: Record<string, { color: string; bg: string; icon: string }> = {
   Musyawarah: { color: "text-primary", bg: "bg-primary/10 border-primary/20", icon: "🤝" },
-  Kesehatan: { color: "text-red-500", bg: "bg-red-50 border-red-200", icon: "💊" },
-  Budaya: { color: "text-purple-600", bg: "bg-purple-50 border-purple-200", icon: "🎭" },
+  // Brand palette: E37222 | 078898 | 66B9BF | EEAA78
+  Kesehatan: { color: "text-[#E37222]", bg: "bg-[#E37222]/10 border-[#E37222]/20", icon: "💊" },
+  Budaya: { color: "text-[#078898]", bg: "bg-[#078898]/10 border-[#078898]/20", icon: "🎭" },
 };
 
 const MONTHS = [
@@ -287,29 +289,14 @@ export function AgendaPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="relative pt-32 pb-12 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <Calendar className="h-3.5 w-3.5" />
-              Agenda Desa
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
-              Kalender Kegiatan
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              Jadwal kegiatan masyarakat {villageName}. Klik tanggal pada kalender untuk melihat
-              agenda hari tersebut.
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
-                <Calendar className="h-3.5 w-3.5" />
-                {items.length} Agenda Aktif
-              </span>
-            </div>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Kalender"
+          titleSecond="Kegiatan"
+          description={`Jadwal agenda masyarakat ${villageName}. Klik tanggal untuk detail.`}
+          badge="Agenda Desa"
+          badgeIcon={<Calendar className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Informasi" }, { label: "Agenda" }]}
+        />
 
         {/* Content */}
         <section className="px-4 mb-16">

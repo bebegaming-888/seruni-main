@@ -21,8 +21,8 @@ const MARQUEE_POSITION_MAP = {
   bottom: "78%",
 } as const;
 
-/** Fallback gradient saat belum ada video */
-const FALLBACK_GRADIENT = "linear-gradient(160deg, #1a4d2e 0%, #0d2818 50%, #051a0f 100%)";
+/** Fallback gradient — brand palette: secondary(078898) → primary(E37222) → dark */
+const FALLBACK_GRADIENT = "linear-gradient(160deg, #078898 0%, #66B9BF 50%, #1a3040 100%)";
 
 /** Placeholder marquee text — belt & suspenders safety net */
 const MARQUEE_FALLBACK_TEXT = "Selamat Datang di Portal Resmi Desa";

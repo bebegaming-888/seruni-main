@@ -51,10 +51,29 @@ export type SuratRecord = {
   signed_by?: string;
   /** Payload untuk QR code verifikasi */
   qr_payload?: string;
+  /** Foto selfie dengan KTP (base64 data URL atau storage path) */
+  foto_selfie?: Lampiran;
+  /** Array reason key dari alasan penolakan (REJECTION_REASONS indices) */
+  rejection_reasons?: string[];
+  /** Alasan penolakan custom dari field "Lainnya" */
+  rejection_detail?: string;
+  /** Riwayat koreksi warga — array of { timestamp, edited_by, correction_note } */
+  edit_history?: EditHistoryEntry[];
+  /** User yang terakhir mengubah record */
+  updated_by?: string;
   created_at: string;
   updated_at?: string;
   /** Sync status dari operasi save terakhir. undefined = belum diketahui. */
   cloudSynced?: boolean;
+};
+
+/** Entry dalam edit_history tracking */
+export type EditHistoryEntry = {
+  timestamp: string;
+  edited_by: string;
+  correction_note: string;
+  /** Snapshot fields yang diubah (optional) */
+  changed_fields?: string[];
 };
 
 /* ---- Records CRUD (delegates to IndexedDB cache) ---- */

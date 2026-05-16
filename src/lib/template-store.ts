@@ -235,8 +235,14 @@ export async function deleteTemplate(id: string): Promise<void> {
   });
 }
 
-export function getTemplate(id: string): SuratTemplate | undefined {
-  return listTemplates().find((t) => t.id === id);
+/**
+ * Get template by code (e.g. "SKTM", "SP-KTP") or by UUID id.
+ * Called with kode from surat records — searches by code first (the dominant usage),
+ * then by id as a fallback (for custom templates that use UUID id).
+ */
+export function getTemplate(codeOrId: string): SuratTemplate | undefined {
+  const list = listTemplates();
+  return list.find((t) => t.code === codeOrId) ?? list.find((t) => t.id === codeOrId);
 }
 
 export async function setTemplateStatus(id: string, patch: Partial<SuratTemplate>): Promise<void> {

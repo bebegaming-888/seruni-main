@@ -3,8 +3,11 @@ import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { useVillage } from "@/hooks/use-village";
 import { getVillage } from "@/lib/village-dynamic";
+import { PageHero } from "@/components/sections/PageHero";
+import { useSettings } from "@/lib/settings-store";
+import { Info } from "lucide-react";
 
-import { Info, History, Target, Shield, Map as MapIcon, Users } from "lucide-react";
+import { History, Target, Shield, Map as MapIcon, Users } from "lucide-react";
 
 export const Route = createFileRoute("/profil/desa")({
   head: () => {
@@ -46,28 +49,50 @@ function SectionTitle({
 
 export function ProfilDesaPage() {
   const v = useVillage();
+  const { content } = useSettings();
+  const pageConfig = getVillage();
+
+  const vision = content?.vision || "Terwujudnya desa yang maju, mandiri, dan sejahtera.";
+  const missions = content?.mission?.length ? content.mission : [
+    "Mewujudkan tata kelola pemerintahan desa yang transparan dan akuntabel.",
+    "Mendorong kemandirian ekonomi masyarakat melalui optimalisasi potensi lokal.",
+    "Meningkatkan kualitas pendidikan, kesehatan, dan kesejahteraan sosial.",
+    "Menjaga kelestarian lingkungan dan budaya lokal.",
+  ];
+
+  // Sejarah dari page settings config, fallback paragraphs
+  const sejarahDefault = [
+    `${v.name} memiliki sejarah panjang sebagai desa yang bertransformasi dari waktu ke waktu.`,
+    `Desa ini terus berkembang dalam berbagai aspek kehidupan masyarakat.`,
+    `Komitmen untuk menjaga kearifan lokal sekaligus terbuka terhadap inovasi tetap menjadi pilar utama.`,
+  ];
+  const sejarahParas = (content as { sejarah?: string } | undefined)?.sejarah
+    ? ((content as { sejarah?: string }).sejarah || "").split("|").filter(Boolean)
+    : sejarahDefault;
+
+  // Stats — dari getVillage() atau page settings extras
+  const luasWilayah = v.luas_wilayah || "— Ha";
+  const populasiText = v.penduduk_stat || "— Jiwa";
+  const dusunCount = v.dusun_list?.length ? `${v.dusun_list.length} Danau` : "—";
+  const pageStats = content?.stats?.length ? content.stats : [
+    { label: "Luas Wilayah", value: luasWilayah, icon: "map" },
+    { label: "Populasi", value: populasiText, icon: "users" },
+    { label: "Dusun", value: dusunCount, icon: "map" },
+    { label: "Kepala Keluarga", value: "— KK", icon: "users" },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="relative pt-32 pb-20 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-4xl mx-auto relative text-center">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-6">
-              <Info className="h-3.5 w-3.5" />
-              Tentang Kami
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-ink mb-6 tracking-tight">
-              Profil {v.name}
-            </h1>
-
-            <p className="font-body text-muted-foreground text-lg sm:text-xl leading-relaxed max-w-2xl mx-auto">
-              Mengenal lebih dekat sejarah, nilai-nilai, dan cita-cita besar kami dalam membangun
-              desa yang mandiri dan berbudaya.
-            </p>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Profil"
+          titleSecond="Desa"
+          description="Sejarah, visi, misi, dan profil umum pemerintah desa."
+          badge="Tentang Kami"
+          badgeIcon={<Info className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Profil" }, { label: "Profil Desa" }]}
+        />
 
         {/* Visi & Misi */}
         <section className="py-20 px-4 border-y border-border/50">
@@ -82,8 +107,7 @@ export function ProfilDesaPage() {
                 </div>
                 <h2 className="font-display text-3xl font-bold mb-4">Visi Kami</h2>
                 <p className="font-body text-xl leading-relaxed italic opacity-90">
-                  "Menjadi desa yang mandiri, sejahtera, dan religius melalui tata kelola
-                  pemerintahan yang transparan dan inovasi ekonomi kerakyatan."
+                  &ldquo;{vision}&rdquo;
                 </p>
               </div>
             </div>
@@ -94,29 +118,11 @@ export function ProfilDesaPage() {
               </div>
               <h2 className="font-display text-3xl font-bold text-ink">Misi Kami</h2>
               <ul className="space-y-6">
-                {[
-                  {
-                    title: "Pemerintahan Transparan",
-                    desc: "Mewujudkan tata kelola pemerintahan desa yang bersih, transparan, dan akuntabel.",
-                  },
-                  {
-                    title: "Peningkatan Ekonomi",
-                    desc: "Mendorong kemandirian ekonomi masyarakat melalui optimalisasi BUMDes dan UMKM.",
-                  },
-                  {
-                    title: "Kualitas Sumber Daya",
-                    desc: "Meningkatkan kualitas pendidikan, kesehatan, dan kesejahteraan sosial masyarakat.",
-                  },
-                  {
-                    title: "Kelestarian Budaya",
-                    desc: "Menjaga dan melestarikan nilai-nilai adat serta budaya lokal sebagai identitas desa.",
-                  },
-                ].map((m, i) => (
+                {missions.map((m, i) => (
                   <li key={i} className="flex gap-4">
                     <div className="font-display text-2xl font-bold text-primary/30">0{i + 1}</div>
                     <div>
-                      <h4 className="font-display text-lg font-bold text-ink">{m.title}</h4>
-                      <p className="font-body text-muted-foreground text-sm mt-1">{m.desc}</p>
+                      <h4 className="font-display text-lg font-bold text-ink">{m}</h4>
                     </div>
                   </li>
                 ))}
@@ -136,30 +142,13 @@ export function ProfilDesaPage() {
             </div>
 
             <div className="prose prose-lg prose-slate mx-auto font-body text-muted-foreground leading-relaxed space-y-6">
-              <p>
-                {v.name} memiliki akar sejarah yang kuat yang bermula dari pemukiman nelayan
-                tradisional di pesisir Pringgabaya. Nama "{v.village}" sendiri diambil dari filosofi
-                keindahan dan kemandirian, serta semangat untuk bangkit atau menjulang tinggi.
-              </p>
-              <p>
-                Sejak diresmikan sebagai desa definitif, {v.name} terus bertransformasi dari pusat
-                perdagangan hasil laut menjadi desa wisata yang mengedepankan kearifan lokal dan
-                keindahan pesisir pantainya.
-              </p>
-              <p>
-                Melalui pergantian kepemimpinan dari masa ke masa, komitmen untuk tetap menjaga jati
-                diri sebagai desa religius namun terbuka terhadap inovasi teknologi tetap menjadi
-                pilar utama pembangunan kami.
-              </p>
+              {sejarahParas.map((p, i) => (
+                <p key={i}>{p}</p>
+              ))}
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mt-16 pt-12 border-t border-border">
-              {[
-                { label: "Luas Wilayah", value: "1.250 Ha", icon: MapIcon },
-                { label: "Populasi", value: "8.420 Jiwa", icon: Users },
-                { label: "Dusun", value: "12 Dusun", icon: MapIcon },
-                { label: "Kepala Keluarga", value: "2.140 KK", icon: Users },
-              ].map((stat, i) => (
+              {pageStats.map((stat, i) => (
                 <div key={i} className="text-center">
                   <div className="font-display text-2xl font-bold text-ink mb-1">{stat.value}</div>
                   <div className="font-ui text-xs font-bold text-muted-foreground uppercase tracking-wider">

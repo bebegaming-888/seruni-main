@@ -7,12 +7,20 @@
 import React from "react";
 import type { RenderedLetter } from "@/lib/letter-engine";
 
+// ── Brand palette defaults for letter components ────────────────────────────────
+// Primary = E37222 (orange), Secondary = 078898 (teal)
+const BRAND_PRIMARY = "#E37222";
+const BRAND_SECONDARY = "#078898";
+const BRAND_BORDER = "#D5D5D5";
+const BRAND_TEXT = "#1a1918";
+const BRAND_MUTED = "#5c5a56";
+
 type Props = {
   header: RenderedLetter["header"];
   primaryColor?: string;
 };
 
-export function LetterHeader({ header, primaryColor = "#0f7a4a" }: Props) {
+export function LetterHeader({ header, primaryColor = BRAND_PRIMARY }: Props) {
   return (
     <div className="letter-header">
       {/* Double top rule */}
@@ -48,13 +56,13 @@ export function LetterHeader({ header, primaryColor = "#0f7a4a" }: Props) {
               style={{
                 width: 68,
                 height: 68,
-                border: "1px dashed #ccc",
+                border: `1px dashed ${BRAND_BORDER}`,
                 borderRadius: 4,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: 9,
-                color: "#aaa",
+                color: BRAND_MUTED,
               }}
             >
               Logo Kab
@@ -71,8 +79,8 @@ export function LetterHeader({ header, primaryColor = "#0f7a4a" }: Props) {
           <div style={{ fontSize: 14, fontWeight: "bold", letterSpacing: 1 }}>
             {header.namaDesa}
           </div>
-          <div style={{ fontSize: 9, marginTop: 3, color: "#333" }}>{header.alamat}</div>
-          <div style={{ fontSize: 9, color: "#555" }}>{header.kontak}</div>
+          <div style={{ fontSize: 9, marginTop: 3, color: BRAND_TEXT }}>{header.alamat}</div>
+          <div style={{ fontSize: 9, color: BRAND_MUTED }}>{header.kontak}</div>
         </div>
 
         {/* Logo Desa */}
@@ -88,13 +96,13 @@ export function LetterHeader({ header, primaryColor = "#0f7a4a" }: Props) {
               style={{
                 width: 68,
                 height: 68,
-                border: "1px dashed #ccc",
+                border: `1px dashed ${BRAND_BORDER}`,
                 borderRadius: 4,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: 9,
-                color: "#aaa",
+                color: BRAND_MUTED,
               }}
             >
               Logo Desa

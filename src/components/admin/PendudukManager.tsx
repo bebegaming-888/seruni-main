@@ -283,7 +283,7 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
   async function handleDelete(nik: string) {
     const r = await deletePenduduk(nik, username);
     if (r.ok) {
-      toast.success("Data dihapus");
+      toast.success("Data dihapus", { description: "Data penduduk telah dihapus dari database." });
       refresh();
     } else toast.error(r.message);
     setDeleteTarget(null);
@@ -293,9 +293,9 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
     const result = await importPenduduk(rows, username);
     setSmartResult(result);
     refresh();
-    toast.success(`Import selesai: ${result.added} baru, ${result.updated} diperbarui`);
+    toast.success(`Import selesai: ${result.added} baru, ${result.updated} diperbarui`, { description: "Database penduduk telah diperbarui." });
     if (result.errors.length > 0) {
-      toast.warning(`${result.errors.length} baris gagal diimport`);
+      toast.warning(`${result.errors.length} baris gagal diimport`, { description: "Periksa format data dan kolom yang diperlukan." });
     }
   }
 
@@ -304,7 +304,7 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
     refresh();
     setModal(null);
     setPurgeConfirm("");
-    toast.success("Seluruh data penduduk berhasil dihapus");
+    toast.success("Seluruh data penduduk berhasil dihapus", { description: "Semua data penduduk telah dihapus dari sistem." });
   }
 
   async function handleImportFile(file: File) {
@@ -584,7 +584,7 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
                     </td>
                     <td className="px-3 py-3">
                       <span
-                        className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${p.jenis_kelamin === "Laki-Laki" ? "bg-blue-100 text-blue-700" : "bg-pink-100 text-pink-700"}`}
+                        className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${p.jenis_kelamin === "Laki-Laki" ? "bg-[#078898]/10 text-[#078898]" : "bg-[#E37222]/10 text-[#E37222]"}`}
                       >
                         {p.jenis_kelamin === "Laki-Laki" ? "L" : "P"}
                       </span>

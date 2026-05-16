@@ -1,9 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Search, QrCode, FileCheck, Loader2, ArrowRight } from "lucide-react";
 import { getVillage } from "@/lib/village-dynamic";
 import { useVillage } from "@/hooks/use-village";
-import { getSettings } from "@/lib/settings-store";
+import { Navbar } from "@/components/site/Navbar";
+import { Footer } from "@/components/site/Footer";
+import { PageHero } from "@/components/sections/PageHero";
 
 export const Route = createFileRoute("/verifikasi")({
   head: () => {
@@ -46,42 +48,16 @@ export function VerifikasiPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-display text-base font-bold">
-              {villageName[0]}
-            </div>
-            <div>
-              <div className="font-display text-sm font-bold leading-tight">{villageName}</div>
-              <div className="font-ui text-[10px] text-muted-foreground">Sistem Informasi Desa</div>
-            </div>
-          </Link>
-          <Link
-            to="/"
-            className="font-ui text-xs text-muted-foreground hover:text-foreground transition"
-          >
-            Kembali
-          </Link>
-        </div>
-      </header>
+      <Navbar />
+      <PageHero
+        titleFirst="Verifikasi"
+        titleSecond="Dokumen"
+        description="Cek keabsahan dokumen surat dari desa."
+        badge="Verifikasi Surat"
+        badgeIcon={<QrCode className="h-3.5 w-3.5" />}
+      />
 
       <main className="max-w-2xl mx-auto px-4 py-12">
-        {/* Page header */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20">
-            <QrCode className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="font-display text-2xl font-bold">Verifikasi Dokumen Surat</h1>
-            <p className="font-body text-sm text-muted-foreground">
-              Masukkan nomor surat untuk memastikan keabsahan dokumen dari {villageName}
-            </p>
-          </div>
-        </div>
-
-        {/* Search form */}
         <form onSubmit={handleSearch} className="mb-8">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -168,6 +144,7 @@ export function VerifikasiPage() {
           </ol>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

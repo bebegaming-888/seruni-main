@@ -3,6 +3,7 @@ import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { useVillage } from "@/hooks/use-village";
 import { getVillage } from "@/lib/village-dynamic";
+import { PageHero } from "@/components/sections/PageHero";
 import {
   Users,
   Home,
@@ -178,27 +179,20 @@ export function MonografiPage() {
       <Navbar />
       <main>
         {/* Hero */}
-        <section className="relative pt-32 pb-16 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30">
-          <div className="max-w-5xl mx-auto">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <BookOpen className="h-3.5 w-3.5" />
-              Profil & Statistik
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
-              Monografi Desa
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed">
-              Data lengkap profil dan statistik {v.name}, {v.district}, {v.regency}. Semester{" "}
-              {d.semester}.
-            </p>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Profil"
+          titleSecond="Desa"
+          description={"Data lengkap profil dan statistik " + (v as { name?: string }).name + "."}
+          badge="Profil & Statistik"
+          badgeIcon={<BookOpen className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Lainnya" }, { label: "Monografi" }]}
+        />
 
         {/* Demo data notice */}
         {usingMock && (
           <div className="px-4 mb-6">
             <div className="max-w-5xl mx-auto">
-              <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 border border-amber-300 px-3 py-1 font-ui text-xs font-semibold text-amber-700">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#EEAA78]/20 border border-[#EEAA78]/30 px-3 py-1 font-ui text-xs font-semibold text-[#1a1918]">
                 <span>⚠️</span>
                 Data contoh — belum ada data monografi di database. Hubungi admin untuk upload data
                 semester berjalan.

@@ -1,161 +1,231 @@
-import { createFileRoute } from "@tanstack/react-router";
+/**
+ * informasi.berita.tsx — News portal listing page
+ *
+ * BRAND COMPLIANT — full rewrite:
+ *   Navbar + Footer  → @/components/site/{Navbar,Footer}
+ *   Fonts           → Fraunces (display) | Raleway (body) | Poppins (ui)
+ *   Brand Palette   → E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5
+ *   Dark mode       → brand palette surface overrides only
+ */
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { useSettings, getSettings } from "@/lib/settings-store";
-
-import { Link } from "@/components/Link";
-import { CATEGORIES, formatRelativeDate, type Article, type ArticleCategory } from "@/data/berita";
+import { useSettings } from "@/lib/settings-store";
+import { PageHero } from "@/components/sections/PageHero";
+import {
+  CATEGORIES,
+  formatRelativeDate,
+  formatDate,
+  type Article,
+  type ArticleCategory,
+} from "@/data/berita";
 import { useBeritaStore } from "@/lib/content-store";
-import { Newspaper, Eye, Clock, ArrowRight, Search } from "lucide-react";
-import { useState, useEffect } from "react";
-import { useSearch } from "@tanstack/react-router";
+import {
+  Newspaper,
+  Eye,
+  Clock,
+  Search,
+  X,
+  CalendarDays,
+  User,
+  Bookmark,
+} from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearch, useNavigate } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/informasi/berita")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    q: typeof search.q === "string" ? search.q : "",
-    category: typeof search.category === "string" ? search.category : "Semua",
-  }),
-  component: () => <BeritaPage />,
-});
+// ── Category Brand Colors ─────────────────────────────────────────────────────
+const CAT_STYLE: Record<string, { text: string; bg: string }> = {
+  Berita: { text: "#E37222", bg: "bg-[#E37222]/10" },
+  Pengumuman: { text: "#EEAA78", bg: "bg-[#EEAA78]/10" },
+  Agenda: { text: "#078898", bg: "bg-[#078898]/10" },
+};
 
-function Badge({
-  label,
-  color = "text-primary",
-  bg = "bg-primary/10",
-  border = "border-primary/20",
-}: {
-  label: string;
-  color?: string;
-  bg?: string;
-  border?: string;
-}) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 font-ui text-[10px] font-semibold ${color} ${bg} ${border}`}
-    >
-      {label}
-    </span>
-  );
+function getCatStyle(cat: string) {
+  return CAT_STYLE[cat] ?? { text: "#5c5a56", bg: "bg-muted" };
 }
 
-function FeaturedCard({ article }: { article: Article }) {
+// ── Hero Primary Article ─────────────────────────────────────────────────────
+function HeroPrimary({ article }: { article: Article }) {
   return (
-    <Link
-      to="/informasi/berita/$slug"
-      params={{ slug: article.slug }}
-      className="group relative flex flex-col sm:flex-row gap-4 rounded-2xl border border-border bg-card overflow-hidden hover:border-primary/30 hover:shadow-lg transition-all duration-300"
-    >
-      {/* Cover */}
-      <div className="sm:w-48 h-36 sm:h-auto shrink-0 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-        <div className="flex flex-col items-center justify-center p-6 text-center">
-          <Newspaper className="h-8 w-8 text-primary/50 mb-2" />
-          <span className="font-ui text-xs text-primary/60 font-medium">{article.category}</span>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 p-5 min-w-0">
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <Badge label={article.category} />
-          <span className="font-ui text-[10px] text-muted-foreground">
-            {formatRelativeDate(article.published_at)}
-          </span>
-        </div>
-        <h3 className="font-display text-base sm:text-lg font-bold text-ink leading-snug group-hover:text-primary transition-colors mb-2">
-          {article.title}
-        </h3>
-        <p className="font-body text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-4">
+    <article className="flex flex-col gap-4">
+      <Link
+        to="/informasi/berita/$slug"
+        params={{ slug: article.slug }}
+        className="block aspect-video overflow-hidden rounded-2xl bg-muted"
+      >
+        {article.cover_image ? (
+          <img
+            src={article.cover_image}
+            alt={article.title}
+            className="w-full h-full object-cover hover:scale-[1.02] transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-[#F4F4F4]">
+            <Newspaper className="h-12 w-12 text-[#D5D5D5]" />
+          </div>
+        )}
+      </Link>
+      <div>
+        {(() => {
+          const cs = getCatStyle(article.category);
+          return (
+            <Link
+              to="/informasi/berita"
+              search={{ q: "", category: article.category } as Record<string, string>}
+              className={`inline-block text-[11px] font-ui font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${cs.bg}`}
+              style={{ color: cs.text }}
+            >
+              {article.category}
+            </Link>
+          );
+        })()}
+        <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink leading-tight mt-2 mb-3">
+          <Link to="/informasi/berita/$slug" params={{ slug: article.slug }}>
+            {article.title}
+          </Link>
+        </h2>
+        <p className="font-body text-muted-foreground leading-relaxed text-sm sm:text-base mb-4 line-clamp-3">
           {article.excerpt}
         </p>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="font-ui text-[10px] text-muted-foreground">{article.author.nama}</span>
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span className="font-ui text-[10px]">{article.read_time} menit</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Eye className="h-3 w-3" />
-            <span className="font-ui text-[10px]">{article.views.toLocaleString()}</span>
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function ArticleCard({ article }: { article: Article }) {
-  return (
-    <Link
-      to="/informasi/berita/$slug"
-      params={{ slug: article.slug }}
-      className="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 hover:border-primary/30 hover:shadow-md transition-all duration-300"
-    >
-      {/* Header */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Badge label={article.category} />
-        <span className="font-ui text-[10px] text-muted-foreground">
-          {formatRelativeDate(article.published_at)}
-        </span>
-      </div>
-
-      <h3 className="font-display text-sm font-bold text-ink leading-snug group-hover:text-primary transition-colors">
-        {article.title}
-      </h3>
-
-      <p className="font-body text-xs text-muted-foreground leading-relaxed line-clamp-2 flex-1">
-        {article.excerpt}
-      </p>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-2 border-t border-border/40">
-        <div className="flex items-center gap-3">
-          <span className="font-ui text-[10px] text-muted-foreground truncate max-w-[120px]">
+        <div className="flex flex-wrap items-center gap-3 text-[12px] text-muted-foreground font-ui">
+          <span className="flex items-center gap-1">
+            <User className="h-3 w-3" />
             {article.author.nama}
           </span>
-        </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <div className="flex items-center gap-1">
+          <span className="w-1 h-1 rounded-full bg-muted-foreground" />
+          <span className="flex items-center gap-1">
+            <CalendarDays className="h-3 w-3" />
+            {formatDate(article.published_at)}
+          </span>
+          <span className="w-1 h-1 rounded-full bg-muted-foreground" />
+          <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            <span className="font-ui text-[10px]">{article.read_time}m</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Eye className="h-3 w-3" />
-            <span className="font-ui text-[10px]">{article.views}</span>
-          </div>
+            {article.read_time} menit
+          </span>
         </div>
       </div>
-    </Link>
+    </article>
   );
 }
 
-function SearchBar({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-}) {
+// ── Hero Secondary Article ───────────────────────────────────────────────────
+function HeroSecondary({ article }: { article: Article }) {
+  const cs = getCatStyle(article.category);
   return (
-    <div className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="h-10 w-full rounded-full border border-border bg-card pl-9 pr-4 font-ui text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
-      />
+    <article className="flex items-start gap-3 py-4 border-b border-border last:border-0 last:pb-0 first:pt-0">
+      {article.cover_image && (
+        <Link
+          to="/informasi/berita/$slug"
+          params={{ slug: article.slug }}
+          className="shrink-0 w-20 h-16 overflow-hidden rounded-xl bg-muted"
+        >
+          <img
+            src={article.cover_image}
+            alt={article.title}
+            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+          />
+        </Link>
+      )}
+      <div className="flex-1 min-w-0">
+        <span
+          className="inline-block text-[10px] font-ui font-bold uppercase tracking-wider mb-1"
+          style={{ color: cs.text }}
+        >
+          {article.category}
+        </span>
+        <h3 className="font-display text-sm font-semibold text-ink leading-tight line-clamp-2">
+          <Link to="/informasi/berita/$slug" params={{ slug: article.slug }}>
+            {article.title}
+          </Link>
+        </h3>
+        <p className="text-[11px] text-muted-foreground font-ui mt-1">
+          {formatRelativeDate(article.published_at)} · {article.read_time}m
+        </p>
+      </div>
+    </article>
+  );
+}
+
+// ── Grid Article Card ─────────────────────────────────────────────────────────
+function ArticleCard({ article }: { article: Article }) {
+  const cs = getCatStyle(article.category);
+  return (
+    <article className="rounded-2xl border border-border bg-card overflow-hidden hover:shadow-card hover:border-[#E37222]/30 transition group flex flex-col">
+      <Link
+        to="/informasi/berita/$slug"
+        params={{ slug: article.slug }}
+        className="block aspect-video overflow-hidden bg-[#F4F4F4]"
+      >
+        {article.cover_image ? (
+          <img
+            src={article.cover_image}
+            alt={article.title}
+            className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Newspaper className="h-8 w-8 text-[#D5D5D5]" />
+          </div>
+        )}
+      </Link>
+      <div className="p-4 flex flex-col flex-1 gap-2">
+        <span
+          className="inline-block text-[10px] font-ui font-bold uppercase tracking-wider"
+          style={{ color: cs.text }}
+        >
+          {article.category}
+        </span>
+        <h3 className="font-display text-base font-bold text-ink leading-snug line-clamp-2 flex-1">
+          <Link to="/informasi/berita/$slug" params={{ slug: article.slug }}>
+            {article.title}
+          </Link>
+        </h3>
+        <p className="font-body text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+          {article.excerpt}
+        </p>
+        <div className="flex items-center justify-between pt-3 border-t border-border mt-auto">
+          <div>
+            <p className="font-ui text-[11px] font-semibold text-foreground">
+              {article.author.nama}
+            </p>
+            <p className="font-ui text-[10px] text-muted-foreground">
+              {formatRelativeDate(article.published_at)}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-ui">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {article.read_time}m
+            </span>
+            <span className="flex items-center gap-1">
+              <Eye className="h-3 w-3" />
+              {article.views}
+            </span>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+// ── Skeleton Card ─────────────────────────────────────────────────────────────
+function CardSkeleton() {
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="aspect-video bg-[#F4F4F4] animate-pulse" />
+      <div className="p-4 space-y-3">
+        <div className="h-3 w-16 rounded-full bg-[#F4F4F4] animate-pulse" />
+        <div className="h-4 w-full rounded bg-[#F4F4F4] animate-pulse" />
+        <div className="h-4 w-3/4 rounded bg-[#F4F4F4] animate-pulse" />
+        <div className="h-3 w-1/2 rounded bg-[#F4F4F4] animate-pulse mt-2" />
+      </div>
     </div>
   );
 }
 
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export function BeritaPage() {
   const { village } = useSettings();
-
   const store = useBeritaStore();
   const items = store.items;
 
@@ -164,153 +234,195 @@ export function BeritaPage() {
   }, [store]);
 
   const search = useSearch({ from: "/informasi/berita" });
-  const navigate = Route.useNavigate();
-  const [inputValue, setInputValue] = useState(search.q);
+  const navigate = useNavigate();
+  const [inputValue, setInputValue] = useState(search.q ?? "");
+  const [searchFocused, setSearchFocused] = useState(false);
 
-  const selectedCategory = (search.category as ArticleCategory | "Semua") ?? "Semua";
-  const searchQuery = search.q ?? "";
+  const selectedCategory = (search.category as string) ?? "Semua";
+  const searchQuery = (search.q as string) ?? "";
 
-  const setCategory = (cat: ArticleCategory | "Semua") =>
-    navigate({ search: { q: searchQuery, category: cat } });
+  // Debounced search
+  useEffect(() => {
+    const t = setTimeout(() => {
+      navigate({ search: { q: inputValue, category: selectedCategory } });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [inputValue, selectedCategory]);
 
-  const handleSearch = (val: string) => {
-    setInputValue(val);
-    navigate({ search: { q: val, category: selectedCategory } });
-  };
+  const setCategory = useCallback(
+    (cat: string) => navigate({ search: { q: inputValue, category: cat } }),
+    [navigate, inputValue],
+  );
 
-  const featured = items.filter((a) => a.featured);
-  const filtered = items.filter((a) => {
-    const matchCategory = selectedCategory === "Semua" || a.category === selectedCategory;
-    const q = searchQuery.toLowerCase();
-    const matchSearch =
-      !q ||
-      a.title.toLowerCase().includes(q) ||
-      a.excerpt.toLowerCase().includes(q) ||
-      a.tags.some((t: string) => t.toLowerCase().includes(q));
-    return matchCategory && matchSearch;
+  const categoryCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const a of items) c[a.category] = (c[a.category] ?? 0) + 1;
+    return c;
+  }, [items]);
+
+  const filtered = useMemo(() => {
+    return items.filter((a) => {
+      if (selectedCategory !== "Semua" && a.category !== selectedCategory) return false;
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        a.title.toLowerCase().includes(q) ||
+        a.excerpt.toLowerCase().includes(q) ||
+        (a.tags as string[]).some((t: string) => t.toLowerCase().includes(q))
+      );
+    });
+  }, [items, selectedCategory, searchQuery]);
+
+  const heroPrimary = filtered[0];
+  const heroSecondary = filtered.slice(1, 4);
+  const gridItems = filtered.slice(selectedCategory === "Semua" && !searchQuery ? 4 : 0);
+
+  const isLoading = items.length === 0;
+
+  const todayStr = new Date().toLocaleDateString("id-ID", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+
       <main>
+        <PageHero
+          titleFirst="Portal"
+          titleSecond="Berita"
+          description="Kabar terkini seputar kegiatan, pengumuman, dan agenda desa — faktual dari pemerintah desa."
+          badge="Informasi"
+          badgeIcon={<Newspaper className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Informasi" }, { label: "Berita" }]}
+        />
+
+        {/* Date bar */}
+        <div className="bg-[#F4F4F4] border-b border-[#D5D5D5]">
+          <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-end">
+            <span className="font-ui text-[11px] text-muted-foreground">{todayStr}</span>
+          </div>
+        </div>
+
         {/* Hero */}
-        <section className="relative pt-32 pb-12 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <Newspaper className="h-3.5 w-3.5" />
-              Portal Informasi
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
-              Berita & Artikel
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              Kabar terkini dari {village.name}. Berita desa, pengumuman penting, dan informasi
-              kegiatan masyarakat.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
-                <Newspaper className="h-3.5 w-3.5" />
-                {items.length} Artikel
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
-                {featured.length} Featured
-              </span>
-            </div>
-          </div>
-        </section>
-
-        {/* Filter & Search */}
-        <section className="px-4 mb-8 -mt-4">
-          <div className="max-w-5xl mx-auto">
-            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-              <SearchBar
-                value={inputValue}
-                onChange={handleSearch}
-                placeholder="Cari berita, pengumuman..."
-              />
-
-              {/* Category filter */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                <button
-                  onClick={() => setCategory("Semua")}
-                  className={`shrink-0 rounded-full border px-3 py-1 font-ui text-xs font-semibold transition-all ${
-                    selectedCategory === "Semua"
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card text-muted-foreground border-border hover:border-primary/30"
-                  }`}
-                >
-                  Semua
-                </button>
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setCategory(cat)}
-                    className={`shrink-0 rounded-full border px-3 py-1 font-ui text-xs font-semibold transition-all ${
-                      selectedCategory === cat
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-card text-muted-foreground border-border hover:border-primary/30"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Featured Articles */}
-        {selectedCategory === "Semua" && !searchQuery && (
-          <section className="px-4 mb-8">
-            <div className="max-w-5xl mx-auto">
-              <h2 className="font-display text-xl font-bold text-ink mb-4 flex items-center gap-2">
-                <span className="inline-block h-2 w-2 rounded-full bg-primary" />
-                Artikel Pilihan
-              </h2>
-              <div className="space-y-4">
-                {featured.map((article) => (
-                  <FeaturedCard key={article.id} article={article} />
-                ))}
-              </div>
+        {!isLoading && (
+          <section className="py-10 px-4">
+            <div className="max-w-6xl mx-auto">
+              {heroPrimary ? (
+                <div className="grid lg:grid-cols-3 gap-8 items-start">
+                  <div className="lg:col-span-2">
+                    <HeroPrimary article={heroPrimary} />
+                  </div>
+                  <div className="border-l border-border pl-8 space-y-0 divide-y divide-border">
+                    <h3 className="font-ui text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3 pt-1">
+                      Lainnya
+                    </h3>
+                    {(heroSecondary.length > 0 ? heroSecondary : items.slice(0, 3)).map((a) => (
+                      <HeroSecondary key={a.id} article={a} />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-16 rounded-2xl border border-dashed border-border">
+                  <Newspaper className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+                  <h2 className="font-display text-2xl font-bold text-ink mb-2">
+                    Portal Berita {village.name}
+                  </h2>
+                  <p className="font-body text-muted-foreground">
+                    Portal informasi kegiatan, pengumuman, dan berita desa.
+                  </p>
+                </div>
+              )}
             </div>
           </section>
         )}
 
-        {/* All Articles */}
-        <section className="px-4 mb-16">
-          <div className="max-w-5xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display text-xl font-bold text-ink flex items-center gap-2">
-                <span className="inline-block h-2 w-2 rounded-full bg-info" />
-                {selectedCategory === "Semua" ? "Semua Artikel" : selectedCategory}
+        {/* Category filter */}
+        <div className="sticky top-[64px] z-10 bg-background border-b border-[#D5D5D5]">
+          <div className="max-w-6xl mx-auto px-4">
+            <div className="flex items-center gap-0 overflow-x-auto no-scrollbar">
+              <button
+                onClick={() => setCategory("Semua")}
+                className={`inline-flex items-center gap-1.5 px-4 py-3 border-b-2 font-ui text-xs font-semibold whitespace-nowrap transition-colors ${
+                  selectedCategory === "Semua"
+                    ? "border-[#E37222] text-[#E37222]"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Semua
+                <span className="text-[10px] font-normal">({items.length})</span>
+              </button>
+              {CATEGORIES.map((cat) => {
+                const cs = getCatStyle(cat);
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setCategory(cat)}
+                    className={`inline-flex items-center gap-1.5 px-4 py-3 border-b-2 font-ui text-xs font-semibold whitespace-nowrap transition-colors ${
+                      selectedCategory === cat
+                        ? "border-[#E37222] text-[#E37222]"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                    style={selectedCategory === cat ? {} : { color: cs.text }}
+                  >
+                    {cat}
+                    <span className="text-[10px] font-normal">({categoryCounts[cat] ?? 0})</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Content grid */}
+        <section className="py-10 px-4">
+          <div className="max-w-6xl mx-auto">
+            {/* Section header */}
+            <div className="flex items-center justify-between mb-6 pb-3 border-b-2 border-[#D5D5D5]">
+              <h2 className="font-display text-lg font-bold text-ink">
+                {selectedCategory === "Semua"
+                  ? searchQuery
+                    ? `Hasil pencarian: "${searchQuery}"`
+                    : "Semua Artikel"
+                  : selectedCategory}
               </h2>
               <span className="font-ui text-xs text-muted-foreground">
-                {filtered.length} artikel
+                {isLoading ? "..." : `${filtered.length} artikel`}
               </span>
             </div>
 
-            {filtered.length === 0 ? (
-              <div className="rounded-2xl border border-border bg-card p-12 text-center">
-                <Search className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
-                <p className="font-display text-lg font-bold text-ink mb-1">Tidak ada hasil</p>
-                <p className="font-body text-sm text-muted-foreground">
-                  Coba ubah kata kunci atau kategori pencarian.
+            {/* Skeleton */}
+            {isLoading ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
+              </div>
+            ) : gridItems.length === 0 ? (
+              <div className="text-center py-16 rounded-2xl border border-dashed border-border">
+                <div className="w-14 h-14 rounded-2xl bg-[#E37222]/10 flex items-center justify-center mx-auto mb-4">
+                  <Newspaper className="h-7 w-7 text-[#E37222]" />
+                </div>
+                <h3 className="font-display text-xl font-bold text-ink mb-2">
+                  {searchQuery
+                    ? `Tidak ada hasil untuk "${searchQuery}"`
+                    : "Belum Ada Artikel"}
+                </h3>
+                <p className="font-body text-muted-foreground text-sm max-w-sm mx-auto mb-6">
+                  {searchQuery
+                    ? "Coba kata kunci lain atau pilih kategori berbeda."
+                    : "Artikel akan muncul setelah ditambahkan oleh admin desa."}
                 </p>
-                <button
-                  onClick={() => {
-                    handleSearch("");
-                    setCategory("Semua");
-                    setInputValue("");
-                  }}
-                  className="mt-4 rounded-full bg-primary/10 border border-primary/20 px-4 py-2 font-ui text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
-                >
-                  Reset Pencarian
-                </button>
+                {searchQuery && (
+                  <button
+                    onClick={() => { setInputValue(""); setCategory("Semua"); }}
+                    className="btn-pill bg-ink text-background hover:bg-ink/90"
+                  >
+                    Reset Pencarian
+                  </button>
+                )}
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filtered.map((article) => (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {gridItems.map((article) => (
                   <ArticleCard key={article.id} article={article} />
                 ))}
               </div>
@@ -318,7 +430,19 @@ export function BeritaPage() {
           </div>
         </section>
       </main>
+
       <Footer />
     </div>
   );
 }
+
+export const Route = createFileRoute("/informasi/berita")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    q: typeof search.q === "string" ? search.q : "",
+    category:
+      typeof search.category === "string" && CATEGORIES.includes(search.category as ArticleCategory)
+        ? (search.category as ArticleCategory)
+        : ("Semua" as string),
+  }),
+  component: BeritaPage,
+});

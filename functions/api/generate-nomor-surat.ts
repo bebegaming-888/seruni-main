@@ -21,9 +21,11 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { json, corsOptions } from "../_lib/utils";
+import { verifyAdminSession } from "../_lib/admin-session";
 import { createRateLimiter, getClientIp } from "../_lib/rate-limit";
 
 interface Env {
+  ADMIN_SESSION_SECRET: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
 }
@@ -48,6 +50,12 @@ export async function onRequestOptions(): Promise<Response> {
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
+  // Admin auth check — only logged-in admins can generate official surat numbers
+  const session = await verifyAdminSession(context.request, context.env.ADMIN_SESSION_SECRET ?? "");
+  if (!session) {
+    return json({ ok: false, error: "Unauthorized — silakan login terlebih dahulu" }, 401);
+  }
+
   const rl = createRateLimiter("public");
   const ip = getClientIp(context.request);
   const rlCheck = rl.check(ip);

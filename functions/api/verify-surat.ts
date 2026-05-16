@@ -7,9 +7,11 @@
  * Env vars (Cloudflare Secrets):
  *   SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY
+ *   QR_SECRET  — fallback jika qr_secret tidak ada di request body
  *
  * Request body:
  *   { no: string }
+ *   { no: string, qr_secret?: string }  ← qr_secret dari settings (signature.qr_secret)
  *
  * Response:
  *   { ok: true, record: {...} }
@@ -23,11 +25,12 @@ import { createRateLimiter, getClientIp } from "../_lib/rate-limit";
 interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
-  QR_SECRET: string;
+  QR_SECRET?: string;
 }
 
 interface RequestBody {
   no: string;
+  qr_secret?: string;
 }
 
 function maskNik(nik: string): string {
@@ -70,7 +73,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     return json({ ok: false, error: "invalid" }, 400);
   }
 
-  const { no } = body;
+  const { no, qr_secret } = body;
   if (!no || typeof no !== "string" || no.trim().length < 3) {
     return json({ ok: false, error: "invalid" }, 400);
   }
@@ -80,28 +83,32 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     return json({ ok: false, error: "Server misconfigured" }, 500);
   }
 
+  // Fetch by `no` (migration 024 renamed no_surat → no)
   const { data, error } = await sb
     .from("surat_requests")
     .select(
-      "no_surat, kode, nama_surat, nik, pemohon, kontak, status, catatan, signed_at, signed_by, qr_payload, created_at, updated_at",
+      "no, kode, nama_surat, nik, pemohon, kontak, status, catatan, signed_at, signed_by, qr_payload, created_at, updated_at",
     )
-    .eq("no_surat", no.trim())
+    .eq("no", no.trim())
     .single();
 
   if (error || !data) {
     return json({ ok: false, error: "not_found" }, 404);
   }
 
+  // QR secret: request body overrides env var (settings-driven)
+  const effectiveSecret = qr_secret ?? context.env.QR_SECRET ?? "";
+
   // Verify QR payload HMAC-SHA256 signature (tamper detection)
   let qrVerified: boolean | null = null;
   const rawPayload = data.qr_payload ?? null;
-  if (rawPayload && context.env.QR_SECRET) {
+  if (rawPayload && effectiveSecret) {
     const parts = rawPayload.split("|");
     if (parts.length >= 6) {
       const payloadData = parts.slice(0, 5).join("|"); // SERUNI-MUMBUL|no|nik|kode|timestamp
       const receivedSig = parts.slice(5).join("|");
       if (receivedSig !== "unsigned") {
-        const expectedSig = await hmacSha256Hex(payloadData, context.env.QR_SECRET);
+        const expectedSig = await hmacSha256Hex(payloadData, effectiveSecret);
         qrVerified = expectedSig === receivedSig;
       } else {
         qrVerified = null; // unsigned — no secret configured at signing time
@@ -111,7 +118,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
   // Mask sensitive fields before returning publicly
   const record = {
-    no: data.no_surat,
+    no: data.no,
     kode: data.kode,
     nama_surat: data.nama_surat,
     nik: maskNik(data.nik ?? ""),

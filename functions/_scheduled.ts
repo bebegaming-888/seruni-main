@@ -57,7 +57,7 @@ async function sendWa(token: string, target: string, message: string): Promise<b
 }
 
 interface SuratItem {
-  no_surat: string;
+  no: string;
   nama_surat: string;
   pemohon: string;
   created_at: string;
@@ -86,7 +86,7 @@ export async function scheduled(env: Env, _cron: { schedule: string }): Promise<
   // ── 1. Ambil surat aged 3+ hari di "Menunggu Verifikasi" ──
   const { data: aged, error: agedErr } = await client
     .from("surat_requests")
-    .select("no_surat, nama_surat, pemohon, kontak, created_at, updated_at")
+    .select("no, nama_surat, pemohon, kontak, created_at, updated_at")
     .eq("status", "Menunggu Verifikasi")
     .lt("updated_at", threeDaysAgo)
     .order("updated_at", { ascending: true });
@@ -112,7 +112,7 @@ export async function scheduled(env: Env, _cron: { schedule: string }): Promise<
   const itemList = items
     .map(
       (s, i) =>
-        `${i + 1}. *${s.nama_surat}*\n   No: ${s.no_surat}\n   Pemohon: ${s.pemohon}\n   Ajuan: ${fmtTanggal(s.created_at)}`,
+        `${i + 1}. *${s.nama_surat}*\n   No: ${s.no}\n   Pemohon: ${s.pemohon}\n   Ajuan: ${fmtTanggal(s.created_at)}`,
     )
     .join("\n\n");
 
@@ -132,7 +132,7 @@ _Notifikasi otomatis dari Sistem Desa Seruni Mumbul_`;
   await client.from("audit_log").insert({
     username: "system:cron",
     action: "cron.reminder_surat_aged",
-    detail: `Reminder dikirim untuk ${items.length} surat aged 3+ hari. WA sent: ${sent}. Items: ${items.map((s) => s.no_surat).join(", ")}`,
+    detail: `Reminder dikirim untuk ${items.length} surat aged 3+ hari. WA sent: ${sent}. Items: ${items.map((s) => s.no).join(", ")}`,
   });
 
   console.log(`[cron/reminder] Sent reminder for ${items.length} aged surat. WA sent: ${sent}`);

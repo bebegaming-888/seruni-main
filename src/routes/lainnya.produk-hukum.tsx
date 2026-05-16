@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { getSettings, useSettings } from "@/lib/settings-store";
+import { PageHero } from "@/components/sections/PageHero";
+import { useProdukHukumStore } from "@/lib/content-store";
 import { Scale, FileText, Download, Search, Filter, BookOpen, AlertCircle } from "lucide-react";
 import { useState } from "react";
 
@@ -21,52 +23,25 @@ export const Route = createFileRoute("/lainnya/produk-hukum")({
   component: () => <ProdukHukumPage />,
 });
 
-const DOCS = [
-  {
-    id: "1",
-    type: "Perdes",
-    title: "Perdes No. 4 Tahun 2024 tentang APBDes TA 2025",
-    year: "2024",
-    size: "1.2 MB",
-  },
-  {
-    id: "2",
-    type: "Perdes",
-    title: "Perdes No. 3 Tahun 2024 tentang RKPDes 2025",
-    year: "2024",
-    size: "2.4 MB",
-  },
-  {
-    id: "3",
-    type: "Perkades",
-    title: "Perkades No. 8 Tahun 2024 tentang Penyaluran BLT Dana Desa",
-    year: "2024",
-    size: "0.8 MB",
-  },
-  {
-    id: "4",
-    type: "Perdes",
-    title: "Perdes No. 1 Tahun 2023 tentang Pelestarian Budaya Tenun",
-    year: "2023",
-    size: "3.1 MB",
-  },
-  {
-    id: "5",
-    type: "Kepdes",
-    title: "Keputusan Kepala Desa No. 12 Tahun 2024 tentang Pengurus BUMDes",
-    year: "2024",
-    size: "1.1 MB",
-  },
-];
-
 export function ProdukHukumPage() {
   const { village } = useSettings();
+  const { items: docsItems } = useProdukHukumStore();
   const [activeTab, setActiveTab] = useState("Semua");
   const [searchQuery, setSearchQuery] = useState("");
 
   const types = ["Semua", "Perdes", "Perkades", "Kepdes"];
 
-  const filtered = DOCS.filter((d) => {
+  const docsData = docsItems.length
+    ? docsItems
+    : [
+        { id: "1", type: "Perdes", title: "Perdes No. 4 Tahun 2024 tentang APBDes TA 2025", year: "2024", size: "1.2 MB" },
+        { id: "2", type: "Perdes", title: "Perdes No. 3 Tahun 2024 tentang RKPDes 2025", year: "2024", size: "2.4 MB" },
+        { id: "3", type: "Perkades", title: "Perkades No. 8 Tahun 2024 tentang Penyaluran BLT Dana Desa", year: "2024", size: "0.8 MB" },
+        { id: "4", type: "Perdes", title: "Perdes No. 1 Tahun 2023 tentang Pelestarian Budaya Tenun", year: "2023", size: "3.1 MB" },
+        { id: "5", type: "Kepdes", title: "Keputusan Kepala Desa No. 12 Tahun 2024 tentang Pengurus BUMDes", year: "2024", size: "1.1 MB" },
+      ];
+
+  const filtered = docsData.filter((d) => {
     const matchesTab = activeTab === "Semua" || d.type === activeTab;
     const matchesSearch = d.title.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
@@ -77,21 +52,14 @@ export function ProdukHukumPage() {
       <Navbar />
       <main>
         {/* Hero */}
-        <section className="relative pt-32 pb-12 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <Scale className="h-3.5 w-3.5" />
-              Regulasi Desa
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
-              Produk Hukum Desa
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed">
-              Transparansi landasan hukum dan peraturan yang berlaku di lingkungan Pemerintah{" "}
-              {village.name}.
-            </p>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Produk"
+          titleSecond="Hukum"
+          description={"Transparansi landasan hukum dan peraturan di " + (village as { name?: string }).name + "."}
+          badge="Regulasi Desa"
+          badgeIcon={<Scale className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Lainnya" }, { label: "Produk Hukum" }]}
+        />
 
         {/* Filter & Search */}
         <section className="px-4 mb-8 -mt-4">

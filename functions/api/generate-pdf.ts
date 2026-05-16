@@ -4,9 +4,10 @@
  * Generate PDF surat resmi dengan QR code verifikasi.
  * Token QR aman karena di-generate di server-side.
  *
- * Env vars (via deployment secrets):
+ * Env vars (via Cloudflare Pages Secrets):
  *   SUPABASE_URL              — Supabase project URL
  *   SUPABASE_SERVICE_ROLE_KEY — Service role key (NEVER expose to browser)
+ *   QR_SECRET                 — HMAC-SHA256 secret untuk QR payload verification
  *
  * Request body:
  *   { no: string }                     → fetch dari Supabase (production)
@@ -17,6 +18,7 @@
 
 // Vite inline module — @supabase/supabase-js tersedia karena ada di package.json dependencies
 import { createClient } from "@supabase/supabase-js";
+import { hmacSha256Hex } from "../_lib/utils";
 import { generateSuratPdf } from "../../src/lib/pdf-generator";
 import { getSettings } from "../../src/lib/settings-store";
 import { createRateLimiter, getClientIp } from "../_lib/rate-limit";
@@ -32,6 +34,7 @@ interface PdfRequest {
 // ---- Supabase Admin Client (server-side only) ----
 
 interface Env {
+  ADMIN_SESSION_SECRET: string;
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
 }
@@ -66,7 +69,15 @@ function generateMockSurat(data: Record<string, unknown>) {
     status: "Disetujui" as const,
     signed_at: new Date().toISOString(),
     signed_by: "H. Sumardi, S.Sos.",
-    qr_payload: `SERUNI-MUMBUL|${String(data.no ?? `${kode}/${noUrut}/KDS.SRMB/${romawi}/${tahun}`)}|${Date.now()}`,
+    qr_payload: (() => {
+      const no = String(data.no ?? `${kode}/${noUrut}/KDS.SRMB/${romawi}/${tahun}`);
+      const nik = String(data.nik ?? "5203011501900001");
+      const timestamp = Date.now().toString();
+      // Format: SERUNI-MUMBUL|no|nik|kode|timestamp|signature
+      // In mock/dev mode, no secret available — use "unsigned"
+      const dataPart = `SERUNI-MUMBUL|${no}|${nik}|${kode}|${timestamp}`;
+      return `${dataPart}|unsigned`;
+    })(),
     created_at: new Date().toISOString(),
   };
 }
@@ -134,7 +145,7 @@ function mapDbSuratToRecord(row: Record<string, unknown>): Record<string, unknow
     stringData[k] = String(v ?? "");
   });
   return {
-    no: row.no_surat,
+    no: row.no ?? row.no_surat, // migration 024: no_surat → no
     kode: row.kode,
     nama_surat: row.nama_surat,
     pemohon: row.pemohon,
@@ -211,6 +222,10 @@ function mapDbWargaToPenduduk(row: Record<string, unknown>): Record<string, unkn
 // ---- Main Handler ----
 
 export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
+  // Rate limit first — no auth required for approved documents
+  // Public download: warga yang mengajukan bisa mengunduh PDF suratnya sendiri
+  // asal surat sudah berstatus "Disetujui". Tidak perlu login.
+  // Admin auth hanya untuk audit trail (logged separately di updateAuditLog).
   const rl = createRateLimiter("public");
   const ip = getClientIp(context.request);
   const rlCheck = rl.check(ip);
@@ -252,11 +267,11 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         );
       }
 
-      // Fetch surat record
+      // Fetch surat record (migration 024: no_surat → no)
       const { data: suratRow, error: suratErr } = await sb
         .from("surat_requests")
         .select("*")
-        .eq("no_surat", body.no)
+        .eq("no", body.no)
         .single();
 
       if (suratErr || !suratRow) {
@@ -277,6 +292,32 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         );
       }
 
+      // Extract key fields first — used by both existing payload and legacy fallback
+      const recordNik = String(record.nik ?? "");
+      const recordNo = String(record.no ?? record.no_surat ?? body.no);
+      const recordKode = String(record.kode ?? "");
+
+      // Use existing qr_payload if already set (signed at approval time by admin).
+      // This ensures QR on PDF matches QR shown on verifikasi page — same timestamp.
+      // For legacy records without qr_payload, regenerate using signed_at timestamp.
+      let qrPayload: string;
+      const existingPayload = record.qr_payload ? String(record.qr_payload) : undefined;
+      if (existingPayload) {
+        qrPayload = existingPayload;
+      } else {
+        // Legacy fallback: regenerate with signed_at as timestamp (or now if also missing)
+        const timestamp = record.signed_at
+          ? new Date(record.signed_at as string).getTime().toString()
+          : Date.now().toString();
+        const dataPart = `SERUNI-MUMBUL|${recordNo}|${recordNik}|${recordKode}|${timestamp}`;
+        const secret = settings.signature.qr_secret;
+        qrPayload = secret
+          ? `${dataPart}|${await hmacSha256Hex(dataPart, secret)}`
+          : `${dataPart}|unsigned`;
+      }
+      record.qr_payload = qrPayload;
+
+      // Assign signed record to surat BEFORE warga lookup
       surat = mapDbSuratToRecord(record);
 
       // Fetch warga data
@@ -319,11 +360,13 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="${String(surat.no).replace(/\/[\\/]+/g, "-")}.pdf"`,
         "Cache-Control": "private, max-age=3600",
+        "Access-Control-Allow-Origin": "*",
       },
     });
   } catch (err) {
     console.error("[generate-pdf] Error:", err);
-    return new Response(JSON.stringify({ error: "Gagal generate PDF", detail: String(err) }), {
+    // Jangan expose detail error ke client — hanya log ke server.
+    return new Response(JSON.stringify({ error: "Gagal generate PDF" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });

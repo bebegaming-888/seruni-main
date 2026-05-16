@@ -6,7 +6,9 @@ import { useVillage } from "@/hooks/use-village";
 import { getVillage } from "@/lib/village-dynamic";
 import { getLembagaWithStruktur } from "@/lib/lembaga-store";
 import { getMediaUrl } from "@/lib/media-upload";
+import { usePageContentStore } from "@/lib/content-store";
 import { useEffect, useState } from "react";
+import { PageHero } from "@/components/sections/PageHero";
 
 import {
   Zap,
@@ -36,33 +38,18 @@ export const Route = createFileRoute("/profil/karangtaruna")({
   component: () => <KarangTarunaPage />,
 });
 
-const PROGRAM = [
-  {
-    icon: HeartHandshake,
-    title: "Bakti Sosial",
-    desc: "Donor darah, pembagian bantuan, dan kepedulian terhadap warga kurang mampu.",
-  },
-  {
-    icon: Target,
-    title: "Pelatihan Keterampilan",
-    desc: "Digital marketing, desain grafis, dan manajemen usaha untuk anak muda.",
-  },
-  {
-    icon: Zap,
-    title: "Lingkungan & Kehutanan",
-    desc: "Penanaman 500 pohon baru, bank sampah, dan pengelolaan ruang terbuka hijau.",
-  },
-  {
-    icon: Users,
-    title: "Pendampingan Lansia",
-    desc: "Kunjungan rumah, bantuan harian, dan program kebahagiaan lansia.",
-  },
-];
+function resolveKtIcon(name?: string): React.ComponentType<{ className?: string }> {
+  const map: Record<string, React.ComponentType<{ className?: string }>> = {
+    HeartHandshake, Target, Zap, Users,
+  };
+  return (name && map[name]) ? map[name] : Zap;
+}
 
 export function KarangTarunaPage() {
   const v = useVillage();
   const [data, setData] = useState<Awaited<ReturnType<typeof getLembagaWithStruktur>>>(null);
   const [loading, setLoading] = useState(true);
+  const { items: pageItems } = usePageContentStore();
 
   useEffect(() => {
     getLembagaWithStruktur("karang-taruna").then((d) => {
@@ -70,6 +57,19 @@ export function KarangTarunaPage() {
       setLoading(false);
     });
   }, []);
+
+  const programItems = (() => {
+    const found = pageItems.find(
+      (p) => p.page_key === "profil_karangtaruna" && p.content_type === "programs",
+    );
+    if (found?.items.length) return found.items;
+    return [
+      { label: "Bakti Sosial", description: "Donor darah, pembagian bantuan, dan kepedulian terhadap warga kurang mampu.", icon: "HeartHandshake" },
+      { label: "Pelatihan Keterampilan", description: "Digital marketing, desain grafis, dan manajemen usaha untuk anak muda.", icon: "Target" },
+      { label: "Lingkungan & Kehutanan", description: "Penanaman 500 pohon baru, bank sampah, dan pengelolaan ruang terbuka hijau.", icon: "Zap" },
+      { label: "Pendampingan Lansia", description: "Kunjungan rumah, bantuan harian, dan program kebahagiaan lansia.", icon: "Users" },
+    ];
+  })();
 
   const logoUrl = data?.lembaga.logo_storage_path
     ? getMediaUrl(data.lembaga.logo_storage_path, "public-media")
@@ -83,48 +83,14 @@ export function KarangTarunaPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="relative pt-32 pb-16 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            {logoUrl && (
-              <img
-                src={logoUrl}
-                alt="Logo Karang Taruna"
-                className="h-20 w-20 rounded-2xl object-contain border border-border bg-white/50 mb-6"
-              />
-            )}
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <Zap className="h-3.5 w-3.5" />
-              Organisasi Kepemudaan
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-4">
-              Karang Taruna
-              <br />
-              <span className="text-primary">{v.name}</span>
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-6">
-              {data?.lembaga.deskripsi ||
-                "Organisasi pemuda-pemudi desa yang bergerak di bidang sosial, lingkungan, dan pemberdayaan ekonomi kreatif."}
-            </p>
-            {loading ? (
-              <div className="flex items-center gap-2 rounded-full bg-muted text-muted-foreground px-3 py-1 font-ui text-xs font-semibold">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Memuat…
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {aktifCount} anggota aktif
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
-                  <Zap className="h-3.5 w-3.5" />
-                  {rootNodes} jabatan
-                </span>
-              </div>
-            )}
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Karang"
+          titleSecond="Taruna"
+          description="Organisasi pemuda-pemudi desa yang bergerak di sosial, lingkungan, dan pemberdayaan ekonomi kreatif."
+          badge="Organisasi Kepemudaan"
+          badgeIcon={<Zap className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Profil" }, { label: "Karang Taruna" }]}
+        />
 
         {/* Stats */}
         <section className="px-4 -mt-8 mb-14">
@@ -182,19 +148,19 @@ export function KarangTarunaPage() {
               Empat Pilar Karang Taruna
             </h2>
             <div className="grid sm:grid-cols-2 gap-4">
-              {PROGRAM.map((p) => {
-                const Icon = p.icon;
+              {programItems.map((p) => {
+                const Icon = resolveKtIcon(p.icon);
                 return (
                   <div
-                    key={p.title}
+                    key={p.label}
                     className="rounded-2xl border border-border bg-card p-5 hover:border-primary/30 transition group"
                   >
                     <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary inline-flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition">
                       <Icon className="h-6 w-6" />
                     </div>
-                    <h3 className="font-display text-xl font-bold text-ink mb-2">{p.title}</h3>
+                    <h3 className="font-display text-xl font-bold text-ink mb-2">{p.label}</h3>
                     <p className="font-body text-sm text-muted-foreground leading-relaxed">
-                      {p.desc}
+                      {p.description}
                     </p>
                   </div>
                 );

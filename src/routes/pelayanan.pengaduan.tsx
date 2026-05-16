@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { useSettings, getSettings } from "@/lib/settings-store";
+import { PageHero } from "@/components/sections/PageHero";
 import {
   MessageSquare,
   ShieldAlert,
@@ -23,21 +24,10 @@ import {
   listPengaduan,
   getByTicket,
   type Pengaduan,
-  type PengaduanKategori,
   type PengaduanStatus,
 } from "@/lib/pengaduan-store";
+import { usePengaduanKategoriStore } from "@/lib/content-store";
 import { toast } from "sonner";
-
-const KATEGORI_OPTIONS: PengaduanKategori[] = [
-  "Infrastruktur & Jalan",
-  "Pelayanan Publik",
-  "Keamanan & Ketertiban",
-  "Kesehatan & Kebersihan",
-  "Bantuan Sosial",
-  "Lingkungan Hidup",
-  "Pertanahan",
-  "Lainnya",
-];
 
 const STATUS_CONFIG: Record<
   PengaduanStatus,
@@ -99,9 +89,23 @@ function FeatureItem({
   );
 }
 
-export function PengaduanPage() {
+function PengaduanPage() {
   const { village } = useSettings();
+  const { items: kategoriItems } = usePengaduanKategoriStore();
   const [tab, setTab] = useState<"kirim" | "lacak">("kirim");
+
+  const kategoriOptions = kategoriItems.length
+    ? kategoriItems.map((k) => k.nama)
+    : [
+        "Infrastruktur & Jalan",
+        "Pelayanan Publik",
+        "Keamanan & Ketertiban",
+        "Kesehatan & Kebersihan",
+        "Bantuan Sosial",
+        "Lingkungan Hidup",
+        "Pertanahan",
+        "Lainnya",
+      ];
   const [submitted, setSubmitted] = useState(false);
   const [ticketResult, setTicketResult] = useState("");
   const [lacakTicket, setLacakTicket] = useState("");
@@ -177,21 +181,14 @@ export function PengaduanPage() {
       <Navbar />
       <main>
         {/* Hero */}
-        <section className="relative pt-32 pb-12 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <MessageSquare className="h-3.5 w-3.5" />
-              Layanan Aspirasi
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
-              Suara Anda Berharga
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed">
-              Membantu mewujudkan {village.name} yang lebih baik dengan menyampaikan laporan,
-              keluhan, atau saran Anda secara langsung.
-            </p>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Layanan"
+          titleSecond="Aspirasi"
+          description="Sampaikan keluhan, aspirasi, atau pengaduan Anda kepada Pemerintah Desa."
+          badge="Layanan Aspirasi"
+          badgeIcon={<MessageSquare className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Pelayanan" }, { label: "Pengaduan" }]}
+        />
 
         {/* Tab switcher */}
         <section className="px-4 pt-8 pb-0">
@@ -350,7 +347,7 @@ export function PengaduanPage() {
                             className="w-full h-12 px-4 rounded-2xl bg-muted/30 border border-border focus:border-primary/50 outline-none font-ui text-sm"
                           >
                             <option value="">— Pilih Kategori —</option>
-                            {KATEGORI_OPTIONS.map((k) => (
+                            {kategoriOptions.map((k) => (
                               <option key={k} value={k}>
                                 {k}
                               </option>

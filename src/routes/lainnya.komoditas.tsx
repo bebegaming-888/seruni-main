@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { getSettings, useSettings } from "@/lib/settings-store";
+import { PageHero } from "@/components/sections/PageHero";
 import {
   Sprout,
   TrendingUp,
@@ -92,21 +93,14 @@ export function KomoditasPage() {
       <Navbar />
       <main>
         {/* Hero */}
-        <section className="relative pt-32 pb-20 px-4 bg-gradient-to-br from-success/5 via-background to-muted/30 overflow-hidden text-center">
-          <div className="max-w-4xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success mb-6">
-              <Sprout className="h-3.5 w-3.5" />
-              Kekayaan Alam
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-ink mb-6 tracking-tight">
-              Potensi Hasil Bumi <span className="text-success">& Laut</span>
-            </h1>
-            <p className="font-body text-muted-foreground text-lg max-w-2xl mx-auto">
-              Memetakan kekayaan sumber daya alam {village.name} sebagai modal utama pembangunan
-              ekonomi berkelanjutan.
-            </p>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Potensi"
+          titleSecond="Komoditas"
+          description={"Memetakan kekayaan sumber daya alam " + (village as { name?: string }).name + " sebagai modal pembangunan ekonomi."}
+          badge="Kekayaan Alam"
+          badgeIcon={<Sprout className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Lainnya" }, { label: "Komoditas" }]}
+        />
 
         {/* Stats Overview */}
         <section className="px-4 -mt-10 mb-20">

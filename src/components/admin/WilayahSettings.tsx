@@ -8,7 +8,12 @@ import type { WilayahConfig } from "@/lib/settings-store";
 import { MapPin, Plus, Trash2, Save } from "lucide-react";
 import { getDusunList } from "@/lib/wilayah-store";
 
-export function WilayahSettings() {
+interface WilayahSettingsProps {
+  villageName?: string;
+  onVillageNameChange?: (v: string) => void;
+}
+
+export function WilayahSettings({ villageName, onVillageNameChange }: WilayahSettingsProps = {}) {
   const s = useSettings();
   const currentWilayah = s.wilayah;
   // Include selected_kode so it can be saved back
@@ -43,14 +48,16 @@ export function WilayahSettings() {
   };
 
   const handleSave = async () => {
-    const updated = { ...s, wilayah };
+    const updated = { ...s, wilayah: { ...wilayah, village: villageName ?? wilayah.village } };
     await saveSettings(updated);
     // Also sync to village subdivisions via wilayah-store
     const dusunList = wilayah.dusun_list ?? [];
     if (dusunList.length > 0) {
       getDusunList(wilayah.selected_kode);
     }
-    toast.success("Pengaturan wilayah berhasil disimpan");
+    toast.success("Pengaturan wilayah berhasil disimpan", {
+      description: "Dusun dan hierarki wilayah telah diperbarui.",
+    });
   };
 
   const hasChange = JSON.stringify(wilayah) !== JSON.stringify(currentWilayah);
@@ -95,12 +102,17 @@ export function WilayahSettings() {
             onChange={(v) => update("district", v)}
             placeholder="cth: Pringgabaya"
           />
-          <Field
-            label="Nama Desa"
-            value={wilayah.village}
-            onChange={(v) => update("village", v)}
-            placeholder="cth: Desa"
-          />
+          <div className="space-y-1.5">
+            <Label className="font-ui text-xs font-semibold">Nama Desa</Label>
+            <div className="rounded-xl border border-info/20 bg-info/5 px-3 py-2.5 text-sm font-ui">
+              <span className="font-semibold text-foreground">{villageName ?? wilayah.village}</span>
+              <span className="text-[11px] text-muted-foreground ml-2">(sinkron dari Profil Desa)</span>
+            </div>
+            <p className="font-body text-[11px] text-muted-foreground">
+              Nama Desa diatur di tab{" "}
+              <strong>Profil Desa</strong>. Perubahan di sana akan terlihat di sini secara otomatis.
+            </p>
+          </div>
           <Field
             label="Kode Desa (Kode Pos)"
             value={wilayah.village_code}

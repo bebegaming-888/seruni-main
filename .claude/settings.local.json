@@ -59,7 +59,23 @@
       "Bash(xargs -I{} sh -c 'echo \"=== {} ===\" && head -10 {}')",
       "Bash(grep -oP 'description:\\\\s*\"?\\\\K[^\"\\\\n]{1,200}')",
       "Bash(grep -v \"--\\\\|#\\\\|//\\\\|warga_auth\\\\|warga_session\\\\|warga_no_hp\")",
-      "Bash(findstr /i \"policy rls warga\")"
+      "Bash(findstr /i \"policy rls warga\")",
+      "Bash(bun tsc *)",
+      "Bash(npm info *)",
+      "Bash(select-string -last 30)",
+      "WebFetch(domain:www.theverge.com)",
+      "Bash(powershell -Command \"\\(Get-Content 'D:\\\\seruni-mumbul\\\\src\\\\routes\\\\profil.desa.tsx' -Raw\\) -replace '\\\\{ label: \\\\\"Luas Wilayah\\\\\", value: \\\\\"1\\\\.250 Ha\\\\\", icon: MapIcon \\\\},\\\\s*\\\\{ label: \\\\\"Populasi\\\\\", value: \\\\\"8\\\\.420 Jiwa\\\\\", icon: Users \\\\},\\\\s*\\\\{ label: \\\\\"Dusun\\\\\", value: \\\\\"12 Domingos\\\\\", icon: MapIcon \\\\},\\\\s*\\\\{ label: \\\\\"Kepala Keluarga\\\\\", value: \\\\\"2\\\\.140 KK\\\\\", icon: Users \\\\}', '{pageStats.map\\(\\(stat, i\\) => \\(' | Set-Content 'D:\\\\seruni-mumbul\\\\src\\\\routes\\\\profil.desa.tsx' -NoNewline\")",
+      "Bash(powershell -Command ' *)",
+      "Read(//drives/D/seruni-mumbul/src/**)",
+      "Read(//droves/D/seruni-mumbul/src/**)",
+      "Read(//drives/D/seruni-mumbul/**)",
+      "Read(//drives/D/seruni-mumbul/src/lib/**)",
+      "Bash(grep -E \"^bun$\")",
+      "Bash(/c/nvm4w/nodejs/npm run *)",
+      "Read(//c/nvm4w/nodejs/**)",
+      "Bash(/c/nvm4w/nodejs/claude --help)",
+      "Bash(/c/nvm4w/nodejs/claude plugins *)",
+      "WebFetch(domain:shopee.co.id)"
     ]
   }
 }

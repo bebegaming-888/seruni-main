@@ -11,7 +11,7 @@
 
 // ── Konfigurasi DB ────────────────────────────────────────────────────────────
 export const IDB_NAME = "seruni_mumbul_db";
-export const IDB_VER = 5;
+export const IDB_VER = 6;
 
 /** Semua object store beserta keyPath-nya */
 export const IDB_STORES = {
@@ -36,6 +36,10 @@ export const IDB_STORES = {
   pengaduan: "ticket",
   wilayah: "kode", // Kode Kemendagri (13 digit untuk village)
   subdiv: "id", // village_subdivisions, id = auto
+  marketplace: "id", // marketplace products (UMKM)
+  koperasi: "id", // Koprasi items
+  marketplace_config: "id", // marketplace Shopee-style config
+  orders: "id", // marketplace order records
 } as const;
 
 export type IDBStoreName = keyof typeof IDB_STORES;

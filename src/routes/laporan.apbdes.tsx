@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { getSettings, useSettings } from "@/lib/settings-store";
+import { PageHero } from "@/components/sections/PageHero";
 import {
   formatRupiah,
   formatRupiahFull,
@@ -63,16 +64,18 @@ export const Route = createFileRoute("/laporan/apbdes")({
   component: () => <ApbdesPage />,
 });
 
+// ── Brand palette chart colors ────────────────────────────────────────────────
+// Brand: E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5
 const KATEGORI_COLOR: Record<string, string> = {
-  Penyelenggaraan: "#0f7a4a",
-  Pelaksanaan: "#0891b2",
-  Pembinaan: "#d97706",
-  Pemberdayaan: "#7c3aed",
-  TidakTerduga: "#6b7280",
+  Penyelenggaraan: "#078898",
+  Pelaksanaan: "#66B9BF",
+  Pembinaan: "#EEAA78",
+  Pemberdayaan: "#E37222",
+  TidakTerduga: "#D5D5D5",
 };
 
-const PENDAPATAN_COLOR = "#0f7a4a";
-const SPENDING_COLOR = "#dc2626";
+const PENDAPATAN_COLOR = "#078898";
+const SPENDING_COLOR = "#E37222";
 
 function ProgressBar({ value, max = 100, color }: { value: number; max?: number; color?: string }) {
   const pct_val = Math.min(100, Math.round((value / max) * 100));
@@ -177,7 +180,7 @@ function SummaryCard({
           (trend === "up" ? (
             <TrendingUp className="h-3 w-3 text-primary" />
           ) : (
-            <TrendingDown className="h-3 w-3 text-red-500" />
+            <TrendingDown className="h-3 w-3 text-[#E37222]" />
           ))}
         <span className="font-ui text-xs text-muted-foreground">{subtitle}</span>
       </div>
@@ -576,35 +579,14 @@ export function ApbdesPage() {
       <Navbar />
       <main>
         {/* Hero */}
-        <section className="relative pt-32 pb-12 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <Wallet className="h-3.5 w-3.5" />
-              Transparansi Anggaran
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
-              APBDes {TAHUN_2026.tahun}
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-5">
-              Desa {village.name} mengelola anggaran desa secara transparan dan akuntabel. Berikut
-              ringkasan {TAHUN_2026.status} Tahun {TAHUN_2026.tahun}.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary">
-                <Target className="h-3.5 w-3.5" />
-                Status: {TAHUN_2026.status}
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
-                <Info className="h-3.5 w-3.5" />
-                Realisasi Mei 2026
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
-                <Download className="h-3.5 w-3.5" />
-                Data Bersifat Simulasi
-              </span>
-            </div>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Transparansi"
+          titleSecond="APBDes"
+          description={"Anggaran Pendapatan dan Belanja Desa " + (village as { name?: string }).name + " Tahun 2026."}
+          badge="Transparansi Anggaran"
+          badgeIcon={<Wallet className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Laporan" }, { label: "APBDes" }]}
+        />
 
         {/* Summary Cards */}
         <section className="px-4 -mt-6 mb-10">

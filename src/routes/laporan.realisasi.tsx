@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { getSettings, useSettings } from "@/lib/settings-store";
+import { PageHero } from "@/components/sections/PageHero";
+import { useRealisasiStore } from "@/lib/content-store";
 import {
   TrendingUp,
   PieChart,
@@ -86,53 +88,94 @@ function SummaryCard({
   );
 }
 
+function formatRupiah(n: number): string {
+  if (n >= 1_000_000_000) return `Rp ${(n / 1_000_000_000).toFixed(1)} M`;
+  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(0)} M`;
+  if (n >= 1_000) return `Rp ${(n / 1_000).toFixed(0)} rb`;
+  return `Rp ${n.toLocaleString("id-ID")}`;
+}
+
 export function RealisasiPage() {
   const { village } = useSettings();
+  const { items: realizeItems } = useRealisasiStore();
+
+  const latestRealisasi = realizeItems.length
+    ? [...realizeItems].sort((a, b) => b.tahun - a.tahun)[0]
+    : null;
+
+  const summaryCards = latestRealisasi
+    ? [
+        {
+          title: "Total Pendapatan",
+          amount: formatRupiah(latestRealisasi.total_pendapatan),
+          percentage: latestRealisasi.total_pendapatan
+            ? Math.round((latestRealisasi.total_pendapatan / latestRealisasi.total_pendapatan) * 100)
+            : 0,
+          icon: PieChart,
+          trend: "up" as const,
+        },
+        {
+          title: "Total Belanja",
+          amount: formatRupiah(latestRealisasi.total_belanja),
+          percentage: latestRealisasi.total_pendapatan
+            ? Math.round((latestRealisasi.total_belanja / latestRealisasi.total_pendapatan) * 100)
+            : 0,
+          icon: BarChart3,
+          trend: "up" as const,
+        },
+        {
+          title: "Silpa Berjalan",
+          amount: formatRupiah(latestRealisasi.silpa),
+          percentage: latestRealisasi.total_pendapatan
+            ? Math.round((latestRealisasi.silpa / latestRealisasi.total_pendapatan) * 100)
+            : 0,
+          icon: Clock,
+          trend: latestRealisasi.silpa >= 0 ? ("down" as const) : ("up" as const),
+        },
+      ]
+    : [
+        { title: "Total Pendapatan", amount: "Rp 1.450.000.000", percentage: 85, icon: PieChart, trend: "up" as const },
+        { title: "Total Belanja", amount: "Rp 920.000.000", percentage: 62, icon: BarChart3, trend: "up" as const },
+        { title: "Silpa Berjalan", amount: "Rp 530.000.000", percentage: 100, icon: Clock, trend: "down" as const },
+      ];
+
+  const progressBars = [
+    { key: "Penyelenggaraan Pemerintah", value: 78, color: "bg-primary" },
+    { key: "Pembangunan Desa", value: 45, color: "bg-info" },
+    { key: "Pembinaan Masyarakat", value: 92, color: "bg-primary" },
+    { key: "Pemberdayaan Masyarakat", value: 30, color: "bg-warning" },
+    { key: "Penanggulangan Bencana", value: 10, color: "bg-muted-foreground" },
+  ];
+
+  const kegiatanList = latestRealisasi?.kegiatan?.length
+    ? latestRealisasi.kegiatan
+    : [
+        { name: "Pembangunan Jalan usat", status: "Selesai", date: "Mei 2025", type: "success" as const },
+        { name: "Rehabilitasi Balai usat", status: "Dalam Proses", date: "Juni 2025", type: "process" as const },
+        { name: "Program Ketahanan Pangan", status: "Berjalan", date: "Mei 2025", type: "process" as const },
+        { name: "Pengadaan Mobil Siaga", status: "Tahap Lelang", date: "Juli 2025", type: "warning" as const },
+        { name: "Bantuan Langsung Tunai (BLT)", status: "Penyaluran", date: "Rutin", type: "success" as const },
+      ];
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="relative pt-32 pb-16 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <TrendingUp className="h-3.5 w-3.5" />
-              Transparansi Anggaran
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-3">
-              Realisasi APBDes 2025
-            </h1>
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed">
-              Laporan berkala mengenai penggunaan dana desa untuk pembangunan, pemberdayaan, dan
-              pelayanan masyarakat Desa {village.name}.
-            </p>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Realisasi"
+          titleSecond="APBDes"
+          description={"Laporan berkala penggunaan dana desa untuk pembangunan dan pelayanan masyarakat."}
+          badge="Transparansi Anggaran"
+          badgeIcon={<TrendingUp className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Laporan" }, { label: "Realisasi" }]}
+        />
 
         {/* Overview Stats */}
         <section className="px-4 -mt-8 mb-16">
           <div className="max-w-5xl mx-auto grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <SummaryCard
-              title="Total Pendapatan"
-              amount="Rp 1.450.000.000"
-              percentage={85}
-              icon={PieChart}
-              trend="up"
-            />
-            <SummaryCard
-              title="Total Belanja"
-              amount="Rp 920.000.000"
-              percentage={62}
-              icon={BarChart3}
-              trend="up"
-            />
-            <SummaryCard
-              title="Silpa Berjalan"
-              amount="Rp 530.000.000"
-              percentage={100}
-              icon={Clock}
-              trend="down"
-            />
+            {summaryCards.map((card) => (
+              <SummaryCard key={card.title} {...card} />
+            ))}
           </div>
         </section>
 
@@ -151,15 +194,14 @@ export function RealisasiPage() {
                   </p>
                 </div>
                 <div className="space-y-6">
-                  <ProgressBar label="Penyelenggaraan Pemerintah" value={78} />
-                  <ProgressBar label="Pembangunan Desa" value={45} color="bg-info" />
-                  <ProgressBar label="Pembinaan Masyarakat" value={92} color="bg-primary" />
-                  <ProgressBar label="Pemberdayaan Masyarakat" value={30} color="bg-warning" />
-                  <ProgressBar
-                    label="Penanggulangan Bencana"
-                    value={10}
-                    color="bg-muted-foreground"
-                  />
+                  {progressBars.map((bar) => (
+                    <ProgressBar
+                      key={bar.key}
+                      label={bar.key}
+                      value={bar.value}
+                      color={bar.color}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -170,38 +212,7 @@ export function RealisasiPage() {
                   Status Kegiatan Strategis
                 </h3>
                 <div className="space-y-6">
-                  {[
-                    {
-                      name: "Pembangunan Jalan Dusun Timur",
-                      status: "Selesai",
-                      date: "Mei 2025",
-                      type: "success",
-                    },
-                    {
-                      name: "Rehabilitasi Balai Desa",
-                      status: "Dalam Proses",
-                      date: "Juni 2025",
-                      type: "process",
-                    },
-                    {
-                      name: "Program Ketahanan Pangan",
-                      status: "Berjalan",
-                      date: "Mei 2025",
-                      type: "process",
-                    },
-                    {
-                      name: "Pengadaan Mobil Siaga",
-                      status: "Tahap Lelang",
-                      date: "Juli 2025",
-                      type: "warning",
-                    },
-                    {
-                      name: "Bantuan Langsung Tunai (BLT)",
-                      status: "Penyaluran",
-                      date: "Rutin",
-                      type: "success",
-                    },
-                  ].map((task, i) => (
+                  {kegiatanList.map((task, i) => (
                     <div key={i} className="flex items-center justify-between group">
                       <div className="flex gap-3">
                         <div

@@ -89,7 +89,7 @@ RETURNS SETOF public.surat_requests AS $$
 BEGIN
   RETURN QUERY
   SELECT * FROM public.surat_requests
-  WHERE (no_surat = p_no_surat OR tracking_no = p_no_surat)
+  WHERE (no = p_no_surat OR tracking_no = p_no_surat)
     AND nik = p_nik;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

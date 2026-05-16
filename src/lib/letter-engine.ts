@@ -106,9 +106,53 @@ export function fmtRupiah(val?: string | number): string {
 }
 
 /** Ganti semua {{key}} dalam teks dengan nilai dari vars.
- * Unresolved placeholder → tampil "-" bukan " {{key}}" (mencegah PDF rusak). */
+ * Mendukung conditional expressions untuk conditional DNA clause rendering:
+ *
+ *   {{key}}                          → vars[key] ?? "-"
+ *   {{key || "fallback"}}            → vars[key] ?? "fallback"
+ *   {{key ? 'truthy' : 'falsy'}}     → conditional inline
+ *   {{key ? key + ' suffix' : ''}}   → conditional concat (key reference)
+ *
+ * Unresolved → "-" untuk placeholder, "" untuk conditional falsy.
+ */
 export function renderVars(text: string, vars: LetterVars): string {
-  return text.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, k) => vars[k] ?? "-");
+  const val = (k: string, fallback = "-"): string => {
+    const v = vars[k];
+    return v !== undefined && v !== null && String(v).trim() !== "" ? String(v) : fallback;
+  };
+
+  let result = text;
+
+  // Pass 1: {{key || "fallback"}}
+  result = result.replace(/\{\{([\w.]+)\s*\|\|\s*"([^"]+)"\}\}/g, (_, k, fallback) => val(k, fallback));
+
+  // Pass 3: {{key ? 'a' : 'b'}} — inline conditional
+  result = result.replace(/\{\{([\w.]+)\s*\?\s*'([^']+)'\s*:\s*'([^']*)'\}\}/g, (_, k, truthy, falsy) =>
+    val(k) !== "-" ? truthy : falsy,
+  );
+
+  // Pass 4: {{key ? 'prefix' + key + 'suffix' : ''}} — self-referential concat
+  // Matches: {{id_bdt ? 'ID DTKS/BDT : ' + id_bdt + '' : ''}}
+  // After prefix-quote: [^']* captures "ID DTKS/BDT : ' + key + " (including the closing quote of prefix)
+  // suffix captures: ' + '' — the 'suffix' from after the + to the closing ' of suffix
+  result = result.replace(
+    /\{\{([a-z_][a-z0-9_]*)\s*\?\s*'([^']*)\+[a-z_][a-z0-9_]*\+'([^']*)'\s*:\s*''\}\}/g,
+    (_, k, _prefix, _suffix) => {
+      const v = vars[k];
+      // _prefix ends with ' + key + which has 7 chars: space, ', space, +, space
+      const prefix = _prefix.replace(/\s*\+\s*[a-z_][a-z0-9_]*\+\s*$/, "");
+      const suffix = _suffix.replace(/^\s*\+\s*/, "");
+      if (v !== undefined && v !== null && String(v).trim() !== "") return `${prefix}${v}${suffix}`;
+      return "";
+    },
+  );
+
+  // Pass 5: {{key ? 'value' : ''}} — simple truthy-only conditional
+  result = result.replace(/\{\{([a-z_][a-z0-9_]*)\s*\?\s*'([^']*)'\s*:\s*''\}\}/g, (_, k, truthy) =>
+    val(k) !== "-" ? truthy : "",
+  );
+
+  return result;
 }
 
 /** Render semua klausa DNA dari array, substitusi vars pada tiap klausa. */
@@ -453,10 +497,9 @@ export const DNA_CLAUSES_PRESETS: Record<string, string[]> = {
     "Dengan ini menyatakan bahwa :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
     "Yang bersangkutan termasuk keluarga kurang mampu/prasejahtera dengan penghasilan Rp {{penghasilan}} per bulan dan menanggung {{tanggungan}} jiwa.",
-    // ✅ ADOPSI OpenSID: DTKS integration
-    "{{id_bdt ? 'ID DTKS/BDT : ' + id_bdt : ''}}",
-    "{{program_bantuan ? 'Program Bantuan : ' + program_bantuan : ''}}",
-    "{{no_kartu_bantuan ? 'No. Kartu Bantuan : ' + no_kartu_bantuan : ''}}",
+    "{{id_bdt ? 'ID DTKS/BDT : ' + id_bdt + '' : ''}}",
+    "{{program_bantuan ? 'Program Bantuan : ' + program_bantuan + '' : ''}}",
+    "{{no_kartu_bantuan ? 'No. Kartu Bantuan : ' + no_kartu_bantuan + '' : ''}}",
     "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
   ],
   SK_PENGHASILAN: [
@@ -848,11 +891,8 @@ export const DNA_CLAUSES_PRESETS: Record<string, string[]> = {
     "Nama   : {{nama}}\nNIK    : {{nik}}",
     "Surat pengantar ini dibuat sebagai salah satu syarat pengajuan izin reklame ke Dinas Perizinan.",
   ],
-  SP_IMB: [
-    "Dengan ini memberikan PENGANTAR untuk Izin Bangunan kepada :",
-    "Nama    : {{nama}}\nNIK     : {{nik}}\nLokasi   : {{lokasi_bangunan}}\nLuas     : {{luas_bangunan}} m2\nFungsi   : {{fungsi_bangunan}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat pengajuan IMB/PBG ke Dinas Perizinan.",
-  ],
+  // SP_IMB intentionally removed — references undefined fields {lokasi_bangunan, fungsi_bangunan}
+  // This letter type is not in SURAT_MASTER
   SP_SANGGAR: [
     "Dengan ini memberikan PENGANTAR untuk Pendirian Sanggar/Kursus kepada :",
     "Nama   : {{nama}}\nNIK    : {{nik}}",
@@ -913,5 +953,65 @@ export const DNA_CLAUSES_PRESETS: Record<string, string[]> = {
     "--- DATA ANAK ---",
     "Nama        : {{nama_anak}}\nAlamat     : {{alamat_anak}}{{pekerjaan_anak ? '\nPekerjaan  : ' + pekerjaan_anak : ''}}{{status_pekerjaan ? '\nStatus      : ' + status_pekerjaan : ''}}{{negara_tujuan ? '\nTujuan      : ' + negara_tujuan : ''}}{{masa_kontrak ? '\nLama Kontrak: ' + masa_kontrak + ' tahun' : ''}}",
     "Yang bersangkutan telah memberikan izin {{keperluan}}.",
+  ],
+
+  /* ── Dash aliases untuk kode surat yang pakai dash di SURAT_MASTER
+   * (surat-master.ts gunakan SP-KTP, SK-NIKAH, dll; di sini pakai underscore SP_KTP, SK_NIKAH).
+   * Alias ini memastikan lookup oleh kode dari DB (misal "SP-KTP") menemukan preset yang benar. ── */
+  "SP-KTP": [
+    "Dengan ini memberikan PENGANTAR kepada :",
+    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
+    "",
+    "Untuk pengajuan Pembuatan KTP dengan jenis permohonan {{jenis_permohonan}}.",
+    "Demikian surat pengantar ini dibuat dan dapat dibawa ke Kantor Dukcapil untuk proses lebih lanjut.",
+  ],
+  "SP-KK": [
+    "Dengan ini memberikan PENGANTAR kepada :",
+    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
+    "",
+    "Untuk pengajuan Pembuatan/Perubahan Kartu Keluarga dengan jenis {{jenis_perubahan}}.",
+    "Demikian surat pengantar ini dibuat untuk dapat dipergunakan sebagaimana mestinya.",
+  ],
+  "SP-SKCK": [
+    "Dengan ini memberikan PENGANTAR kepada :",
+    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
+    "",
+    "Bahwa yang bersangkutan adalah benar warga kami dan selama berdomisili di Desa {{nama_desa}}, tidak pernah tercatat melakukan tindak pidana/kejahatan.",
+    "Surat pengantar ini dibuat untuk pengajuan SKCK dan keperluan {{keperluan}}.",
+  ],
+  "VERIF-DTKS": [
+    "Dengan ini memberikan PENGANTAR VERIFIKASI DTKS kepada :",
+    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
+    "",
+    "Bahwa warga tersebut telah kami verifikasi dan data kehadirannya tercatat dalam sistem kami.\nProgram bantuan yang dituju: {{program_bantuan}}.",
+    "Surat ini dibuat sebagai bahan verifikasi Data Terpadu Kesejahteraan Sosial (DTKS).",
+  ],
+  "SK-NIKAH": [
+    "Dengan ini memberikan SURAT PENGANTAR NIKAH kepada :",
+    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
+    "",
+    "Bahwa yang bersangkutan memenuhi persyaratan untuk melangsungkan pernikahan.{{binti ? '\nNama Binti (Nama gadis ibu kandung): ' + binti : ''}}",
+    "Model Formulir  : {{model_formulir}}\nNama Pasangan  : {{nama_calon}}\nNIK Pasangan   : {{nik_calon}}",
+    "Demikian surat pengantar nikah ini dibuat dan dapat dipergunakan sebagaimana mestinya.",
+  ],
+  "SP-INSTANSI": [
+    "Dengan ini memberikan PENGANTAR kepada :",
+    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
+    "",
+    "Untuk keperluan kepada:\nInstansi : {{nama_instansi}}\nAlamat  : {{alamat_instansi}}",
+    "Keperluan: {{keperluan}}.",
+    "Demikian surat pengantar ini dibuat dengan sebenar-benarnya.",
+  ],
+  "SP-PTSL": [
+    "Dengan ini memberikan PENGANTAR PTSL kepada :",
+    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
+    "",
+    "Untuk pengajuan:\nLokasi Tanah : {{lokasi_tanah}}\nLuas Tanah   : {{luas_tanah}}",
+    "Surat pengantar ini dibuat sebagai salah satu syarat Program PTSL oleh BPN.",
+  ],
+  "SP-SANGGAR": [
+    "Dengan ini memberikan PENGANTAR untuk Pendirian Sanggar/Kursus kepada :",
+    "Nama   : {{nama}}\nNIK    : {{nik}}",
+    "Surat pengantar ini dibuat sebagai salah satu syarat pengajuan izin pendirian sanggar/kursus.",
   ],
 };

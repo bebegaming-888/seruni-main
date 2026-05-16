@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { useSettings, getSettings } from "@/lib/settings-store";
+import { PageHero } from "@/components/sections/PageHero";
 import {
   Award,
   TrendingUp,
@@ -128,28 +129,20 @@ export function IDMPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="relative pt-32 pb-20 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden text-center">
-          <div className="max-w-4xl mx-auto relative">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-6">
-              <Award className="h-3.5 w-3.5" />
-              Status Kemandirian
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-ink mb-6">
-              Indeks Desa Membangun
-            </h1>
-            <p className="font-body text-muted-foreground text-lg max-w-2xl mx-auto">
-              {village.name} saat ini berstatus sebagai <strong>{d.idm_status}</strong>, tingkat
-              tertinggi dalam klasifikasi IDM Kementerian Desa.
-            </p>
-          </div>
-        </section>
+        <PageHero
+          titleFirst="Indeks Desa"
+          titleSecond="Membangun"
+          description={`${village.name} berstatus ${d.idm_status} — klasifikasi tertinggi IDM Kementerian Desa.`}
+          badge="Status Kemandirian"
+          badgeIcon={<Award className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Informasi" }, { label: "IDM" }]}
+        />
 
         {/* Demo data notice */}
         {usingMock && (
           <section className="px-4 mb-6 -mt-4">
             <div className="max-w-4xl mx-auto">
-              <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 border border-amber-300 px-3 py-1 font-ui text-xs font-semibold text-amber-700">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#EEAA78]/20 border border-[#EEAA78]/30 px-3 py-1 font-ui text-xs font-semibold text-[#1a1918]">
                 <span>⚠️</span>
                 Data contoh — belum ada data IDM di database. Hubungi admin untuk upload data
                 semester berjalan.

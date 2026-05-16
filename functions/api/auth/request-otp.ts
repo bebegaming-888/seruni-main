@@ -137,15 +137,16 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   // ── Kirim WA via Fonnte terlebih dahulu ──
   const token = context.env.FONNTE_API_KEY;
   if (!token) {
-    // Fallback development: return OTP in response
-    console.warn("[request-otp] FONNTE_API_KEY belum di-set — OTP di-response langsung");
+    // FONNTE_API_KEY belum di-set — REJECT request, jangan expose OTP.
+    // Ini mencegah situasi di mana production deployment lupa set Fonnte key
+    // dan OTP terbuka di response body.
+    console.error("[request-otp] FONNTE_API_KEY not configured — rejecting OTP request");
     return json(
       {
-        ok: true,
-        message: `[DEV] OTP untuk NIK ${nik}: ${otp}`,
-        dev_otp: otp,
+        ok: false,
+        error: "Layanan WhatsApp belum dikonfigurasi. Hubungi administrator.",
       },
-      200,
+      503,
     );
   }
 

@@ -6,7 +6,9 @@ import { useVillage } from "@/hooks/use-village";
 import { getVillage } from "@/lib/village-dynamic";
 import { getLembagaWithStruktur } from "@/lib/lembaga-store";
 import { getMediaUrl } from "@/lib/media-upload";
+import { usePageContentStore } from "@/lib/content-store";
 import { useEffect, useState } from "react";
+import { PageHero } from "@/components/sections/PageHero";
 
 import {
   Target,
@@ -39,34 +41,18 @@ export const Route = createFileRoute("/profil/lpm")({
   component: () => <LPMPage />,
 });
 
-const PROGRAM = [
-  { icon: Home, title: "Perbaikan Rumah Tidak Layak Huni", target: "12 unit/tahun" },
-  { icon: TrendingUp, title: "Pelatihan Kewirausahaan", target: "4x/tahun" },
-  { icon: Users, title: "Pendampingan BLT-DD", target: "40 KK" },
-  { icon: ClipboardList, title: "Verifikasi DTKS", target: "Setiap semester" },
-  { icon: HandHeart, title: "Bantuan bencana alam", target: "Sesuai kebutuhan" },
-  { icon: Target, title: "Sosialisasi program desa", target: "6x/tahun" },
-];
-
-const KEGIATAN = [
-  { bulan: "Januari", agenda: "Musrenbangdes RKPD 2027" },
-  { bulan: "Februari", agenda: "Sosialisasi PKH & BLT-DD" },
-  { bulan: "Maret", agenda: "Verifikasi data warga pra-sejahtera" },
-  { bulan: "April", agenda: "Kerja bakti bulanan — bersih desa" },
-  { bulan: "Mei", agenda: "Pelatihan manajemen organisasi" },
-  { bulan: "Juni", agenda: "Evaluasi program semester I" },
-  { bulan: "Juli", agenda: "Gotong royong perbaikan jalan dusun" },
-  { bulan: "Agustus", agenda: "Sosialisasi stunting & Posyandu" },
-  { bulan: "September", agenda: "Pelatihan keuangan mikro" },
-  { bulan: "Oktober", agenda: "Musrenbangdes RPJMDes 2028-2033" },
-  { bulan: "November", agenda: "Pendampingan petani — alsintan" },
-  { bulan: "Desember", agenda: "Rapat akhir tahun & evaluasi program" },
-];
+function resolveLpmIcon(name?: string): React.ComponentType<{ className?: string }> {
+  const map: Record<string, React.ComponentType<{ className?: string }>> = {
+    Home, TrendingUp, Users, ClipboardList, HandHeart, Target,
+  };
+  return (name && map[name]) ? map[name] : Target;
+}
 
 export function LPMPage() {
   const v = useVillage();
   const [data, setData] = useState<Awaited<ReturnType<typeof getLembagaWithStruktur>>>(null);
   const [loading, setLoading] = useState(true);
+  const { items: pageItems } = usePageContentStore();
 
   useEffect(() => {
     getLembagaWithStruktur("lpm").then((d) => {
@@ -74,6 +60,42 @@ export function LPMPage() {
       setLoading(false);
     });
   }, []);
+
+  const programItems = (() => {
+    const found = pageItems.find(
+      (p) => p.page_key === "profil_lpm" && p.content_type === "programs",
+    );
+    if (found?.items.length) return found.items;
+    return [
+      { label: "Perbaikan Rumah Tidak Layak Huni", description: "12 unit/tahun", icon: "Home" },
+      { label: "Pelatihan Kewirausahaan", description: "4x/tahun", icon: "TrendingUp" },
+      { label: "Pendampingan BLT-DD", description: "40 KK", icon: "Users" },
+      { label: "Verifikasi DTKS", description: "Setiap semester", icon: "ClipboardList" },
+      { label: "Bantuan bencana alam", description: "Sesuai kebutuhan", icon: "HandHeart" },
+      { label: "Sosialisasi program desa", description: "6x/tahun", icon: "Target" },
+    ];
+  })();
+
+  const kegiatanItems = (() => {
+    const found = pageItems.find(
+      (p) => p.page_key === "profil_lpm" && p.content_type === "custom",
+    );
+    if (found?.items.length) return found.items;
+    return [
+      { label: "Januari", description: "Musrenbangdes RKPD 2027" },
+      { label: "Februari", description: "Sosialisasi PKH & BLT-DD" },
+      { label: "Maret", description: "Verifikasi data warga pra-sejahtera" },
+      { label: "April", description: "Kerja bakti bulanan — bersih desa" },
+      { label: "Mei", description: "Pelatihan manajemen organisasi" },
+      { label: "Juni", description: "Evaluasi program semester I" },
+      { label: "Juli", description: "Gotong royong perbaikan jalan dusun" },
+      { label: "Agustus", description: "Sosialisasi stunting & Posyandu" },
+      { label: "September", description: "Pelatihan keuangan mikro" },
+      { label: "Oktober", description: "Musrenbangdes RPJMDes 2028-2033" },
+      { label: "November", description: "Pendampingan petani — alsintan" },
+      { label: "Desember", description: "Rapat akhir tahun & evaluasi program" },
+    ];
+  })();
 
   const logoUrl = data?.lembaga.logo_storage_path
     ? getMediaUrl(data.lembaga.logo_storage_path, "public-media")
@@ -83,51 +105,14 @@ export function LPMPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        {/* Hero */}
-        <section className="relative pt-32 pb-16 px-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 overflow-hidden">
-          <div className="max-w-5xl mx-auto relative">
-            {logoUrl && (
-              <img
-                src={logoUrl}
-                alt="Logo LPM"
-                className="h-20 w-20 rounded-2xl object-contain border border-border bg-white/50 mb-6"
-              />
-            )}
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 font-ui text-xs font-semibold text-primary mb-5">
-              <Target className="h-3.5 w-3.5" />
-              Lembaga Pemberdayaan Masyarakat
-            </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-ink mb-4">
-              LPM
-              <br />
-              <span className="text-primary">{v.name}</span>
-            </h1>
-
-            <p className="font-body text-muted-foreground max-w-xl text-base leading-relaxed mb-6">
-              {data?.lembaga.deskripsi ||
-                "LPM adalah mitra strategis pemerintah desa dalam merencanakan, melaksanakan, dan mengevaluasi program pembangunan partisipatif."}
-            </p>
-            {loading ? (
-              <div className="inline-flex items-center gap-2 rounded-full bg-muted text-muted-foreground px-3 py-1 font-ui text-xs font-semibold">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Memuat…
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-3 py-1 font-ui text-xs font-semibold text-success">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {data?.allPengurus.length ?? 0} pengurus aktif
-                </div>
-                {data?.lembaga.periode_mulai && (
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-info/10 border border-info/20 px-3 py-1 font-ui text-xs font-semibold text-info">
-                    {data.lembaga.periode_mulai.slice(0, 4)}–
-                    {data.lembaga.periode_selesai?.slice(0, 4) ?? "—"}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
+        <PageHero
+          titleFirst="LPM"
+          titleSecond="Desa"
+          description="Lembaga Pemberdayaan Masyarakat — mitra strategis pemerintah desa dalam program pembangunan partisipatif."
+          badge="Lembaga Pemberdayaan"
+          badgeIcon={<Target className="h-3.5 w-3.5" />}
+          breadcrumbs={[{ label: "Profil" }, { label: "LPM" }]}
+        />
 
         {/* Program */}
         <section className="px-4 mb-14">
@@ -137,21 +122,21 @@ export function LPMPage() {
             </p>
             <h2 className="font-display text-3xl font-bold text-ink mb-8">Agenda Kerja 2026</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {PROGRAM.map((p) => {
-                const Icon = p.icon;
+              {programItems.map((p) => {
+                const Icon = resolveLpmIcon(p.icon);
                 return (
                   <div
-                    key={p.title}
+                    key={p.label}
                     className="rounded-2xl border border-border bg-card p-5 hover:border-primary/30 transition group"
                   >
                     <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary inline-flex items-center justify-center mb-3 group-hover:bg-primary group-hover:text-primary-foreground transition">
                       <Icon className="h-5 w-5" />
                     </div>
                     <h3 className="font-display font-bold text-ink mb-1 leading-tight">
-                      {p.title}
+                      {p.label}
                     </h3>
                     <p className="font-ui text-xs text-success font-semibold mt-1">
-                      Target: {p.target}
+                      Target: {p.description}
                     </p>
                   </div>
                 );
@@ -167,15 +152,15 @@ export function LPMPage() {
               Kalender Kegiatan Tahunan
             </h2>
             <div className="space-y-2">
-              {KEGIATAN.map((k) => (
+              {kegiatanItems.map((k) => (
                 <div
-                  key={k.bulan}
+                  key={k.label}
                   className="flex items-start gap-4 rounded-xl border border-border bg-card px-4 py-3 hover:border-primary/30 transition"
                 >
                   <div className="w-24 shrink-0">
-                    <p className="font-ui text-xs font-semibold text-primary">{k.bulan}</p>
+                    <p className="font-ui text-xs font-semibold text-primary">{k.label}</p>
                   </div>
-                  <p className="font-body text-sm text-foreground">{k.agenda}</p>
+                  <p className="font-body text-sm text-foreground">{k.description}</p>
                 </div>
               ))}
             </div>

@@ -24,7 +24,6 @@ import {
   Users2,
   ScrollText,
   Save,
-  RotateCcw,
   Download,
   Upload,
   Trash2,
@@ -52,7 +51,18 @@ import {
   Bell,
   BellOff,
   CheckCircle2,
+  Wand2,
+  Loader2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import {
   getSettings,
@@ -72,6 +82,13 @@ import {
 import { WilayahSettings } from "@/components/admin/WilayahSettings";
 import { PerangkatDesaManager } from "@/components/admin/PerangkatDesaManager";
 import { LembagaManager } from "@/components/admin/LembagaManager";
+import {
+  initPerangkatStore,
+  listStrukturAktif,
+  getPerangkatByStrukturId,
+  type PerangkatStruktur,
+  type PerangkatPerson,
+} from "@/lib/perangkat-desa-store";
 import {
   listUsers,
   saveUser,
@@ -121,10 +138,95 @@ export function SettingsPanel() {
   const [dirty, setDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [conflictStatus, setConflictStatus] = useState<ConflictStatus>("none");
+  const [resetOpen, setResetOpen] = useState(false);
   // Track versi data saat pertama load dari store — untuk deteksi perubahan external
   const storeVersionRef = useRef<string>("");
   // Track apakah sync sedang aktif ( cegah re-render loop )
   const isSyncingRef = useRef(false);
+
+  // Autofill state
+  const [autofilling, setAutofilling] = useState(false);
+
+  // Autofill village identity from perangkat_desa aktif
+  const handleAutoFillVillage = async () => {
+    setAutofilling(true);
+    try {
+      await initPerangkatStore();
+      const strukturs = listStrukturAktif();
+
+      const kepalaDesa = strukturs.find((st) =>
+        st.nama_jabatan.toLowerCase().includes("kepala"),
+      );
+      const sekdes = strukturs.find((st) =>
+        st.nama_jabatan.toLowerCase().includes("sekretaris"),
+      );
+
+      let filled = false;
+
+      if (kepalaDesa) {
+        const person = getPerangkatByStrukturId(kepalaDesa.id).find((p) => p.status_aktif);
+        if (person) {
+          update("village", { head: person.nama });
+          filled = true;
+        }
+      }
+
+      if (sekdes) {
+        const person = getPerangkatByStrukturId(sekdes.id).find((p) => p.status_aktif);
+        if (person) {
+          update("village", { secretary: person.nama });
+          filled = true;
+        }
+      }
+
+      if (filled) {
+        toast.success("Profil Desa autofill berhasil", {
+          description: "Nama Kepala Desa dan Sekretaris Desa telah diisi dari data Perangkat Desa.",
+        });
+      } else {
+        toast.warning("Tidak ada Perangkat Desa aktif", {
+          description: "Pastikan struktur jabatan Kepala Desa dan Sekretaris Desa sudah diisi di menu Perangkat Desa.",
+        });
+      }
+    } finally {
+      setAutofilling(false);
+    }
+  };
+
+  // Autofill signature signer from aktif pemimpin
+  const handleAutoFillSignature = async () => {
+    setAutofilling(true);
+    try {
+      await initPerangkatStore();
+      const strukturs = listStrukturAktif();
+
+      // Cari struktur dengan kategori Pimpinan yang aktif
+      const pimpinan = strukturs.find(
+        (st) =>
+          st.kategori === "Pimpinan" && st.status === "Aktif",
+      );
+
+      if (pimpinan) {
+        const person = getPerangkatByStrukturId(pimpinan.id).find((p) => p.status_aktif);
+        if (person) {
+          update("signature", {
+            signer_name: person.nama,
+            signer_title: pimpinan.nama_jabatan,
+          });
+          toast.success("Penandatangan autofill berhasil", {
+            description: `Nama: ${person.nama}, Jabatan: ${pimpinan.nama_jabatan}`,
+          });
+          return;
+        }
+      }
+
+      toast.warning("Tidak ada Pimpinan aktif", {
+        description: "Pastikan jabatan dengan kategori 'Pimpinan' sudah terisi di menu Perangkat Desa.",
+      });
+    } finally {
+      setAutofilling(false);
+    }
+  };
 
   // Sinkronisasi state saat store selesai di-init dari IndexedDB / Supabase.
   // Hanya update jika: (a) user tidak punya perubahan, atau (b) versi store berubah setelah save.
@@ -229,36 +331,44 @@ export function SettingsPanel() {
       await logAudit(session?.username ?? "system", "Update Settings", section);
       setDirty(false);
       setSaveStatus("saved");
-      toast.success("Pengaturan disimpan");
+      toast.success("Pengaturan disimpan", {
+        description: `Bagian "${SECTIONS.find((s) => s.key === section)?.label ?? section}" telah diperbarui.`,
+      });
       // Reset status after 3s
       setTimeout(() => setSaveStatus("idle"), 3000);
     } catch (err) {
       console.error("[SettingsPanel] Gagal menyimpan:", err);
       setSaveStatus("error");
-      toast.error("Gagal menyimpan pengaturan. Silakan coba lagi.");
+      toast.error("Gagal menyimpan pengaturan", {
+        description: "Pastikan koneksi internet stabil dan coba lagi. Hubungi administrator jika masalah berlanjut.",
+      });
       setTimeout(() => setSaveStatus("idle"), 5000);
     }
   };
 
   const handleReset = () => {
-    if (!confirm("Reset semua pengaturan ke default?")) return;
+    setResetOpen(true);
+  };
+
+  const confirmReset = () => {
     resetSettings();
     setS(getSettings());
     setDirty(false);
+    setResetOpen(false);
     toast.success("Pengaturan direset ke default");
   };
 
   // ── Conflict resolution banner ──
   if (conflictStatus === "external_change") {
     return (
-      <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/30 p-6 space-y-4">
+      <div className="rounded-2xl border-2 border-[#EEAA78] bg-[#EEAA78]/10 dark:bg-[#EEAA78]/5 p-6 space-y-4">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
+          <AlertTriangle className="h-6 w-6 text-[#E37222] shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-display text-base font-bold text-amber-900 dark:text-amber-100">
+            <h3 className="font-display text-base font-bold text-[#1a1918] dark:text-[#f0efe9]">
               Data berubah di tab lain
             </h3>
-            <p className="font-body text-sm text-amber-700 dark:text-amber-300 mt-1">
+            <p className="font-body text-sm text-[#5c5a56] dark:text-[#a8a49c] mt-1">
               Ada perubahan settings dari tab browser lain. Perubahan lokal Anda tidak hilang —
               pilih aksi yang ingin dilakukan.
             </p>
@@ -268,14 +378,14 @@ export function SettingsPanel() {
           <Button
             size="sm"
             variant="outline"
-            className="border-amber-400 text-amber-700 hover:bg-amber-100"
+            className="border-[#EEAA78] text-[#1a1918] hover:bg-[#EEAA78]/20"
             onClick={handleKeepLocal}
           >
             Simpan Perubahan Lokal Saya
           </Button>
           <Button
             size="sm"
-            className="bg-amber-600 hover:bg-amber-700 text-white"
+            className="bg-[#078898] hover:bg-[#078898]/80 text-white"
             onClick={handleAcceptExternal}
           >
             Gunakan Data Tab Lain
@@ -351,7 +461,17 @@ export function SettingsPanel() {
 
         <div className="flex-1 p-5 sm:p-6 space-y-6 max-w-3xl">
           <TabsContent value="wilayah" className="m-0">
-            <WilayahSettings />
+            <div className="rounded-xl border border-info/20 bg-info/5 p-3 mb-4 flex items-start gap-3">
+              <div>
+                <p className="font-ui text-xs font-semibold text-info">Pengaturan wilayah & profil terintegrasi</p>
+                <p className="font-ui text-[11px] text-muted-foreground mt-0.5">
+                  Data Nama Desa, alamat, dan wilayah dicatat di{" "}
+                  <strong>tab "Profil Desa"</strong>. Tab ini mengelola kode desa dan daftar dusun
+                  saja.
+                </p>
+              </div>
+            </div>
+            <WilayahSettings villageName={s.village.name} onVillageNameChange={(v) => update("village", { name: v })} />
           </TabsContent>
 
           <TabsContent value="hero" className="m-0">
@@ -377,16 +497,34 @@ export function SettingsPanel() {
                   />
                 </Field>
                 <Field label="Kepala Desa">
-                  <Input
-                    value={s.village.head}
-                    onChange={(e) => update("village", { head: e.target.value })}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={s.village.head}
+                      onChange={(e) => update("village", { head: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAutoFillVillage}
+                      disabled={autofilling}
+                      title="Autofill dari Perangkat Desa"
+                      className="shrink-0 h-9 px-3 rounded-xl bg-primary/10 text-primary text-xs font-ui font-semibold hover:bg-primary/20 disabled:opacity-50 transition inline-flex items-center gap-1.5 border border-primary/20"
+                    >
+                      {autofilling ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Wand2 className="h-3.5 w-3.5" />
+                      )}
+                      Isi Otomatis
+                    </button>
+                  </div>
                 </Field>
                 <Field label="Sekretaris Desa">
-                  <Input
-                    value={s.village.secretary}
-                    onChange={(e) => update("village", { secretary: e.target.value })}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={s.village.secretary}
+                      onChange={(e) => update("village", { secretary: e.target.value })}
+                    />
+                  </div>
                 </Field>
                 <Field label="Telepon">
                   <Input
@@ -471,10 +609,14 @@ export function SettingsPanel() {
                     onChange={(e) => update("branding", { site_title: e.target.value })}
                   />
                 </Field>
-                <Field label="URL Favicon">
-                  <Input
+                <Field label="Favicon">
+                  <ImageUploadField
+                    label="Favicon"
+                    hint="ICO atau PNG, 32×32 atau 48×48 px"
                     value={s.branding.favicon_url}
-                    onChange={(e) => update("branding", { favicon_url: e.target.value })}
+                    storagePath={s.branding.favicon_storage_path}
+                    onChange={(v) => update("branding", { favicon_url: v })}
+                    onStoragePathChange={(path) => update("branding", { favicon_storage_path: path })}
                   />
                 </Field>
                 <Field label="Warna Primer">
@@ -637,10 +779,26 @@ export function SettingsPanel() {
             >
               <Grid2>
                 <Field label="Nama Penandatangan">
-                  <Input
-                    value={s.signature.signer_name}
-                    onChange={(e) => update("signature", { signer_name: e.target.value })}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={s.signature.signer_name}
+                      onChange={(e) => update("signature", { signer_name: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAutoFillSignature}
+                      disabled={autofilling}
+                      title="Autofill dari Perangkat Desa"
+                      className="shrink-0 h-9 px-3 rounded-xl bg-primary/10 text-primary text-xs font-ui font-semibold hover:bg-primary/20 disabled:opacity-50 transition inline-flex items-center gap-1.5 border border-primary/20"
+                    >
+                      {autofilling ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Wand2 className="h-3.5 w-3.5" />
+                      )}
+                      Isi Otomatis
+                    </button>
+                  </div>
                 </Field>
                 <Field label="Jabatan">
                   <Input
@@ -653,13 +811,6 @@ export function SettingsPanel() {
                     type="password"
                     value={s.signature.qr_secret}
                     onChange={(e) => update("signature", { qr_secret: e.target.value })}
-                  />
-                </Field>
-                <Field label="URL Spesimen TTD (opsional)">
-                  <Input
-                    placeholder="https://…/ttd.png"
-                    value={s.signature.sign_image_url}
-                    onChange={(e) => update("signature", { sign_image_url: e.target.value })}
                   />
                 </Field>
               </Grid2>
@@ -2046,6 +2197,60 @@ function KopSuratSettings({
         title="Baris Teks Kop Surat"
         desc="Atur teks, ukuran font, bold, dan italic untuk setiap baris."
       >
+        <div className="flex items-center justify-between mb-3">
+          <p className="font-ui text-[11px] text-muted-foreground">
+            5 baris default: Nama Desa, Alamat, Telepon, Website, Email.
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              await initPerangkatStore();
+              const strukturs = listStrukturAktif();
+              const villageData = s.village;
+              const existing = kopLines.length;
+              const autoLines = [
+                { label: "Nama Desa", text: villageData.name },
+                {
+                  label: "Alamat",
+                  text: [villageData.address, villageData.district, villageData.regency]
+                    .filter(Boolean)
+                    .join(", "),
+                },
+                {
+                  label: "Telepon / WhatsApp",
+                  text: villageData.phone
+                    ? `Telp. ${villageData.phone}${villageData.whatsapp ? ` / WA ${villageData.whatsapp}` : ""}`
+                    : "",
+                },
+                { label: "Website", text: s.social?.website ?? "" },
+                { label: "Email Resmi", text: villageData.email },
+              ];
+              if (existing === 0) {
+                update("kopSurat", {
+                  kop_lines: autoLines.map((l, i) => ({
+                    id: `k${Date.now() + i}`,
+                    label: l.label,
+                    text: l.text,
+                    font_size: l.label === "Nama Desa" ? 13 : 10,
+                    bold: l.label === "Nama Desa",
+                    italic: false,
+                  })),
+                });
+                toast.success("Kop Surat autofill berhasil", {
+                  description: "5 baris kop surat telah diisi otomatis dari data Profil Desa.",
+                });
+              } else {
+                toast.info("Kop Surat sudah terisi", {
+                  description: "Hapus baris yang ada terlebih dahulu sebelum autofill.",
+                });
+              }
+            }}
+            className="shrink-0 h-8 px-3 rounded-lg bg-info/10 text-info text-xs font-ui font-semibold hover:bg-info/20 transition inline-flex items-center gap-1.5 border border-info/20"
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            Isi Otomatis
+          </button>
+        </div>
         <div className="space-y-3">
           {kopLines.map((line, i) => (
             <div
@@ -2177,7 +2382,7 @@ function KopSuratSettings({
 
       {/* Preview Kop Surat */}
       <Section title="Preview Kop Surat" desc="Pratinjau kop surat sesuai pengaturan.">
-        <div className="rounded-xl border border-border overflow-hidden bg-white font-arial">
+        <div className="rounded-xl border border-border overflow-hidden bg-white font-ui">
           {/* Bar header */}
           <div className="h-2 w-full" style={{ backgroundColor: s.kopSurat.header_bar_color }} />
           <div className="flex items-center gap-3 p-4">
@@ -2240,6 +2445,10 @@ const PAGE_GROUPS = [
       { path: "/profil/desa", label: "Profil Desa" },
       { path: "/profil/perangkat", label: "Perangkat Desa" },
       { path: "/profil/lembaga", label: "Lembaga Desa" },
+      { path: "/profil/bpd", label: "BPD" },
+      { path: "/profil/lpm", label: "LPM" },
+      { path: "/profil/karangtaruna", label: "Karang Taruna" },
+      { path: "/profil/pkkrw", label: "PKK & KWT" },
     ],
   },
   {
@@ -2253,20 +2462,33 @@ const PAGE_GROUPS = [
     ],
   },
   {
-    group: "Laporan",
+    group: "Pelayanan",
     pages: [
-      { path: "/laporan/rpjmdes", label: "RPJMDes" },
-      { path: "/laporan/rkpdes", label: "RKPDes" },
-      { path: "/laporan/apbdes", label: "APBDes" },
-      { path: "/laporan/realisasi", label: "Realisasi" },
-      { path: "/laporan/pbb", label: "PBB-P2" },
+      { path: "/pelayanan/pengaduan", label: "Pengaduan" },
+      { path: "/pelayanan/konsultasi", label: "Konsultasi" },
+      { path: "/pelayanan/penduduk", label: "Statistik Penduduk" },
     ],
   },
   {
-    group: "Wisata & Ekonomi",
+    group: "Laporan",
+    pages: [
+      { path: "/laporan/apbdes", label: "APBDes" },
+      { path: "/laporan/realisasi", label: "Realisasi" },
+    ],
+  },
+  {
+    group: "Ekonomi",
     pages: [
       { path: "/ekonomi/bumdes", label: "BUMDes" },
+    ],
+  },
+  {
+    group: "Lainnya",
+    pages: [
+      { path: "/lainnya/peta", label: "Peta Interaktif" },
+      { path: "/lainnya/produk-hukum", label: "Produk Hukum" },
       { path: "/lainnya/monografi", label: "Monografi" },
+      { path: "/lainnya/komoditas", label: "Komoditas" },
     ],
   },
 ];
@@ -2396,26 +2618,16 @@ function PagesCMS({
                   placeholder="Tulis sejarah singkat desa…"
                 />
               </Field>
-              <Field label="Visi">
-                <Textarea
-                  rows={2}
-                  value={pageConfig.extras.visi ?? ""}
-                  onChange={(e) =>
-                    updatePage({ extras: { ...pageConfig.extras, visi: e.target.value } })
-                  }
-                  placeholder="Visi pembangunan desa…"
-                />
-              </Field>
-              <Field label="Misi">
-                <Textarea
-                  rows={3}
-                  value={pageConfig.extras.misi ?? ""}
-                  onChange={(e) =>
-                    updatePage({ extras: { ...pageConfig.extras, misi: e.target.value } })
-                  }
-                  placeholder="1. …&#10;2. …&#10;3. …"
-                />
-              </Field>
+              <div className="rounded-lg border border-warning/20 bg-warning/5 p-3 space-y-2">
+                <p className="font-ui text-xs font-semibold text-warning">
+                  Visi & Misi ada di bagian "Profil Publik (CMS)"
+                </p>
+                <p className="font-ui text-[11px] text-muted-foreground">
+                  Visi dan Misi desa dikelola di tab{" "}
+                  <strong>Profil Publik (CMS)</strong> agar konsisten di landing page dan halaman
+                  profil. Tidak perlu mengisi di sini.
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -2605,12 +2817,24 @@ function SocialMediaSettings({
         <Field label="Twitter / X URL">
           <div className="flex gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/30">
-              <Twitter className="h-4 w-4 text-black" />
+              <Twitter className="h-4 w-4 text-[#1a1918]" />
             </div>
             <Input
               value={social.twitter}
               onChange={(e) => update("social", { twitter: e.target.value })}
               placeholder="https://twitter.com/..."
+            />
+          </div>
+        </Field>
+        <Field label="Website Resmi" className="sm:col-span-2">
+          <div className="flex gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/30">
+              <Globe className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <Input
+              value={social.website ?? ""}
+              onChange={(e) => update("social", { website: e.target.value })}
+              placeholder="https://nama-desa.desa.id"
             />
           </div>
         </Field>
@@ -2761,6 +2985,64 @@ function PushNotificationPanel() {
         </Button>
       )}
 
+      <div className="rounded-xl border border-border bg-muted/20 p-4">
+        <p className="font-ui text-xs font-semibold text-foreground mb-1.5">Setup VAPID Key</p>
+        <p className="font-ui text-xs text-muted-foreground leading-relaxed">
+          Untuk mengaktifkan push notification, Anda perlu:
+        </p>
+        <ol className="mt-2 space-y-1 pl-4 font-ui text-[11px] text-muted-foreground list-decimal list-inside">
+          <li>
+            Generate VAPID keys:
+            <code className="ml-1.5 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+              npx web-push generate-vapid-keys
+            </code>
+          </li>
+          <li>
+            Set{" "}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+              VITE_VAPID_PUBLIC_KEY
+            </code>{" "}
+            di file <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">.env</code>
+          </li>
+          <li>
+            Set{" "}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+              VAPID_PRIVATE_KEY
+            </code>{" "}
+            sebagai secret di deployment (Cloudflare Pages Secrets / Vercel Environment Variables)
+          </li>
+        </ol>
+      </div>
+
+      {/* ── Reset Confirmation Dialog ── */}
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-destructive" />
+              Reset Semua Pengaturan
+            </DialogTitle>
+            <DialogDescription>
+              Semua pengaturan sistem akan dikembalikan ke nilai default.
+              Perubahan yang belum disimpan akan hilang.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setResetOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmReset}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Ya, Reset Sekarang
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── VAPID Key Instructions Panel ── */}
       <div className="rounded-xl border border-border bg-muted/20 p-4">
         <p className="font-ui text-xs font-semibold text-foreground mb-1.5">Setup VAPID Key</p>
         <p className="font-ui text-xs text-muted-foreground leading-relaxed">

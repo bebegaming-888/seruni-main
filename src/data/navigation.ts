@@ -61,6 +61,9 @@ export const NAV = [
       { label: "Destinasi Wisata", desc: "Tempat-tempat menarik di desa", to: "/wisata/destinasi" },
       { label: "Peta Wisata", desc: "Peta interaktif lokasi wisata", to: "/wisata/peta" },
       { label: "Profil BUMDes", desc: "Badan Usaha Milik Desa", to: "/ekonomi/bumdes" },
+      { label: "Marketplace", desc: "Pasar desa — beli produk lokal langsung dari penjual", to: "/ekonomi/marketplace" },
+      { label: "Kopi", desc: "Koperasi Desa — simpan pinjam dan pembiayaan mikro", to: "/ekonomi/kopi" },
+      { label: "Portal Penjual", desc: "Pelajari dan kelola pesanan produk Anda", to: "/penjual" },
     ],
   },
   {

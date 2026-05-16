@@ -19,11 +19,13 @@
 
 import { base64UrlDecode } from "../../_lib/utils";
 import { createRateLimiter, getClientIp } from "../../_lib/rate-limit";
+import { verifyAdminSession } from "../../_lib/admin-session";
 
 interface Env {
   VAPID_PRIVATE_KEY: string;
   VAPID_PUBLIC_KEY: string;
   VAPID_SUBJECT: string;
+  ADMIN_SESSION_SECRET: string;
 }
 
 interface RequestBody {
@@ -105,6 +107,12 @@ function base64UrlEncode(buffer: ArrayBuffer): string {
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
+  // Admin auth check — only logged-in admins can send push notifications
+  const session = await verifyAdminSession(context.request, context.env.ADMIN_SESSION_SECRET ?? "");
+  if (!session) {
+    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401 });
+  }
+
   const rl = createRateLimiter("admin");
   const ip = getClientIp(context.request);
   const rlCheck = rl.check(ip);

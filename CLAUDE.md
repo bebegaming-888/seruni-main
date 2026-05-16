@@ -127,7 +127,9 @@ functions/_scheduled.ts                → Cloudflare Cron (setiap 6 jam)
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 - `FONNTE_API_KEY`, `ADMIN_WA_NUMBER`
 - `QR_SECRET` (HMAC signing secret)
-- `JWT_SECRET` (admin session signing)
+- `JWT_SECRET` (admin session signing — used by verifyAdminSession)
+- `ADMIN_SESSION_SECRET` (same HMAC key; required by /api/push/send edge function)
+- `VAPID_PRIVATE_KEY` (web push — not used for admin auth)
 
 ---
 

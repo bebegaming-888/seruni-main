@@ -72,10 +72,96 @@ export async function verifyJwtSignature(token: string, secret: string): Promise
   return diff === 0;
 }
 
-/** OTP hash — shared between request-otp and verify-otp.
- * Salt is defined here so both files stay in sync.
+/** OTP hash — PBKDF2 untuk keamanan yang lebih baik daripada plain SHA-256.
+ * Menggunakan 100,000 iterasi untuk mencegah brute-force pada OTP 6-digit.
+ *
+ * Hash format: "pbkdf2:{iterations}${salt}${hash}"
+ * Prefix "pbkdf2:" digunakan untuk backward compatibility (old hashes tidak punya prefix).
  */
+const OTP_PBKDF2_ITERATIONS = 100_000;
+
 export async function hashOtp(plain: string): Promise<string> {
+  // Generate per-OTP random salt (16 bytes, base64url)
+  const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+  const saltB64 = btoa(String.fromCharCode(...saltBytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(plain),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: saltBytes, iterations: OTP_PBKDF2_ITERATIONS, hash: "SHA-256" },
+    keyMaterial,
+    256,
+  );
+  const hashHex = Array.from(new Uint8Array(derivedBits))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  return `pbkdf2:${OTP_PBKDF2_ITERATIONS}${saltB64}${hashHex}`;
+}
+
+/** Verifikasi OTP hash (support PBKDF2 baru + legacy SHA-256).
+ * Menggunakan constant-time comparison untuk mencegah timing attack.
+ */
+export async function verifyOtpHash(plain: string, storedHash: string): Promise<boolean> {
+  if (storedHash.startsWith("pbkdf2:")) {
+    // New format: PBKDF2
+    const withoutPrefix = storedHash.slice(7);
+    const parts = withoutPrefix.split("$");
+    if (parts.length !== 3) return false;
+    const iterations = parseInt(parts[0], 10);
+    const saltB64 = parts[1];
+    const expectedHex = parts[2];
+
+    // Decode salt from base64url
+    let saltB64Padded = saltB64.replace(/-/g, "+").replace(/_/g, "/");
+    while (saltB64Padded.length % 4) saltB64Padded += "=";
+    const saltBytes = Uint8Array.from(atob(saltB64Padded), (c) => c.charCodeAt(0));
+
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(plain),
+      "PBKDF2",
+      false,
+      ["deriveBits"],
+    );
+    const derivedBits = await crypto.subtle.deriveBits(
+      { name: "PBKDF2", salt: saltBytes, iterations, hash: "SHA-256" },
+      keyMaterial,
+      256,
+    );
+    const computedHex = Array.from(new Uint8Array(derivedBits))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    // Constant-time comparison
+    if (computedHex.length !== expectedHex.length) return false;
+    const a = new TextEncoder().encode(computedHex);
+    const b = new TextEncoder().encode(expectedHex);
+    return a.length === b.length && crypto.subtle.timingSafeEqual(a, b);
+  }
+
+  // Legacy format: SHA-256 + fixed salt (untuk backward compat saat migrasi)
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(plain + "seruni-otp-salt"),
+  );
+  const legacyHex = Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  if (legacyHex.length !== storedHash.length) return false;
+  const a = new TextEncoder().encode(legacyHex);
+  const b = new TextEncoder().encode(storedHash);
+  return a.length === b.length && crypto.subtle.timingSafeEqual(a, b);
+}
+
+/** Legacy hash function (for reading existing SHA-256 hashes during migration). */
+async function legacyHashOtp(plain: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(plain + "seruni-otp-salt"),

@@ -21,15 +21,16 @@ export type MapFacility = {
 
 export const TYPE_CONFIG: Record<MapFacilityType, { color: string; icon: string; label: string }> =
   {
-    "kantor-desa": { color: "#0f7a4a", icon: "🏛️", label: "Kantor Desa" },
-    posyandu: { color: "#dc2626", icon: "🏥", label: "Posyandu" },
-    sekolah: { color: "#2563eb", icon: "🏫", label: "Sekolah" },
-    masjid: { color: "#7c3aed", icon: "🕌", label: "Masjid" },
-    olahraga: { color: "#059669", icon: "⚽", label: "Olahraga" },
-    pasar: { color: "#d97706", icon: "🏪", label: "Pasar" },
-    bumdes: { color: "#0f7a4a", icon: "🏢", label: "BUMDes" },
-    "objek-wisata": { color: "#0891b2", icon: "🌿", label: "Objek Wisata" },
-    dusun: { color: "#6b7280", icon: "🏘️", label: "Dusun" },
+    // Brand palette colors (E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5)
+    "kantor-desa": { color: "#078898", icon: "🏛️", label: "Kantor Desa" },
+    posyandu: { color: "#E37222", icon: "🏥", label: "Posyandu" },
+    sekolah: { color: "#66B9BF", icon: "🏫", label: "Sekolah" },
+    masjid: { color: "#EEAA78", icon: "🕌", label: "Masjid" },
+    olahraga: { color: "#078898", icon: "⚽", label: "Olahraga" },
+    pasar: { color: "#E37222", icon: "🏪", label: "Pasar" },
+    bumdes: { color: "#66B9BF", icon: "🏢", label: "BUMDes" },
+    "objek-wisata": { color: "#EEAA78", icon: "🌿", label: "Objek Wisata" },
+    dusun: { color: "#D5D5D5", icon: "🏘️", label: "Dusun" },
   };
 
 export const FACILITIES: MapFacility[] = [

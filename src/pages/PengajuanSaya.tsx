@@ -15,9 +15,11 @@ import {
   refreshWargaSession,
 } from "@/lib/warga-auth";
 import { listRecords, listArchive, type SuratRecord } from "@/lib/esurat-store";
-import { getSettings, useSettings } from "@/lib/settings-store";
+import { initEsuratStore, syncPullAllRecords } from "@/lib/useSupabaseSync";
+import { Navbar } from "@/components/site/Navbar";
+import { Footer } from "@/components/site/Footer";
+import { PageHero } from "@/components/sections/PageHero";
 import {
-  ArrowLeft,
   CheckCircle2,
   Clock,
   FileSignature,
@@ -28,6 +30,7 @@ import {
   Loader2,
   RefreshCw,
   Plus,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -54,7 +57,6 @@ const STATUSES = [
 ];
 
 export default function PengajuanSaya() {
-  const { village } = useSettings();
   const navigate = useNavigate();
   const [records, setRecords] = useState<SuratRecord[]>([]);
   const [archive, setArchive] = useState<SuratRecord[]>([]);
@@ -78,7 +80,20 @@ export default function PengajuanSaya() {
   };
 
   useEffect(() => {
-    load();
+    let mounted = true;
+    // Pastikan store sudah di-init DAN data sudah di-pull dari cloud sebelum render
+    initEsuratStore()
+      .then(() => syncPullAllRecords())
+      .then(() => {
+        if (mounted) load();
+      })
+      .catch((err) => {
+        console.warn("[PengajuanSaya] Gagal load records:", err);
+        if (mounted) load(); // fallback: gunakan cache lokal
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const handleRefresh = async () => {
@@ -90,7 +105,7 @@ export default function PengajuanSaya() {
 
   const handleLogout = () => {
     logoutWarga();
-    toast.success("Berhasil keluar");
+    toast.success("Berhasil keluar", { description: "Anda telah keluar dari sesi warga." });
     navigate({ to: "/masuk/warga" });
   };
 
@@ -131,39 +146,22 @@ export default function PengajuanSaya() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-display text-base font-bold">
-              {village.name[0]}
-            </div>
-            <div>
-              <div className="font-display text-sm font-bold leading-tight">{village.name}</div>
-              <div className="font-ui text-[10px] text-muted-foreground">Sistem Informasi Desa</div>
-            </div>
-          </Link>
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 font-ui text-xs text-muted-foreground hover:text-foreground transition"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Beranda
-          </Link>
-        </div>
-      </header>
-
+      <Navbar />
+      <PageHero
+        titleFirst="Pengajuan"
+        titleSecond="Saya"
+        description="Pengajuan surat Anda — pantau status dan riwayat pengajuan."
+        badge="E-Surat"
+        badgeIcon={<FileText className="h-3.5 w-3.5" />}
+      />
       {/* Warga identity bar */}
-      <div className="bg-primary/5 border-b border-primary/10">
+      <div className="bg-primary/5 border-b border-border">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="font-ui text-[10px] text-muted-foreground uppercase tracking-wider">
               Pengajuan Saya
             </p>
             <p className="font-display text-base font-bold truncate">{wargaName}</p>
-            <p className="font-mono text-[11px] text-muted-foreground">
-              NIK {session?.warga?.nik ?? "-"}
-            </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
@@ -305,16 +303,31 @@ export default function PengajuanSaya() {
                       timeStyle: "short",
                     })}
                   </p>
-                  {r.no && (
-                    <Link
-                      to="/verifikasi/$no"
-                      params={{ no: r.no }}
-                      className="font-ui text-[11px] text-primary font-semibold hover:underline"
-                    >
-                      Lihat & Verifikasi →
-                    </Link>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {r.no && (
+                      <Link
+                        to="/verifikasi/$no"
+                        params={{ no: r.no }}
+                        className="font-ui text-[11px] text-primary font-semibold hover:underline"
+                      >
+                        Lihat & Verifikasi →
+                      </Link>
+                    )}
+                  </div>
                 </div>
+
+                {/* Edit button — hanya tampil untuk record aktif yang bisa diedit */}
+                {["Menunggu Verifikasi", "Diverifikasi"].includes(r.status) && (
+                  <div className="mt-3 pt-3 border-t border-border flex justify-end">
+                    <button
+                      onClick={() => navigate({ to: "/masuk/edit-surat", search: { no: r.no } })}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-info/10 text-info text-xs font-ui font-semibold hover:bg-info/20 transition border border-info/20"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Koreksi / Edit Pengajuan
+                    </button>
+                  </div>
+                )}
 
                 {/* Catatan dari admin */}
                 {r.catatan && (
@@ -334,6 +347,7 @@ export default function PengajuanSaya() {
           </Link>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

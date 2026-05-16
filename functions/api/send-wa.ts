@@ -1,22 +1,23 @@
 /**
  * Edge Function: /api/send-wa
  *
- * Aman: Token Fonnte tidak pernah dikirim ke browser.
- * Browser memanggil endpoint ini → Edge Function meneruskan ke Fonnte API.
+ * Token Fonnte dibaca DARI settings (app_settings table) — admin mengkonfigurasi
+ * melalui SettingsPanel. Fallback ke FONNTE_API_KEY env var untuk backward compat.
  *
  * Env vars:
- *   FONNTE_API_KEY       — Fonnte API token
+ *   FONNTE_API_KEY       — Fonnte API token (fallback)
  *   FONNTE_SENDER_NAME   — Nama pengirim opsional
  *   SUPABASE_URL         — Supabase URL
  *   SUPABASE_SERVICE_ROLE_KEY — Supabase service role key
  *
  * Request body:
- *   { target: "62812...", message: "Halo..." }
+ *   { target: "62812...", message: "Halo...", no_surat?: string, username?: string }
  */
 
 import { createClient } from "@supabase/supabase-js";
 import { json, corsOptions } from "../_lib/utils";
 import { createRateLimiter, getClientIp } from "../_lib/rate-limit";
+import { verifyAdminSession } from "../_lib/admin-session";
 
 interface SendWaRequest {
   target: string;
@@ -26,7 +27,8 @@ interface SendWaRequest {
 }
 
 interface Env {
-  FONNTE_API_KEY: string;
+  ADMIN_SESSION_SECRET: string;
+  FONNTE_API_KEY?: string;
   FONNTE_SENDER_NAME?: string;
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
@@ -39,6 +41,28 @@ function createAdminClient(env: Env) {
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
+
+/** Fetch fonnte_token dari app_settings table (server-side, admin-configured). */
+async function fetchFonnteTokenFromSettings(sb: ReturnType<typeof createClient>): Promise<string | null> {
+  try {
+    const { data } = await sb
+      .from("app_settings")
+      .select("value")
+      .eq("key", "main_settings")
+      .single();
+    if (data?.value && typeof data.value === "object" && !Array.isArray(data.value)) {
+      const val = data.value as Record<string, unknown>;
+      const notif = val.notifications;
+      if (notif && typeof notif === "object" && !Array.isArray(notif)) {
+        const token = (notif as Record<string, unknown>).fonnte_token;
+        if (typeof token === "string" && token.trim()) return token.trim();
+      }
+    }
+  } catch {
+    // non-critical
+  }
+  return null;
 }
 
 // ---- Audit & Notification Logger ----
@@ -83,6 +107,12 @@ async function logToDb(
 // ---- Main Handler ----
 
 export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
+  // Admin auth check — only logged-in admins can send WhatsApp messages
+  const session = await verifyAdminSession(context.request, context.env.ADMIN_SESSION_SECRET ?? "");
+  if (!session) {
+    return json({ ok: false, message: "Unauthorized — silakan login terlebih dahulu" }, 401);
+  }
+
   const rl = createRateLimiter("admin");
   const ip = getClientIp(context.request);
   const rlCheck = rl.check(ip);
@@ -110,11 +140,20 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     });
   }
 
-  const token = env.FONNTE_API_KEY;
+  // Resolve Fonnte token: settings (app_settings) → env var (fallback)
+  // Settings-driven token: admin mengkonfigurasi melalui SettingsPanel E-Signature
+  let token: string | null = null;
+  const sb = createAdminClient(env);
+  if (sb) {
+    token = await fetchFonnteTokenFromSettings(sb);
+  }
   if (!token) {
-    console.error("[send-wa] FONNTE_API_KEY belum di-set di deployment secrets");
+    token = env.FONNTE_API_KEY ?? null;
+  }
+  if (!token) {
+    console.error("[send-wa] Fonnte token tidak ditemukan — cek SettingsPanel tab E-Signature");
     return new Response(
-      JSON.stringify({ ok: false, message: "Server not configured for WhatsApp" }),
+      JSON.stringify({ ok: false, message: "Token WhatsApp belum dikonfigurasi. Buka Settings → E-Signature untuk mengisi Fonnte Token." }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifikasiRouteImport } from './routes/verifikasi'
+import { Route as PenjualRouteImport } from './routes/penjual'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as SplatRouteImport } from './routes/$'
@@ -31,6 +32,7 @@ import { Route as PelayananKonsultasiRouteImport } from './routes/pelayanan.kons
 import { Route as PelayananESuratRouteImport } from './routes/pelayanan.e-surat'
 import { Route as MasukWargaRouteImport } from './routes/masuk.warga'
 import { Route as MasukPengajuanSayaRouteImport } from './routes/masuk.pengajuan-saya'
+import { Route as MasukEditSuratRouteImport } from './routes/masuk.edit-surat'
 import { Route as LaporanRealisasiRouteImport } from './routes/laporan.realisasi'
 import { Route as LaporanApbdesRouteImport } from './routes/laporan.apbdes'
 import { Route as LainnyaProdukHukumRouteImport } from './routes/lainnya.produk-hukum'
@@ -42,12 +44,20 @@ import { Route as InformasiIdmRouteImport } from './routes/informasi.idm'
 import { Route as InformasiGaleriRouteImport } from './routes/informasi.galeri'
 import { Route as InformasiBeritaRouteImport } from './routes/informasi.berita'
 import { Route as InformasiAgendaRouteImport } from './routes/informasi.agenda'
+import { Route as EkonomiMarketplaceRouteImport } from './routes/ekonomi.marketplace'
+import { Route as EkonomiKoperasiRouteImport } from './routes/ekonomi.koperasi'
+import { Route as EkonomiCheckoutRouteImport } from './routes/ekonomi.checkout'
 import { Route as EkonomiBumdesRouteImport } from './routes/ekonomi.bumdes'
 import { Route as InformasiBeritaSlugRouteImport } from './routes/informasi.berita.$slug'
 
 const VerifikasiRoute = VerifikasiRouteImport.update({
   id: '/verifikasi',
   path: '/verifikasi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PenjualRoute = PenjualRouteImport.update({
+  id: '/penjual',
+  path: '/penjual',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -155,6 +165,11 @@ const MasukPengajuanSayaRoute = MasukPengajuanSayaRouteImport.update({
   path: '/masuk/pengajuan-saya',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MasukEditSuratRoute = MasukEditSuratRouteImport.update({
+  id: '/masuk/edit-surat',
+  path: '/masuk/edit-surat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LaporanRealisasiRoute = LaporanRealisasiRouteImport.update({
   id: '/laporan/realisasi',
   path: '/laporan/realisasi',
@@ -210,6 +225,21 @@ const InformasiAgendaRoute = InformasiAgendaRouteImport.update({
   path: '/informasi/agenda',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EkonomiMarketplaceRoute = EkonomiMarketplaceRouteImport.update({
+  id: '/ekonomi/marketplace',
+  path: '/ekonomi/marketplace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EkonomiKoperasiRoute = EkonomiKoperasiRouteImport.update({
+  id: '/ekonomi/koperasi',
+  path: '/ekonomi/koperasi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EkonomiCheckoutRoute = EkonomiCheckoutRouteImport.update({
+  id: '/ekonomi/checkout',
+  path: '/ekonomi/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EkonomiBumdesRoute = EkonomiBumdesRouteImport.update({
   id: '/ekonomi/bumdes',
   path: '/ekonomi/bumdes',
@@ -226,8 +256,12 @@ export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
   '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
+  '/penjual': typeof PenjualRoute
   '/verifikasi': typeof VerifikasiRouteWithChildren
   '/ekonomi/bumdes': typeof EkonomiBumdesRoute
+  '/ekonomi/checkout': typeof EkonomiCheckoutRoute
+  '/ekonomi/koperasi': typeof EkonomiKoperasiRoute
+  '/ekonomi/marketplace': typeof EkonomiMarketplaceRoute
   '/informasi/agenda': typeof InformasiAgendaRoute
   '/informasi/berita': typeof InformasiBeritaRouteWithChildren
   '/informasi/galeri': typeof InformasiGaleriRoute
@@ -239,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/lainnya/produk-hukum': typeof LainnyaProdukHukumRoute
   '/laporan/apbdes': typeof LaporanApbdesRoute
   '/laporan/realisasi': typeof LaporanRealisasiRoute
+  '/masuk/edit-surat': typeof MasukEditSuratRoute
   '/masuk/pengajuan-saya': typeof MasukPengajuanSayaRoute
   '/masuk/warga': typeof MasukWargaRoute
   '/pelayanan/e-surat': typeof PelayananESuratRoute
@@ -263,8 +298,12 @@ export interface FileRoutesByTo {
   '/$': typeof SplatRoute
   '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
+  '/penjual': typeof PenjualRoute
   '/verifikasi': typeof VerifikasiRouteWithChildren
   '/ekonomi/bumdes': typeof EkonomiBumdesRoute
+  '/ekonomi/checkout': typeof EkonomiCheckoutRoute
+  '/ekonomi/koperasi': typeof EkonomiKoperasiRoute
+  '/ekonomi/marketplace': typeof EkonomiMarketplaceRoute
   '/informasi/agenda': typeof InformasiAgendaRoute
   '/informasi/berita': typeof InformasiBeritaRouteWithChildren
   '/informasi/galeri': typeof InformasiGaleriRoute
@@ -276,6 +315,7 @@ export interface FileRoutesByTo {
   '/lainnya/produk-hukum': typeof LainnyaProdukHukumRoute
   '/laporan/apbdes': typeof LaporanApbdesRoute
   '/laporan/realisasi': typeof LaporanRealisasiRoute
+  '/masuk/edit-surat': typeof MasukEditSuratRoute
   '/masuk/pengajuan-saya': typeof MasukPengajuanSayaRoute
   '/masuk/warga': typeof MasukWargaRoute
   '/pelayanan/e-surat': typeof PelayananESuratRoute
@@ -301,8 +341,12 @@ export interface FileRoutesById {
   '/$': typeof SplatRoute
   '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
+  '/penjual': typeof PenjualRoute
   '/verifikasi': typeof VerifikasiRouteWithChildren
   '/ekonomi/bumdes': typeof EkonomiBumdesRoute
+  '/ekonomi/checkout': typeof EkonomiCheckoutRoute
+  '/ekonomi/koperasi': typeof EkonomiKoperasiRoute
+  '/ekonomi/marketplace': typeof EkonomiMarketplaceRoute
   '/informasi/agenda': typeof InformasiAgendaRoute
   '/informasi/berita': typeof InformasiBeritaRouteWithChildren
   '/informasi/galeri': typeof InformasiGaleriRoute
@@ -314,6 +358,7 @@ export interface FileRoutesById {
   '/lainnya/produk-hukum': typeof LainnyaProdukHukumRoute
   '/laporan/apbdes': typeof LaporanApbdesRoute
   '/laporan/realisasi': typeof LaporanRealisasiRoute
+  '/masuk/edit-surat': typeof MasukEditSuratRoute
   '/masuk/pengajuan-saya': typeof MasukPengajuanSayaRoute
   '/masuk/warga': typeof MasukWargaRoute
   '/pelayanan/e-surat': typeof PelayananESuratRoute
@@ -340,8 +385,12 @@ export interface FileRouteTypes {
     | '/$'
     | '/admin'
     | '/login'
+    | '/penjual'
     | '/verifikasi'
     | '/ekonomi/bumdes'
+    | '/ekonomi/checkout'
+    | '/ekonomi/koperasi'
+    | '/ekonomi/marketplace'
     | '/informasi/agenda'
     | '/informasi/berita'
     | '/informasi/galeri'
@@ -353,6 +402,7 @@ export interface FileRouteTypes {
     | '/lainnya/produk-hukum'
     | '/laporan/apbdes'
     | '/laporan/realisasi'
+    | '/masuk/edit-surat'
     | '/masuk/pengajuan-saya'
     | '/masuk/warga'
     | '/pelayanan/e-surat'
@@ -377,8 +427,12 @@ export interface FileRouteTypes {
     | '/$'
     | '/admin'
     | '/login'
+    | '/penjual'
     | '/verifikasi'
     | '/ekonomi/bumdes'
+    | '/ekonomi/checkout'
+    | '/ekonomi/koperasi'
+    | '/ekonomi/marketplace'
     | '/informasi/agenda'
     | '/informasi/berita'
     | '/informasi/galeri'
@@ -390,6 +444,7 @@ export interface FileRouteTypes {
     | '/lainnya/produk-hukum'
     | '/laporan/apbdes'
     | '/laporan/realisasi'
+    | '/masuk/edit-surat'
     | '/masuk/pengajuan-saya'
     | '/masuk/warga'
     | '/pelayanan/e-surat'
@@ -414,8 +469,12 @@ export interface FileRouteTypes {
     | '/$'
     | '/admin'
     | '/login'
+    | '/penjual'
     | '/verifikasi'
     | '/ekonomi/bumdes'
+    | '/ekonomi/checkout'
+    | '/ekonomi/koperasi'
+    | '/ekonomi/marketplace'
     | '/informasi/agenda'
     | '/informasi/berita'
     | '/informasi/galeri'
@@ -427,6 +486,7 @@ export interface FileRouteTypes {
     | '/lainnya/produk-hukum'
     | '/laporan/apbdes'
     | '/laporan/realisasi'
+    | '/masuk/edit-surat'
     | '/masuk/pengajuan-saya'
     | '/masuk/warga'
     | '/pelayanan/e-surat'
@@ -452,8 +512,12 @@ export interface RootRouteChildren {
   SplatRoute: typeof SplatRoute
   AdminRoute: typeof AdminRoute
   LoginRoute: typeof LoginRoute
+  PenjualRoute: typeof PenjualRoute
   VerifikasiRoute: typeof VerifikasiRouteWithChildren
   EkonomiBumdesRoute: typeof EkonomiBumdesRoute
+  EkonomiCheckoutRoute: typeof EkonomiCheckoutRoute
+  EkonomiKoperasiRoute: typeof EkonomiKoperasiRoute
+  EkonomiMarketplaceRoute: typeof EkonomiMarketplaceRoute
   InformasiAgendaRoute: typeof InformasiAgendaRoute
   InformasiBeritaRoute: typeof InformasiBeritaRouteWithChildren
   InformasiGaleriRoute: typeof InformasiGaleriRoute
@@ -465,6 +529,7 @@ export interface RootRouteChildren {
   LainnyaProdukHukumRoute: typeof LainnyaProdukHukumRoute
   LaporanApbdesRoute: typeof LaporanApbdesRoute
   LaporanRealisasiRoute: typeof LaporanRealisasiRoute
+  MasukEditSuratRoute: typeof MasukEditSuratRoute
   MasukPengajuanSayaRoute: typeof MasukPengajuanSayaRoute
   MasukWargaRoute: typeof MasukWargaRoute
   PelayananESuratRoute: typeof PelayananESuratRoute
@@ -490,6 +555,13 @@ declare module '@tanstack/react-router' {
       path: '/verifikasi'
       fullPath: '/verifikasi'
       preLoaderRoute: typeof VerifikasiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/penjual': {
+      id: '/penjual'
+      path: '/penjual'
+      fullPath: '/penjual'
+      preLoaderRoute: typeof PenjualRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -639,6 +711,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MasukPengajuanSayaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/masuk/edit-surat': {
+      id: '/masuk/edit-surat'
+      path: '/masuk/edit-surat'
+      fullPath: '/masuk/edit-surat'
+      preLoaderRoute: typeof MasukEditSuratRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/laporan/realisasi': {
       id: '/laporan/realisasi'
       path: '/laporan/realisasi'
@@ -716,6 +795,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InformasiAgendaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ekonomi/marketplace': {
+      id: '/ekonomi/marketplace'
+      path: '/ekonomi/marketplace'
+      fullPath: '/ekonomi/marketplace'
+      preLoaderRoute: typeof EkonomiMarketplaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ekonomi/koperasi': {
+      id: '/ekonomi/koperasi'
+      path: '/ekonomi/koperasi'
+      fullPath: '/ekonomi/koperasi'
+      preLoaderRoute: typeof EkonomiKoperasiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ekonomi/checkout': {
+      id: '/ekonomi/checkout'
+      path: '/ekonomi/checkout'
+      fullPath: '/ekonomi/checkout'
+      preLoaderRoute: typeof EkonomiCheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ekonomi/bumdes': {
       id: '/ekonomi/bumdes'
       path: '/ekonomi/bumdes'
@@ -762,8 +862,12 @@ const rootRouteChildren: RootRouteChildren = {
   SplatRoute: SplatRoute,
   AdminRoute: AdminRoute,
   LoginRoute: LoginRoute,
+  PenjualRoute: PenjualRoute,
   VerifikasiRoute: VerifikasiRouteWithChildren,
   EkonomiBumdesRoute: EkonomiBumdesRoute,
+  EkonomiCheckoutRoute: EkonomiCheckoutRoute,
+  EkonomiKoperasiRoute: EkonomiKoperasiRoute,
+  EkonomiMarketplaceRoute: EkonomiMarketplaceRoute,
   InformasiAgendaRoute: InformasiAgendaRoute,
   InformasiBeritaRoute: InformasiBeritaRouteWithChildren,
   InformasiGaleriRoute: InformasiGaleriRoute,
@@ -775,6 +879,7 @@ const rootRouteChildren: RootRouteChildren = {
   LainnyaProdukHukumRoute: LainnyaProdukHukumRoute,
   LaporanApbdesRoute: LaporanApbdesRoute,
   LaporanRealisasiRoute: LaporanRealisasiRoute,
+  MasukEditSuratRoute: MasukEditSuratRoute,
   MasukPengajuanSayaRoute: MasukPengajuanSayaRoute,
   MasukWargaRoute: MasukWargaRoute,
   PelayananESuratRoute: PelayananESuratRoute,

@@ -19,6 +19,14 @@ import { LetterSubject } from "./LetterSubject";
 import { LetterBody } from "./LetterBody";
 import { LetterSignature } from "./LetterSignature";
 
+// ── Brand palette (STRICT: E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5) ──
+const BRAND_PRIMARY = "#E37222";
+const BRAND_SECONDARY = "#078898";
+const BRAND_WHITE = "#ffffff";
+const BRAND_LIGHT = "#f4f4f4";
+const BRAND_BORDER = "#D5D5D5";
+const BRAND_TEXT = "#1a1918";
+
 type Props = {
   letter: RenderedLetter;
   namaPemohon?: string;
@@ -30,7 +38,7 @@ type Props = {
 export function LetterRenderer({
   letter,
   namaPemohon,
-  primaryColor = "#0f7a4a",
+  primaryColor = BRAND_PRIMARY,
   isPrintMode = false,
   className = "",
 }: Props) {
@@ -43,8 +51,8 @@ export function LetterRenderer({
         width: isPrintMode ? "100%" : 794,
         minHeight: isPrintMode ? "auto" : 1122,
         padding: "56px 64px",
-        background: "#fff",
-        color: "#111",
+        background: BRAND_WHITE,
+        color: BRAND_TEXT,
         fontFamily: "Times New Roman, serif",
         fontSize: 11,
         lineHeight: 1.6,
@@ -54,7 +62,7 @@ export function LetterRenderer({
           ? {}
           : {
               boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
-              border: "1px solid #e0e0e0",
+              border: `1px solid ${BRAND_BORDER}`,
             }),
       }}
     >
@@ -68,7 +76,7 @@ export function LetterRenderer({
       <LetterSigner signer={letter.signer} />
 
       {/* Garis separator tipis sebelum identitas */}
-      <div style={{ borderBottom: "0.5px solid #bbb", margin: "6px 0" }} />
+      <div style={{ borderBottom: `0.5px solid ${BRAND_BORDER}`, margin: "6px 0" }} />
 
       {/* Pembuka menerangkan (biasanya sebelum identitas) */}
       <p
