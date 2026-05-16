@@ -136,11 +136,11 @@ export function invalidateVillageCache(): void {
 }
 
 // ── Overload declarations (must come BEFORE implementation) ──────────────────
-export function getVillage(field: VillageField): string;
+export function getVillage(field: string): string;
 export function getVillage(): VillageInfo;
 
 /** Get all village info as a single object. Cached per render cycle. */
-export function getVillage(fieldOrNothing?: VillageField | undefined): VillageInfo | string {
+export function getVillage(field?: string | undefined): VillageInfo | string {
   if (_cache) return _cache;
 
   const s = getSettings();
@@ -220,8 +220,8 @@ export function getVillage(fieldOrNothing?: VillageField | undefined): VillageIn
   };
 
   // If a field was requested, return just that field
-  if (fieldOrNothing) {
-    const value = _cache[fieldOrNothing as keyof VillageInfo];
+  if (field) {
+    const value = _cache[field as keyof VillageInfo];
     if (Array.isArray(value)) return value.join(", ");
     return value ?? "";
   }

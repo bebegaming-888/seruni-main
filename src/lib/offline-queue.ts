@@ -137,57 +137,10 @@ export async function processOfflineQueue(): Promise<void> {
       continue;
     }
 
+    // Marketplace/order type removed — just acknowledge and remove
     if (item.type === "CREATE_ORDER") {
-      try {
-        const { useOrdersStore } = await import("@/stores/orders-store");
-        const { useMarketplaceStore } = await import("@/lib/content-store");
-        const { useCartStore } = await import("@/lib/cart-store");
-        const { useMarketplaceConfigStore } = await import("@/lib/content-store");
-
-        const data = item.data as {
-          cart: Array<{ id: string; quantity: number }>;
-          buyer: { name: string; wa: string; address: string };
-          paymentMethod: "bank_transfer" | "cod";
-        };
-
-        // Reconstruct cart items from stored IDs
-        const marketplaceStore = useMarketplaceStore.getState();
-        await marketplaceStore.load();
-
-        const cartStore = useCartStore.getState();
-        const configStore = useMarketplaceConfigStore.getState();
-        await configStore.load();
-
-        const cartItems = data.cart
-          .map((ci) => {
-            const product = marketplaceStore.items.find((p) => p.id === ci.id);
-            if (!product) return null;
-            return { product, quantity: ci.quantity };
-          })
-          .filter(Boolean) as ReturnType<typeof cartStore.items extends (infer T)[] ? T[] : never[]>;
-
-        if (cartItems.length === 0) {
-          // Products no longer exist — remove from queue
-          await dequeueOfflineSubmission(item.id);
-          continue;
-        }
-
-        const ordersStore = useOrdersStore.getState();
-        await ordersStore.load();
-
-        await ordersStore.createOrder(cartItems, data.buyer, data.paymentMethod);
-
-        console.info(`[offline-queue] CREATE_ORDER ${item.id} synced successfully`);
-        await dequeueOfflineSubmission(item.id);
-      } catch (err) {
-        const updated: OfflineSubmission = {
-          ...item,
-          retries: item.retries + 1,
-          nextRetry: Date.now() + backoffDelay(item.retries + 1),
-        };
-        await idbPut(OFFLINE_QUEUE_STORE, updated);
-        console.warn(`[offline-queue] CREATE_ORDER ${item.id} failed:`, err);
-      }
+      console.info(`[offline-queue] CREATE_ORDER ${item.id} skipped (marketplace removed)`);
+      await dequeueOfflineSubmission(item.id);
       continue;
     }
 

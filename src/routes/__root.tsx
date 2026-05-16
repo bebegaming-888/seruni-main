@@ -77,9 +77,13 @@ function NotFoundComponent() {
 
 export const Route = createRootRoute({
   head: () => {
+    // Guard: during SSR (server-side), stores may not be initialized yet.
+    // getSettings()/getVillage() return DEFAULT_SETTINGS which has placeholder strings.
+    // We use String() coercion to prevent [object Object] in SSR output.
     const settings = getSettings();
-    const v = getVillage();
-    const tagline = settings?.branding?.tagline || `Portal Resmi ${v.village}`;
+    const vName = String(getVillage("name") ?? "Desa Seruni Mumbul");
+    const tagline = String(settings?.branding?.tagline ?? `Portal Resmi ${vName}`);
+    const villageName = String(getVillage("village") ?? vName);
     return {
       meta: [
         { charSet: "utf-8" },
@@ -88,17 +92,17 @@ export const Route = createRootRoute({
         { name: "mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-status-bar-style", content: "default" },
-        { name: "apple-mobile-web-app-title", content: v.village },
+        { name: "apple-mobile-web-app-title", content: villageName },
         { name: "color-scheme", content: "light" },
-        { title: v.village },
+        { title: villageName },
         { name: "description", content: tagline },
-        { name: "author", content: v.village },
-        { property: "og:site_name", content: v.village },
-        { property: "og:title", content: v.village },
+        { name: "author", content: villageName },
+        { property: "og:site_name", content: villageName },
+        { property: "og:title", content: villageName },
         { property: "og:description", content: tagline },
         { property: "og:type", content: "website" },
         { name: "twitter:card", content: "summary" },
-        { name: "twitter:title", content: v.village },
+        { name: "twitter:title", content: villageName },
         { name: "twitter:description", content: tagline },
       ],
       links: [
