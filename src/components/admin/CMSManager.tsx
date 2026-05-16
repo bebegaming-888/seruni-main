@@ -13,10 +13,7 @@ import {
   useRealisasiStore,
   useBumdesStore,
   usePengaduanKategoriStore,
-  useMarketplaceStore,
-  useMarketplaceConfigStore,
   useKoprasiStore,
-  useMarketplaceConfigStore,
   type Article,
   type AgendaItem,
   type PengumumanItem,
@@ -27,9 +24,7 @@ import {
   PengumumanSchema,
   AgendaSchema,
   KomoditasSchema,
-  MarketplaceSchema,
 } from "@/lib/content-store";
-import { useOrdersStore } from "@/stores/orders-store";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -63,11 +58,8 @@ import {
   Scale,
   Store,
   MessageSquare,
-  ShoppingBag,
   Users,
   Settings,
-  ClipboardList,
-  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatRupiah } from "@/data/apbdes";
@@ -75,7 +67,7 @@ import { uploadMedia } from "@/lib/media-upload";
 
 export function CMSManager() {
   const [activeTab, setActiveTab] = useState<
-    "berita" | "agenda" | "pengumuman" | "komoditas" | "galeri" | "apbdes" | "page_content" | "kwt" | "produk_hukum" | "realisasi" | "bumdes" | "pengaduan_kategori" | "marketplace" | "marketplace_config" | "koperasi" | "pesanan"
+    "berita" | "agenda" | "pengumuman" | "komoditas" | "galeri" | "apbdes" | "page_content" | "kwt" | "produk_hukum" | "realisasi" | "bumdes" | "pengaduan_kategori" | "koperasi"
   >("berita");
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -98,9 +90,7 @@ export function CMSManager() {
     realisasi: useRealisasiStore(),
     bumdes: useBumdesStore(),
     pengaduan_kategori: usePengaduanKategoriStore(),
-    marketplace: useMarketplaceStore(),
     koprasi: useKoprasiStore(),
-    marketplace_config: useMarketplaceConfigStore(),
   };
 
   const currentStore = stores[activeTab];
@@ -165,10 +155,7 @@ export function CMSManager() {
           { id: "realisasi", label: "Realisasi APBDes", icon: TrendingUp },
           { id: "bumdes", label: "BUMDes", icon: Store },
           { id: "pengaduan_kategori", label: "Kategori Pengaduan", icon: MessageSquare },
-          { id: "marketplace", label: "Marketplace", icon: ShoppingBag },
-          { id: "marketplace_config", label: "Mp Config", icon: Settings },
           { id: "koperasi", label: "Kopi", icon: Users },
-          { id: "pesanan", label: "Pesanan", icon: ClipboardList },
         ].map((t) => (
           <button
             key={t.id}
@@ -326,10 +313,7 @@ function CMSForm({
     realisasi: useRealisasiStore(),
     bumdes: useBumdesStore(),
     pengaduan_kategori: usePengaduanKategoriStore(),
-    marketplace: useMarketplaceStore(),
     kopi: useKoprasiStore(),
-    marketplace_config: useMarketplaceConfigStore(),
-    pesanan: useOrdersStore(),
   };
   const store = (stores as Record<string, (typeof stores)[keyof typeof stores]>)[type];
   const existing = editingId ? store.items.find((i) => i.id === editingId) : null;
@@ -423,7 +407,6 @@ function CMSForm({
         pengumuman: PengumumanSchema,
         agenda: AgendaSchema,
         komoditas: KomoditasSchema,
-        marketplace: MarketplaceSchema,
       };
 
       if (schemas[type]) {
@@ -925,136 +908,6 @@ function CMSForm({
           </div>
         )}
 
-        {type === "marketplace" && (
-          <>
-            <div className="sm:col-span-2 space-y-2">
-              <Label>Nama Produk</Label>
-              <Input
-                required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Contoh: Kain Tenun Sasak Premium"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Harga (Rp)</Label>
-              <Input
-                type="number"
-                required
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
-                placeholder="450000"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Satuan</Label>
-              <Input
-                required
-                value={formData.unit}
-                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                placeholder="lembar, kg, pack 250g"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Kategori</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(v) => setFormData({ ...formData, category: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                  {["Kerajinan", "Makanan", "Minuman", "Camilan", "Alam", "Pertanian", "Lainnya"].map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Stok</Label>
-              <Input
-                type="number"
-                value={formData.stock}
-                onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })}
-                placeholder="100"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Nama Penjual</Label>
-              <Input
-                required
-                value={formData.seller_name}
-                onChange={(e) => setFormData({ ...formData, seller_name: e.target.value })}
-                placeholder="Nama lengkap penjual"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>No. WhatsApp Penjual</Label>
-              <Input
-                required
-                value={formData.seller_wa}
-                onChange={(e) => setFormData({ ...formData, seller_wa: e.target.value })}
-                placeholder="08xxxxxxxxxx"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Badge</Label>
-              <Select
-                value={formData.badge || ""}
-                onValueChange={(v) => setFormData({ ...formData, badge: v || undefined })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Tanpa badge" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Tanpa badge</SelectItem>
-                  <SelectItem value="Best Seller">Best Seller</SelectItem>
-                  <SelectItem value="New">New</SelectItem>
-                  <SelectItem value="Pre-order">Pre-order</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Icon (Lucide)</Label>
-              <Select
-                value={formData.icon || "Package"}
-                onValueChange={(v) => setFormData({ ...formData, icon: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih icon" />
-                </SelectTrigger>
-                <SelectContent>
-                  {["Package", "Shirt", "Coffee", "Apple", "Leaf", "Star", "ShoppingBag", "Store", "Truck"].map((icon) => (
-                    <SelectItem key={icon} value={icon}>{icon}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Diskon Flash Sale (%)</Label>
-              <Input
-                type="number"
-                min="0"
-                max="99"
-                value={formData.discount ?? 0}
-                onChange={(e) => setFormData({ ...formData, discount: Number(e.target.value) })}
-                placeholder="0"
-              />
-              <p className="text-xs text-muted-foreground">Isi 0–99. Akan muncul di bagian Flash Sale.</p>
-            </div>
-            <div className="sm:col-span-2 space-y-2">
-              <Label>Deskripsi Produk</Label>
-              <Textarea
-                rows={3}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Jelaskan produk, bahan, kualitas, dsb."
-              />
-            </div>
-          </>
-        )}
-
         {type === "kopi" && (
           <>
             <div className="sm:col-span-2 space-y-2">
@@ -1133,274 +986,6 @@ function CMSForm({
           </>
         )}
 
-        {type === "marketplace_config" && (
-          <>
-            <div className="sm:col-span-2 space-y-2">
-              <Label>Label Flash Sale</Label>
-              <Input
-                value={formData.flashSaleLabel || ""}
-                onChange={(e) => setFormData({ ...formData, flashSaleLabel: e.target.value })}
-                placeholder="Contoh: Flash Sale Desa"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Flash Sale Aktif</Label>
-              <Select
-                value={formData.flashSaleEnabled ? "true" : "false"}
-                onValueChange={(v) => setFormData({ ...formData, flashSaleEnabled: v === "true" })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Aktif</SelectItem>
-                  <SelectItem value="false">Nonaktif</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Akhir Flash Sale (ISO)</Label>
-              <Input
-                type="datetime-local"
-                value={formData.flashSaleEndTime?.slice(0, 16) || ""}
-                onChange={(e) => setFormData({ ...formData, flashSaleEndTime: new Date(e.target.value).toISOString() })}
-              />
-            </div>
-            <div className="sm:col-span-2 space-y-2">
-              <Label>Badge Nama Toko</Label>
-              <Input
-                value={formData.shopBadge || ""}
-                onChange={(e) => setFormData({ ...formData, shopBadge: e.target.value })}
-                placeholder="Contoh: Pasar Desa"
-              />
-            </div>
-            <div className="sm:col-span-2 space-y-2">
-              <Label>Trust Note (deskripsi singkat)</Label>
-              <Textarea
-                rows={2}
-                value={formData.trustNote || ""}
-                onChange={(e) => setFormData({ ...formData, trustNote: e.target.value })}
-                placeholder="Contoh: Produk lokal terjamin dari warga desa"
-              />
-            </div>
-            <div className="sm:col-span-2 space-y-2">
-              <Label>Kategori Shortcuts (pisahkan dengan koma)</Label>
-              <Input
-                value={(formData.shortcuts_labels || "").toString()}
-                onChange={(e) => {
-                  const labels = e.target.value.split(",").map((l) => l.trim()).filter(Boolean);
-                  const defaultShortcuts = labels.map((label, i) => ({
-                    id: `sc-${i}`,
-                    label,
-                    icon: "Package",
-                    category: label,
-                  }));
-                  setFormData({ ...formData, shortcuts_labels: e.target.value, categoryShortcuts: defaultShortcuts });
-                }}
-                placeholder="Kerajinan, Makanan, Minuman, Camilan, Alam, Pertanian, Lainnya"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>COD Aktif</Label>
-              <Select
-                value={formData.codEnabled || formData.cod_enabled ? "true" : "false"}
-                onValueChange={(v) => setFormData({ ...formData, codEnabled: v === "true" })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Aktif — Bayar Saat Terima</SelectItem>
-                  <SelectItem value="false">Nonaktif</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="sm:col-span-2 mt-2 p-3 rounded-xl border border-border bg-muted/30">
-              <p className="font-ui text-xs font-bold text-ink uppercase tracking-wider mb-3">
-                Rekening Bank (Pisahkan setiap rekening dengan baris baru; format: Bank|No.Rek|a.n.)
-              </p>
-              <Textarea
-                rows={4}
-                value={(formData.bank_accounts_raw || "").toString()}
-                onChange={(e) => {
-                  // Parse each line: "Bank BRI|1234567890|BUMDes Maju"
-                  const lines = e.target.value.split("\n").filter((l: string) => l.trim());
-                  const accounts = lines.map((line: string) => {
-                    const parts = line.split("|");
-                    return {
-                      bank_name: parts[0]?.trim() ?? "",
-                      account_number: parts[1]?.trim() ?? "",
-                      account_name: parts[2]?.trim() ?? "",
-                    };
-                  }).filter((a: { bank_name: string }) => a.bank_name);
-                  setFormData({
-                    ...formData,
-                    bank_accounts_raw: e.target.value,
-                    bank_accounts: accounts,
-                  });
-                }}
-                placeholder={"Bank BRI|1234567890|BUMDes Seruni Mumbul\nBank BCA|9876543210|BUMDes Seruni Mumbul"}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {(() => {
-                  const raw = formData.bank_accounts_raw || "";
-                  const count = raw.split("\n").filter((l: string) => l.trim()).length;
-                  return count > 0 ? `${count} rekening dikonfigurasi` : "Belum ada rekening";
-                })()}
-              </p>
-            </div>
-          </>
-        )}
-
-        {type === "pesanan" && (
-          <>
-            {/* Order Stats Summary */}
-            {(() => {
-              const stats = ordersStore.getStats();
-              return (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                  {[
-                    { label: "Total Pesanan", value: stats.totalOrders.toString(), color: "text-ink" },
-                    { label: "Total Pendapatan", value: formatRupiah(stats.totalRevenue), color: "text-success" },
-                    { label: "Selesai", value: stats.completedOrders.toString(), color: "text-primary" },
-                    { label: "Batal", value: stats.cancelledOrders.toString(), color: "text-destructive" },
-                  ].map((s) => (
-                    <div key={s.label} className="rounded-2xl border border-border bg-card p-4 text-center">
-                      <p className={`font-display text-xl font-bold ${s.color}`}>{s.value}</p>
-                      <p className="font-ui text-xs text-muted-foreground mt-0.5">{s.label}</p>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-
-            {/* Order List by Status */}
-            {(["pending_payment","awaiting_confirmation","confirmed","processing","shipped","completed","cancelled"] as const).map((status) => {
-              const statusOrders = ordersStore.getOrdersByStatus(status);
-              if (statusOrders.length === 0) return null;
-              const statusLabels: Record<string, string> = {
-                pending_payment: "Menunggu Pembayaran",
-                awaiting_confirmation: "Menunggu Konfirmasi",
-                confirmed: "Dikonfirmasi",
-                processing: "Diproses",
-                shipped: "Dikirim",
-                completed: "Selesai",
-                cancelled: "Dibatalkan",
-              };
-              const statusColors: Record<string, string> = {
-                pending_payment: "bg-yellow-100 text-yellow-800",
-                awaiting_confirmation: "bg-orange-100 text-orange-800",
-                confirmed: "bg-blue-100 text-blue-800",
-                processing: "bg-purple-100 text-purple-800",
-                shipped: "bg-indigo-100 text-indigo-800",
-                completed: "bg-green-100 text-green-800",
-                cancelled: "bg-red-100 text-red-800",
-              };
-              return (
-                <div key={status} className="mb-6">
-                  <h3 className="font-ui text-sm font-bold text-ink mb-3 flex items-center gap-2">
-                    <span className={`inline-block w-2 h-2 rounded-full ${statusColors[status].split(" ")[1]}`} />
-                    {statusLabels[status]} ({statusOrders.length})
-                  </h3>
-                  <div className="space-y-2">
-                    {statusOrders.map((order) => {
-                      const waLink = (wa: string, msg: string) =>
-                        `https://wa.me/${wa.startsWith("0") ? "62" + wa.slice(1) : wa}?text=${encodeURIComponent(msg)}`;
-                      return (
-                        <div key={order.id} className="rounded-2xl border border-border bg-card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-ui text-sm font-bold text-ink">{order.orderId}</p>
-                            <p className="font-ui text-xs text-muted-foreground">
-                              {order.buyerName} · {order.buyerWa}
-                            </p>
-                            <p className="font-display text-sm font-bold text-primary mt-1">
-                              {formatRupiah(order.totalAmount)}
-                            </p>
-                            <p className="font-ui text-xs text-muted-foreground">
-                              {order.items.length} item · {order.paymentMethod === "bank_transfer" ? "Transfer" : "COD"}
-                            </p>
-                            <p className="font-ui text-xs text-muted-foreground">
-                              {new Date(order.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
-                            </p>
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <a
-                              href={waLink(order.buyerWa, `Halo ${order.buyerName}, pesanan ${order.orderId} sedang diproses.`)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500 text-white text-xs font-ui font-semibold hover:bg-green-600 transition"
-                            >
-                              <MessageCircle className="h-3.5 w-3.5" />
-                              Hubungi
-                            </a>
-                            {status === "pending_payment" && (
-                              <button
-                                onClick={() => ordersStore.updateStatus(order.id, "awaiting_confirmation")}
-                                className="px-3 py-1.5 rounded-full bg-blue-500 text-white text-xs font-ui font-semibold hover:bg-blue-600 transition"
-                              >
-                                Lihat Bukti Bayar
-                              </button>
-                            )}
-                            {status === "awaiting_confirmation" && (
-                              <button
-                                onClick={() => ordersStore.updateStatus(order.id, "confirmed")}
-                                className="px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-ui font-semibold hover:opacity-90 transition"
-                              >
-                                Konfirmasi Bayar
-                              </button>
-                            )}
-                            {status === "confirmed" && (
-                              <button
-                                onClick={() => ordersStore.updateStatus(order.id, "processing")}
-                                className="px-3 py-1.5 rounded-full bg-purple-500 text-white text-xs font-ui font-semibold hover:bg-purple-600 transition"
-                              >
-                                Proses Sekarang
-                              </button>
-                            )}
-                            {status === "processing" && (
-                              <button
-                                onClick={() => ordersStore.updateStatus(order.id, "shipped")}
-                                className="px-3 py-1.5 rounded-full bg-indigo-500 text-white text-xs font-ui font-semibold hover:bg-indigo-600 transition"
-                              >
-                                Tandai Dikirim
-                              </button>
-                            )}
-                            {status === "shipped" && (
-                              <button
-                                onClick={() => ordersStore.updateStatus(order.id, "completed")}
-                                className="px-3 py-1.5 rounded-full bg-green-500 text-white text-xs font-ui font-semibold hover:bg-green-600 transition"
-                              >
-                                Tandai Selesai
-                              </button>
-                            )}
-                            {!["completed","cancelled","shipped"].includes(status) && (
-                              <button
-                                onClick={() => ordersStore.updateStatus(order.id, "cancelled")}
-                                className="px-3 py-1.5 rounded-full border border-destructive text-destructive text-xs font-ui font-semibold hover:bg-destructive/10 transition"
-                              >
-                                Batalkan
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-
-            {ordersStore.orders.length === 0 && (
-              <div className="text-center py-16">
-                <ClipboardList className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="font-display text-lg font-bold text-ink">Belum ada pesanan</p>
-                <p className="font-ui text-sm text-muted-foreground mt-1">
-                  Pesanan akan muncul di sini setelah pembeli checkout dari halaman marketplace.
-                </p>
-              </div>
-            )}
-          </>
-        )}
       </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t">
