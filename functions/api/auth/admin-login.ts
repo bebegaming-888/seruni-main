@@ -166,7 +166,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   });
 
   // RFC 6265 single Set-Cookie header:
-  // admin_session=<value>; Path=/; Max-Age=...; HttpOnly; SameSite=Strict
+  // admin_session=<value>; Path=/; Max-Age=...; HttpOnly; Secure; SameSite=Strict
   // Note: only the first segment has "name="; attributes (Path, Max-Age, HttpOnly,
   // SameSite) do NOT have "Attr=" prefix — they are bare attribute names.
   const cookieHeader = [
@@ -174,6 +174,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     `Path=${cookiePath}`,
     `Max-Age=${cookieMaxAge}`,
     "HttpOnly",
+    "Secure",
     "SameSite=Strict",
   ].join("; ");
   headers.append("Set-Cookie", cookieHeader);

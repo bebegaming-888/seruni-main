@@ -65,19 +65,19 @@ export async function hmacSha256Hex(data: string, secret: string): Promise<strin
     .join("");
 }
 
-/** Verify a JWT-like HMAC signature. Returns true if valid. */
+/** Verify a JWT-like HMAC signature. Returns true if valid.
+ * Uses crypto.subtle.timingSafeEqual for constant-time comparison
+ * to prevent timing attack leaks on signature bytes.
+ */
 export async function verifyJwtSignature(token: string, secret: string): Promise<boolean> {
   const parts = token.split(".");
   if (parts.length !== 3) return false;
   const [headerB64, bodyB64, receivedSig] = parts;
   const expectedSig = await hmacSha256Hex(`${headerB64}.${bodyB64}`, secret);
-  if (expectedSig.length !== receivedSig.length) return false;
-  // Constant-time comparison to prevent timing attacks
-  let diff = 0;
-  for (let i = 0; i < expectedSig.length; i++) {
-    diff |= expectedSig.charCodeAt(i) ^ receivedSig.charCodeAt(i);
-  }
-  return diff === 0;
+  const a = new TextEncoder().encode(expectedSig);
+  const b = new TextEncoder().encode(receivedSig);
+  if (a.length !== b.length) return false;
+  return crypto.subtle.timingSafeEqual(a, b);
 }
 
 /** OTP hash — PBKDF2 untuk keamanan yang lebih baik daripada plain SHA-256.

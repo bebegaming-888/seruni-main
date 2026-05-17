@@ -141,8 +141,8 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     .single();
 
   // CRITICAL: Mark OTP as used SEBELUM membuat session.
-  // Jika ini gagal, DO NOT proceed — prevents replay attack window.
-  // OTP harus di-mark first agar tidak bisa direuse dalam 5 menit.
+  // Jika gagal, PROCEED DILARANG — prevents replay attack window.
+  // OTP harus di-mark terlebih dahulu agar tidak bisa direuse dalam 5 menit.
   let markUsedOk = true;
   try {
     const { error: markErr } = await sb
@@ -154,10 +154,13 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     markUsedOk = false;
   }
   if (!markUsedOk) {
-    // Log but proceed — edge case where Supabase is degraded.
-    // OTP marked-used yang gagal masih memungkinkan replay dalam 5 menit.
-    // Ini trade-off yang diterima untuk sekarang.
-    console.warn("[verify-otp] OTP mark-used failed — proceeding with caution:", otpRecord.id);
+    // Refuse login — OTP must be marked used before session is issued.
+    // User can request a new OTP (max 3x/15 min limit still applies).
+    console.error("[verify-otp] OTP mark-used failed — refusing login for:", otpRecord.id);
+    return json(
+      { ok: false, error: "Verifikasi gagal. Silakan minta OTP baru." },
+      503,
+    );
   }
 
   if (!warga) {

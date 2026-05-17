@@ -61,11 +61,6 @@ import { getSession, logout } from "@/lib/auth";
 import { listRecords, listArchive, lookupPenduduk, type SuratRecord } from "@/lib/esurat-store";
 import { listPenduduk, savePendudukBatch, isUsingMock } from "@/lib/penduduk-store";
 import { notifySurat } from "@/lib/esurat-notif";
-import { signQrPayload } from "@/lib/qr-signature";
-import { generateNomorSurat } from "@/lib/nomor-surat";
-import { getSettings } from "@/lib/settings-store";
-import { sendWaNotification } from "@/lib/fonnte";
-import { suratActionsFor, can } from "@/lib/roles";
 import {
   syncSetStatus,
   syncSaveRecord,
@@ -75,6 +70,7 @@ import {
   logAudit,
   healthCheck,
 } from "@/lib/useSupabaseSync";
+import { generateNomorSurat } from "@/lib/nomor-surat";
 import type { Penduduk } from "@/data/penduduk";
 import {
   ResponsiveContainer,
@@ -175,7 +171,6 @@ export default function AdminPage() {
         toast.success("Sinkronisasi Cloud Berhasil", {
           description: "Data lokal telah diperbarui dengan data terbaru dari cloud.",
         });
-        refresh();
       } else {
         toast.error("Gagal Sinkronisasi Cloud", {
           description: res.error || "Terjadi kesalahan saat menarik data.",
@@ -184,6 +179,8 @@ export default function AdminPage() {
     } catch (err) {
       toast.error("Sync Error", { description: err instanceof Error ? err.message : String(err) });
     } finally {
+      // Refresh UI after sync completes — data is now in local store
+      refresh();
       setIsSyncing(false);
     }
   };
@@ -359,14 +356,23 @@ export default function AdminPage() {
       const signed_at = new Date().toISOString();
       const signerName = getSettings().signature.signer_name;
 
-      // HMAC-SHA256 signed QR payload — forgery langsung terdeteksi saat verifikasi
-      const qrSecret = (import.meta.env.VITE_QR_SECRET as string) ?? "";
-      const signed = await signQrPayload({
-        no: noSurat,
-        nik: r.nik,
-        kode: r.kode,
-        secret: qrSecret,
-      });
+      // QR signing via server-side edge function — QR_SECRET stays in Cloudflare Secrets.
+      // Falls back to unsigned if the edge function is unreachable (degraded mode).
+      let qrPayload = "";
+      try {
+        const res = await fetch("/api/sign-surat-qr", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ no: noSurat, nik: r.nik, kode: r.kode }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { ok: boolean; raw: string };
+          qrPayload = data.raw ?? "";
+        }
+      } catch {
+        // Degraded mode: QR tidak ditandatangani. Verifikasi akan mengembalikan qr_verified=null.
+        console.warn("[approve] QR signing failed — using unsigned payload");
+      }
 
       const updated: SuratRecord = {
         ...r,
@@ -375,14 +381,17 @@ export default function AdminPage() {
         status: "Disetujui",
         signed_at,
         signed_by: signerName,
-        qr_payload: signed.raw,
+        qr_payload: qrPayload,
       };
-      // All-or-nothing: delete + save + archive must all succeed
-      // If save fails, archive should not run — check individually
-      const deleteResult = await syncDeleteRecord(r.no, username);
-      if (!deleteResult.ok) throw new Error("Gagal hapus tracking record");
+      // Save the official record FIRST — prevents data loss if upsert fails.
+      // If save fails, nothing is deleted and the system stays consistent.
       const saveResult = await syncSaveRecord(updated, username);
       if (!saveResult.ok) throw new Error("Gagal simpan surat resmi");
+      // Archive the old tracking record only after the official record is confirmed.
+      const deleteResult = await syncDeleteRecord(r.no, username);
+      if (!deleteResult.ok) {
+        console.warn("[approve] Tracking record orphaned:", r.no);
+      }
       const archiveResult = await syncArchive(noSurat, username);
       if (!archiveResult.ok) throw new Error("Gagal arsipkan surat");
       await logAudit({
@@ -1271,7 +1280,7 @@ export default function AdminPage() {
                               {r.nama_surat}
                             </h3>
                             <p className="font-body text-sm text-muted-foreground">
-                              {r.pemohon} · NIK {r.nik} · {r.kontak}
+                              {r.pemohon} · NIK {maskNik(r.nik)} · {maskPhone(r.kontak)}
                             </p>
                           </div>
                           <div
@@ -1422,6 +1431,18 @@ export default function AdminPage() {
 }
 
 /* ---------- helpers ---------- */
+
+/** Mask NIK — 4 digit awal + ●● + 4 digit akhir (UU PDP compliance) */
+function maskNik(nik: string): string {
+  if (!nik || nik.length < 8) return nik ?? "";
+  return nik.slice(0, 4) + "●".repeat(nik.length - 8) + nik.slice(-4);
+}
+
+/** Mask phone number — 4 digit akhir only */
+function maskPhone(phone: string): string {
+  if (!phone || phone.length < 4) return phone ?? "";
+  return "●●●●" + phone.slice(-4);
+}
 
 function SectionTab({
   active,
@@ -1628,7 +1649,7 @@ function MonitoringTable({
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-ui font-semibold">{r.pemohon}</div>
-                        <div className="text-xs text-muted-foreground">NIK {r.nik}</div>
+                        <div className="text-xs text-muted-foreground">NIK {maskNik(r.nik)}</div>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell text-xs">{r.nama_surat}</td>
                       <td className="px-4 py-3">
@@ -1892,7 +1913,7 @@ function ArchiveTable({
                       )}
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-xs">
-                      {r.pemohon} <span className="text-muted-foreground">· {r.nik}</span>
+                      {r.pemohon} <span className="text-muted-foreground">· {maskNik(r.nik)}</span>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell text-xs">{r.signed_by ?? "-"}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">
