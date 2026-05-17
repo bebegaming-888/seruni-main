@@ -33,7 +33,7 @@ jobs:
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
           VITE_ADMIN_DB_TOKEN: ${{ secrets.VITE_ADMIN_DB_TOKEN }}
 
-      - name: Deploy to Vercel
+            - name: Deploy to Vercel
         run: bunx vercel --prod
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
