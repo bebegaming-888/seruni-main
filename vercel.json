@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npx vite build && node scripts/postbuild.js",
+  "buildCommand": "npm install --include=dev && npx vite build && node scripts/postbuild.js",
   "outputDirectory": "dist/client",
-  "installCommand": "bun install",
+  "installCommand": "npm install --include=dev",
   "framework": null
 }
