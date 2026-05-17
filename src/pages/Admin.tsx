@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import QRCode from "qrcode";
+import { generateSuratPdf } from "@/lib/pdf-generator";
 import { Footer } from "@/components/site/Footer";
 import { Link } from "@/components/Link";
 import { Button } from "@/components/ui/button";
@@ -1763,15 +1764,17 @@ function ArchiveTable({
   }, [archive, q]);
 
   const downloadLink = async (r: SuratRecord) => {
-    // Generate PDF via edge function
+    // Generate PDF: edge function returns JSON → client generates PDF via jsPDF
     try {
       const res = await fetch("/api/generate-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ no: r.no }),
       });
-      if (!res.ok) throw new Error("Gagal generate PDF");
-      const blob = await res.blob();
+      if (!res.ok) throw new Error("Gagal fetch data surat");
+      const { surat, warga, settings } = await res.json();
+      const pdfBytes = await generateSuratPdf({ surat, warga, settings, includeQr: false });
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

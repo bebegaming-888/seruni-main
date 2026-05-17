@@ -1,0 +1,22 @@
+# Cloudflare Pages Configuration
+# Ref: https://developers.cloudflare.com/pages/platform/build-configuration
+#
+# Deployment:
+#   git push → triggers Cloudflare Pages build via GitHub integration
+#   Manual:   npx wrangler pages deploy dist/client --project-name=seruni-mumbul
+#
+# Secrets (set via dashboard or CLI):
+#   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+#   npx wrangler secret put ADMIN_SESSION_SECRET
+#   npx wrangler secret put FONNTE_API_KEY
+#   npx wrangler secret put ADMIN_WA_NUMBER
+#   npx wrangler secret put JWT_SECRET
+#   npx wrangler secret put QR_SECRET
+#   npx wrangler secret put VAPID_PRIVATE_KEY
+#   npx wrangler secret put VAPID_SUBJECT
+#   npx wrangler secret put ADMIN_USER
+#   npx wrangler secret put ADMIN_PASS
+
+name = "seruni-mumbul"
+compatibility_date = "2024-12-01"
+pages_build_output_dir = "dist/client"

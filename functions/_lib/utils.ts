@@ -21,10 +21,18 @@ export function base64UrlDecode(str: string): ArrayBuffer {
 }
 
 /** Standard JSON response helper with CORS headers. */
-export function json(data: unknown, status: number): Response {
+export function json(
+  data: unknown,
+  status: number,
+  extraHeaders?: Record<string, string>,
+): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      ...extraHeaders,
+    },
   });
 }
 

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Link } from "@/components/Link";
 import { getRecord, type SuratRecord } from "@/lib/esurat-store";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { generateSuratPdf } from "@/lib/pdf-generator";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { PageHero } from "@/components/sections/PageHero";
@@ -460,7 +461,13 @@ async function handleDownload(record: SuratRecord) {
       toast.error("Gagal mengunduh PDF", { description: body || `Server error (${res.status})` });
       return;
     }
-    const blob = await res.blob();
+
+    // Edge function returns JSON with { surat, warga, settings } for client-side PDF generation
+    const { surat, warga, settings } = await res.json();
+
+    // Generate PDF client-side (jsPDF + pdf-lib via pdf-generator)
+    const pdfBytes = await generateSuratPdf({ surat, warga, settings, includeQr: true });
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

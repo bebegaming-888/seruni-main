@@ -31,6 +31,8 @@ export default defineConfig({
     },
     plugins: [
       buildHashPlugin(),
+      // Explicitly load tsConfigPaths after lovable config — Vercel needs this
+      // because it doesn't run tsconfig-paths automatically
       tsConfigPaths({ projects: ["./tsconfig.json"] }),
     ],
     define: {
