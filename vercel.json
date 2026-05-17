@@ -1,6 +1,0 @@
-{
-  "buildCommand": "node -e \"require('fs').writeFileSync('dist/client/.vercel_stub','')\"",
-  "outputDirectory": "dist/client",
-  "installCommand": "echo noinstall",
-  "framework": null
-}
