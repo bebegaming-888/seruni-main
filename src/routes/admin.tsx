@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getSettings } from "@/lib/settings-store";
-import Admin from "@/pages/admin";
+import Admin from "@/pages/Admin";
 
 export const Route = createFileRoute("/admin")({
   head: () => {
