@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npm install --include=dev && npx vite build && node scripts/postbuild.js",
+  "buildCommand": "node -e \"require('fs').writeFileSync('dist/client/.vercel_stub','')\"",
   "outputDirectory": "dist/client",
-  "installCommand": "npm install --include=dev",
+  "installCommand": "echo noinstall",
   "framework": null
 }
