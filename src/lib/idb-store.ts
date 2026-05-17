@@ -189,9 +189,11 @@ export async function idbCount(store: IDBStoreName): Promise<number> {
 export async function idbExportAll(): Promise<Record<string, unknown>> {
   if (typeof window === "undefined") return {};
   const storeNames = Object.keys(IDB_STORES) as IDBStoreName[];
+  // Read all stores in parallel — ~22 stores × sequential awaits can be slow
+  const results = await Promise.all(storeNames.map((name) => idbGetAll(name)));
   const out: Record<string, unknown[]> = {};
-  for (const name of storeNames) {
-    out[name] = await idbGetAll(name);
+  for (let i = 0; i < storeNames.length; i++) {
+    out[storeNames[i]] = results[i];
   }
   return {
     version: IDB_VER,

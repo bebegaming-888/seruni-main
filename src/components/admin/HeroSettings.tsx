@@ -948,8 +948,8 @@ export function HeroSettings() {
               Reset Pengaturan Hero
             </DialogTitle>
             <DialogDescription>
-              Semua pengaturan hero akan dikembalikan ke nilai default sistem.
-              Perubahan yang belum disimpan akan hilang.
+              Semua pengaturan hero akan dikembalikan ke nilai default sistem. Perubahan yang belum
+              disimpan akan hilang.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

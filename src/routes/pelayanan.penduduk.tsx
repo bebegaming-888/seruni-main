@@ -206,7 +206,11 @@ export function PendudukPage() {
         <PageHero
           titleFirst="Data"
           titleSecond="Kependudukan"
-          description={"Data kependudukan " + (village as { name?: string }).name + ". Informasi bersumber dari database desa."}
+          description={
+            "Data kependudukan " +
+            (village as { name?: string }).name +
+            ". Informasi bersumber dari database desa."
+          }
           badge="Data Kependudukan"
           badgeIcon={<Users className="h-3.5 w-3.5" />}
           breadcrumbs={[{ label: "Pelayanan" }, { label: "Penduduk" }]}
@@ -379,7 +383,12 @@ export function PendudukPage() {
                   />
                 </div>
                 {[
-                  { label: "Dusun", val: fDusun, set: setFDusun, opts: DYNAMIC_DUSUN_LIST.length ? DYNAMIC_DUSUN_LIST : DUSUN_LIST },
+                  {
+                    label: "Dusun",
+                    val: fDusun,
+                    set: setFDusun,
+                    opts: DYNAMIC_DUSUN_LIST.length ? DYNAMIC_DUSUN_LIST : DUSUN_LIST,
+                  },
                   {
                     label: "Jenis Kelamin",
                     val: fJK,

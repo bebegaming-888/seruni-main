@@ -96,7 +96,9 @@ function MasukWargaPage() {
     if (isWargaLoggedIn()) {
       const session = getWargaSession();
       if (session) {
-        toast.info(`Anda sudah login sebagai ${session.warga.nama}`, { description: "Abaikan jika Anda belum selesai menggunakan layanan." });
+        toast.info(`Anda sudah login sebagai ${session.warga.nama}`, {
+          description: "Abaikan jika Anda belum selesai menggunakan layanan.",
+        });
       }
       navigate({ to: "/pelayanan/e-surat" });
     }
@@ -113,7 +115,9 @@ function MasukWargaPage() {
   const handleRequestOtp = async () => {
     const cleanNik = nik.replace(/\D/g, "");
     if (cleanNik.length !== 16) {
-      toast.error("NIK harus 16 digit angka", { description: "Periksa kembali nomor NIK pada KTP Anda." });
+      toast.error("NIK harus 16 digit angka", {
+        description: "Periksa kembali nomor NIK pada KTP Anda.",
+      });
       return;
     }
     setLoading(true);
@@ -149,7 +153,9 @@ function MasukWargaPage() {
     }
 
     saveWargaSession(result.session!);
-    toast.success(`Login berhasil! Selamat datang, ${result.session!.warga.nama}`, { description: "Anda dapat mengajukan atau melacak surat di sini." });
+    toast.success(`Login berhasil! Selamat datang, ${result.session!.warga.nama}`, {
+      description: "Anda dapat mengajukan atau melacak surat di sini.",
+    });
     setStep("success");
     setTimeout(() => navigate({ to: "/pelayanan/e-surat" }), 1500);
   };

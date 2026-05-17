@@ -33,13 +33,13 @@ import { toast } from "sonner";
 
 // ── Brand CSS — only 7 palette colors ─────────────────────────────────────────
 const BRAND = {
-  primary:   "#E37222",
+  primary: "#E37222",
   secondary: "#078898",
-  accent:    "#66B9BF",
-  warm:      "#EEAA78",
-  white:     "#FFFFFF",
-  light:     "#F4F4F4",
-  border:    "#D5D5D5",
+  accent: "#66B9BF",
+  warm: "#EEAA78",
+  white: "#FFFFFF",
+  light: "#F4F4F4",
+  border: "#D5D5D5",
 };
 
 const STYLES = `
@@ -73,10 +73,10 @@ const STYLES = `
 
 // ── Category Colors — only brand tokens ─────────────────────────────────────────
 const CAT_COLOR: Record<string, { color: string; label: string }> = {
-  Berita:      { color: BRAND.primary,   label: "Berita" },
-  Pengumuman:  { color: BRAND.warm,       label: "Pengumuman" },
-  Agenda:      { color: BRAND.secondary,  label: "Agenda" },
-  default:     { color: BRAND.border,    label: "" },
+  Berita: { color: BRAND.primary, label: "Berita" },
+  Pengumuman: { color: BRAND.warm, label: "Pengumuman" },
+  Agenda: { color: BRAND.secondary, label: "Agenda" },
+  default: { color: BRAND.border, label: "" },
 };
 
 function getCatColor(cat: string) {
@@ -101,14 +101,22 @@ function ReadingProgress() {
   return (
     <div
       style={{
-        position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-        height: "3px", background: "var(--sa-border)", pointerEvents: "none",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        height: "3px",
+        background: "var(--sa-border)",
+        pointerEvents: "none",
       }}
     >
       <div
         style={{
-          height: "100%", background: "var(--sa-primary)",
-          transition: "width 0.1s linear", width: `${progress}%`,
+          height: "100%",
+          background: "var(--sa-primary)",
+          transition: "width 0.1s linear",
+          width: `${progress}%`,
         }}
       />
     </div>
@@ -121,12 +129,18 @@ function ShareButton({ title, slug }: { title: string; slug: string }) {
   const handleShare = async () => {
     const url = `${window.location.origin}/informasi/berita/${slug}`;
     if (navigator.share) {
-      try { await navigator.share({ title, url }); } catch { /* dismissed */ }
+      try {
+        await navigator.share({ title, url });
+      } catch {
+        /* dismissed */
+      }
     } else {
       try {
         await navigator.clipboard.writeText(url);
         setCopied(true);
-        toast.success("Link berhasil disalin", { description: "Bagikan link artikel ini ke siapa saja." });
+        toast.success("Link berhasil disalin", {
+          description: "Bagikan link artikel ini ke siapa saja.",
+        });
         setTimeout(() => setCopied(false), 2500);
       } catch {
         toast.error("Gagal menyalin link");
@@ -151,14 +165,20 @@ function ShareButton({ title, slug }: { title: string; slug: string }) {
 // ── Bookmark Button ────────────────────────────────────────────────────────────
 function BookmarkButton({ articleId, title }: { articleId: string; title: string }) {
   const [saved, setSaved] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("article_bookmarks") ?? "[]").includes(articleId); }
-    catch { return false; }
+    try {
+      return JSON.parse(localStorage.getItem("article_bookmarks") ?? "[]").includes(articleId);
+    } catch {
+      return false;
+    }
   });
   const toggle = () => {
     try {
       const bookmarks = JSON.parse(localStorage.getItem("article_bookmarks") ?? "[]");
       if (saved) {
-        localStorage.setItem("article_bookmarks", JSON.stringify(bookmarks.filter((id: string) => id !== articleId)));
+        localStorage.setItem(
+          "article_bookmarks",
+          JSON.stringify(bookmarks.filter((id: string) => id !== articleId)),
+        );
         setSaved(false);
         toast.info("Dihapus dari tersimpan");
       } else {
@@ -213,7 +233,12 @@ function ArticleNotFound() {
 
 // ── Author initials ─────────────────────────────────────────────────────────────
 function getInitials(name: string) {
-  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 }
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
@@ -250,9 +275,13 @@ export function ArticleDetailPage() {
       <section className="max-w-3xl mx-auto px-4 pt-8">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 text-xs font-ui text-muted-foreground mb-6">
-          <Link to="/" className="hover:text-foreground transition-colors">Beranda</Link>
+          <Link to="/" className="hover:text-foreground transition-colors">
+            Beranda
+          </Link>
           <ChevronRight className="h-3 w-3" />
-          <Link to="/informasi/berita" className="hover:text-foreground transition-colors">Berita</Link>
+          <Link to="/informasi/berita" className="hover:text-foreground transition-colors">
+            Berita
+          </Link>
           <ChevronRight className="h-3 w-3" />
           <span style={{ color: catColor.color, fontWeight: 600 }}>{article.category}</span>
         </nav>
@@ -476,17 +505,13 @@ export const Route = createFileRoute("/informasi/berita/$slug")({
     return {
       meta: [
         {
-          title: article
-            ? `${article.title} — ${village.name}`
-            : "Artikel Tidak Ditemukan",
+          title: article ? `${article.title} — ${village.name}` : "Artikel Tidak Ditemukan",
         },
         {
           name: "description",
           content: article?.excerpt ?? "Artikel tidak ditemukan.",
         },
-        ...(article?.cover_image
-          ? [{ property: "og:image", content: article.cover_image }]
-          : []),
+        ...(article?.cover_image ? [{ property: "og:image", content: article.cover_image }] : []),
       ],
     };
   },

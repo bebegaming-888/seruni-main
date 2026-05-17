@@ -10,7 +10,7 @@ import { getSettings } from "@/lib/settings-store";
 import { getSuratMaster } from "@/data/surat-master";
 import { isSupabaseConfigured } from "./supabase";
 import { idbGet, idbPut } from "@/lib/idb-store";
-import { logAudit } from "./useSupabaseSync";
+import { logAudit } from "./settings-store";
 
 const ROMAWI = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -124,11 +124,7 @@ export async function resetNoUrut(tahun: number, actor: string): Promise<void> {
   _counter[tahun] = 0;
   await idbPut("nomor_surat", { id: String(tahun), counter: 0 });
 
-  logAudit({
-    action: "nomor_surat.reset",
-    detail: `Reset counter nomor surat tahun ${tahun}`,
-    username: actor,
-  });
+  logAudit(actor, "nomor_surat.reset", `Reset counter nomor surat tahun ${tahun}`);
 }
 
 /** Baca counter saat ini tanpa increment. */

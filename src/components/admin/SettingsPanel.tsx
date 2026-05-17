@@ -154,12 +154,8 @@ export function SettingsPanel() {
       await initPerangkatStore();
       const strukturs = listStrukturAktif();
 
-      const kepalaDesa = strukturs.find((st) =>
-        st.nama_jabatan.toLowerCase().includes("kepala"),
-      );
-      const sekdes = strukturs.find((st) =>
-        st.nama_jabatan.toLowerCase().includes("sekretaris"),
-      );
+      const kepalaDesa = strukturs.find((st) => st.nama_jabatan.toLowerCase().includes("kepala"));
+      const sekdes = strukturs.find((st) => st.nama_jabatan.toLowerCase().includes("sekretaris"));
 
       let filled = false;
 
@@ -185,7 +181,8 @@ export function SettingsPanel() {
         });
       } else {
         toast.warning("Tidak ada Perangkat Desa aktif", {
-          description: "Pastikan struktur jabatan Kepala Desa dan Sekretaris Desa sudah diisi di menu Perangkat Desa.",
+          description:
+            "Pastikan struktur jabatan Kepala Desa dan Sekretaris Desa sudah diisi di menu Perangkat Desa.",
         });
       }
     } finally {
@@ -201,10 +198,7 @@ export function SettingsPanel() {
       const strukturs = listStrukturAktif();
 
       // Cari struktur dengan kategori Pimpinan yang aktif
-      const pimpinan = strukturs.find(
-        (st) =>
-          st.kategori === "Pimpinan" && st.status === "Aktif",
-      );
+      const pimpinan = strukturs.find((st) => st.kategori === "Pimpinan" && st.status === "Aktif");
 
       if (pimpinan) {
         const person = getPerangkatByStrukturId(pimpinan.id).find((p) => p.status_aktif);
@@ -221,7 +215,8 @@ export function SettingsPanel() {
       }
 
       toast.warning("Tidak ada Pimpinan aktif", {
-        description: "Pastikan jabatan dengan kategori 'Pimpinan' sudah terisi di menu Perangkat Desa.",
+        description:
+          "Pastikan jabatan dengan kategori 'Pimpinan' sudah terisi di menu Perangkat Desa.",
       });
     } finally {
       setAutofilling(false);
@@ -340,7 +335,8 @@ export function SettingsPanel() {
       console.error("[SettingsPanel] Gagal menyimpan:", err);
       setSaveStatus("error");
       toast.error("Gagal menyimpan pengaturan", {
-        description: "Pastikan koneksi internet stabil dan coba lagi. Hubungi administrator jika masalah berlanjut.",
+        description:
+          "Pastikan koneksi internet stabil dan coba lagi. Hubungi administrator jika masalah berlanjut.",
       });
       setTimeout(() => setSaveStatus("idle"), 5000);
     }
@@ -463,15 +459,19 @@ export function SettingsPanel() {
           <TabsContent value="wilayah" className="m-0">
             <div className="rounded-xl border border-info/20 bg-info/5 p-3 mb-4 flex items-start gap-3">
               <div>
-                <p className="font-ui text-xs font-semibold text-info">Pengaturan wilayah & profil terintegrasi</p>
+                <p className="font-ui text-xs font-semibold text-info">
+                  Pengaturan wilayah & profil terintegrasi
+                </p>
                 <p className="font-ui text-[11px] text-muted-foreground mt-0.5">
-                  Data Nama Desa, alamat, dan wilayah dicatat di{" "}
-                  <strong>tab "Profil Desa"</strong>. Tab ini mengelola kode desa dan daftar dusun
-                  saja.
+                  Data Nama Desa, alamat, dan wilayah dicatat di <strong>tab "Profil Desa"</strong>.
+                  Tab ini mengelola kode desa dan daftar dusun saja.
                 </p>
               </div>
             </div>
-            <WilayahSettings villageName={s.village.name} onVillageNameChange={(v) => update("village", { name: v })} />
+            <WilayahSettings
+              villageName={s.village.name}
+              onVillageNameChange={(v) => update("village", { name: v })}
+            />
           </TabsContent>
 
           <TabsContent value="hero" className="m-0">
@@ -616,7 +616,9 @@ export function SettingsPanel() {
                     value={s.branding.favicon_url}
                     storagePath={s.branding.favicon_storage_path}
                     onChange={(v) => update("branding", { favicon_url: v })}
-                    onStoragePathChange={(path) => update("branding", { favicon_storage_path: path })}
+                    onStoragePathChange={(path) =>
+                      update("branding", { favicon_storage_path: path })
+                    }
                   />
                 </Field>
                 <Field label="Warna Primer">
@@ -2478,9 +2480,7 @@ const PAGE_GROUPS = [
   },
   {
     group: "Ekonomi",
-    pages: [
-      { path: "/ekonomi/bumdes", label: "BUMDes" },
-    ],
+    pages: [{ path: "/ekonomi/bumdes", label: "BUMDes" }],
   },
   {
     group: "Lainnya",
@@ -2623,9 +2623,8 @@ function PagesCMS({
                   Visi & Misi ada di bagian "Profil Publik (CMS)"
                 </p>
                 <p className="font-ui text-[11px] text-muted-foreground">
-                  Visi dan Misi desa dikelola di tab{" "}
-                  <strong>Profil Publik (CMS)</strong> agar konsisten di landing page dan halaman
-                  profil. Tidak perlu mengisi di sini.
+                  Visi dan Misi desa dikelola di tab <strong>Profil Publik (CMS)</strong> agar
+                  konsisten di landing page dan halaman profil. Tidak perlu mengisi di sini.
                 </p>
               </div>
             </div>
@@ -3023,8 +3022,8 @@ function PushNotificationPanel() {
               Reset Semua Pengaturan
             </DialogTitle>
             <DialogDescription>
-              Semua pengaturan sistem akan dikembalikan ke nilai default.
-              Perubahan yang belum disimpan akan hilang.
+              Semua pengaturan sistem akan dikembalikan ke nilai default. Perubahan yang belum
+              disimpan akan hilang.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

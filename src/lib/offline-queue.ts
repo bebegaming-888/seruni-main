@@ -99,53 +99,59 @@ export async function processOfflineQueue(): Promise<void> {
 
   console.info(`[offline-queue] Processing ${eligible.length} queued submissions`);
 
-  for (const item of eligible) {
-    if (item.type === "surat") {
-      try {
-        const record = item.data as unknown as SuratRecord;
-        const { syncSaveRecord } = await import("@/lib/useSupabaseSync");
-        const { notifySurat } = await import("@/lib/esurat-notif");
+  // Process all eligible items concurrently (was: sequential for-loop)
+  await Promise.allSettled(
+    eligible.map(async (item) => {
+      if (item.type === "surat") {
+        try {
+          const record = item.data as unknown as SuratRecord;
+          const { syncSaveRecord } = await import("@/lib/useSupabaseSync");
+          const { notifySurat } = await import("@/lib/esurat-notif");
 
-        const result = await syncSaveRecord(record, record.pemohon ?? "Warga");
+          const result = await syncSaveRecord(record, record.pemohon ?? "Warga");
 
-        if (result.ok) {
-          await notifySurat(record, "submit").catch((e) =>
-            console.warn("[offline-queue] WA notify failed:", e),
-          );
-          console.info(`[offline-queue] Queued submission ${item.id} sent successfully`);
-          await dequeueOfflineSubmission(item.id);
-        } else {
+          if (result.ok) {
+            await notifySurat(record, "submit").catch((e) =>
+              console.warn("[offline-queue] WA notify failed:", e),
+            );
+            console.info(`[offline-queue] Queued submission ${item.id} sent successfully`);
+            await dequeueOfflineSubmission(item.id);
+          } else {
+            const newRetries = item.retries + 1;
+            const nextDelay = backoffDelay(newRetries);
+            const updated: OfflineSubmission = {
+              ...item,
+              retries: newRetries,
+              nextRetry: Date.now() + nextDelay,
+            };
+            await idbPut(OFFLINE_QUEUE_STORE, updated);
+            console.warn(
+              `[offline-queue] Submission ${item.id} sync failed (${result.error}), retry #${newRetries} in ${nextDelay / 1000 / 60} min`,
+            );
+          }
+        } catch (err) {
+          const newRetries = item.retries + 1;
           const updated: OfflineSubmission = {
             ...item,
-            retries: item.retries + 1,
-            nextRetry: Date.now() + backoffDelay(item.retries + 1),
+            retries: newRetries,
+            nextRetry: Date.now() + backoffDelay(newRetries),
           };
           await idbPut(OFFLINE_QUEUE_STORE, updated);
-          console.warn(
-            `[offline-queue] Submission ${item.id} sync failed (${result.error}), retry #${updated.retries} in ${backoffDelay(item.retries) / 1000 / 60} min`,
-          );
+          console.warn(`[offline-queue] Network error for ${item.id}:`, err);
         }
-      } catch (err) {
-        const updated: OfflineSubmission = {
-          ...item,
-          retries: item.retries + 1,
-          nextRetry: Date.now() + backoffDelay(item.retries + 1),
-        };
-        await idbPut(OFFLINE_QUEUE_STORE, updated);
-        console.warn(`[offline-queue] Network error for ${item.id}:`, err);
+        return;
       }
-      continue;
-    }
 
-    // Marketplace/order type removed — just acknowledge and remove
-    if (item.type === "CREATE_ORDER") {
-      console.info(`[offline-queue] CREATE_ORDER ${item.id} skipped (marketplace removed)`);
-      await dequeueOfflineSubmission(item.id);
-      continue;
-    }
+      // Marketplace/order type removed — just acknowledge and remove
+      if (item.type === "CREATE_ORDER") {
+        console.info(`[offline-queue] CREATE_ORDER ${item.id} skipped (marketplace removed)`);
+        await dequeueOfflineSubmission(item.id);
+        return;
+      }
 
-    console.warn(`[offline-queue] Unknown submission type: ${item.type}`);
-  }
+      console.warn(`[offline-queue] Unknown submission type: ${item.type}`);
+    }),
+  );
 }
 
 /**

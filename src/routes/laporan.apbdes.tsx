@@ -582,7 +582,11 @@ export function ApbdesPage() {
         <PageHero
           titleFirst="Transparansi"
           titleSecond="APBDes"
-          description={"Anggaran Pendapatan dan Belanja Desa " + (village as { name?: string }).name + " Tahun 2026."}
+          description={
+            "Anggaran Pendapatan dan Belanja Desa " +
+            (village as { name?: string }).name +
+            " Tahun 2026."
+          }
           badge="Transparansi Anggaran"
           badgeIcon={<Wallet className="h-3.5 w-3.5" />}
           breadcrumbs={[{ label: "Laporan" }, { label: "APBDes" }]}

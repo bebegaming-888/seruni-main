@@ -61,7 +61,6 @@ export function getSupabase(): SupabaseClient | null {
 // (supabase vs getSupabase()) dan bisa return null di server-side rendering.
 // Hapus dari semua import jika ada yang masih referensi.
 
-
 /** Supabase URL untuk edge function (read-only). */
 export { supabaseUrl };
 /** Supabase Anon Key (aman di browser, dilindungi RLS). */

@@ -20,16 +20,7 @@ import {
   type ArticleCategory,
 } from "@/data/berita";
 import { useBeritaStore } from "@/lib/content-store";
-import {
-  Newspaper,
-  Eye,
-  Clock,
-  Search,
-  X,
-  CalendarDays,
-  User,
-  Bookmark,
-} from "lucide-react";
+import { Newspaper, Eye, Clock, Search, X, CalendarDays, User, Bookmark } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearch, useNavigate } from "@tanstack/react-router";
 
@@ -280,7 +271,10 @@ export function BeritaPage() {
   const isLoading = items.length === 0;
 
   const todayStr = new Date().toLocaleDateString("id-ID", {
-    weekday: "long", day: "numeric", month: "long", year: "numeric",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
   });
 
   return (
@@ -394,7 +388,9 @@ export function BeritaPage() {
             {/* Skeleton */}
             {isLoading ? (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <CardSkeleton key={i} />
+                ))}
               </div>
             ) : gridItems.length === 0 ? (
               <div className="text-center py-16 rounded-2xl border border-dashed border-border">
@@ -402,9 +398,7 @@ export function BeritaPage() {
                   <Newspaper className="h-7 w-7 text-[#E37222]" />
                 </div>
                 <h3 className="font-display text-xl font-bold text-ink mb-2">
-                  {searchQuery
-                    ? `Tidak ada hasil untuk "${searchQuery}"`
-                    : "Belum Ada Artikel"}
+                  {searchQuery ? `Tidak ada hasil untuk "${searchQuery}"` : "Belum Ada Artikel"}
                 </h3>
                 <p className="font-body text-muted-foreground text-sm max-w-sm mx-auto mb-6">
                   {searchQuery
@@ -413,7 +407,10 @@ export function BeritaPage() {
                 </p>
                 {searchQuery && (
                   <button
-                    onClick={() => { setInputValue(""); setCategory("Semua"); }}
+                    onClick={() => {
+                      setInputValue("");
+                      setCategory("Semua");
+                    }}
                     className="btn-pill bg-ink text-background hover:bg-ink/90"
                   >
                     Reset Pencarian

@@ -77,7 +77,7 @@ try {
     .replace(/^const tsrStartManifest = /, "")
     .replace(/\nexport\s*\{[^}]*\};?\s*$/, "");
   // The expression starts with () => ({...}); — eval directly (no extra parens needed)
-  // eslint-disable-next-line no-eval
+
   const manifestFn = eval(stripped);
   const data = typeof manifestFn === "function" ? manifestFn() : manifestFn;
   const routes = (data && (data.routes || data)) || {};

@@ -109,7 +109,9 @@ export function RealisasiPage() {
           title: "Total Pendapatan",
           amount: formatRupiah(latestRealisasi.total_pendapatan),
           percentage: latestRealisasi.total_pendapatan
-            ? Math.round((latestRealisasi.total_pendapatan / latestRealisasi.total_pendapatan) * 100)
+            ? Math.round(
+                (latestRealisasi.total_pendapatan / latestRealisasi.total_pendapatan) * 100,
+              )
             : 0,
           icon: PieChart,
           trend: "up" as const,
@@ -134,9 +136,27 @@ export function RealisasiPage() {
         },
       ]
     : [
-        { title: "Total Pendapatan", amount: "Rp 1.450.000.000", percentage: 85, icon: PieChart, trend: "up" as const },
-        { title: "Total Belanja", amount: "Rp 920.000.000", percentage: 62, icon: BarChart3, trend: "up" as const },
-        { title: "Silpa Berjalan", amount: "Rp 530.000.000", percentage: 100, icon: Clock, trend: "down" as const },
+        {
+          title: "Total Pendapatan",
+          amount: "Rp 1.450.000.000",
+          percentage: 85,
+          icon: PieChart,
+          trend: "up" as const,
+        },
+        {
+          title: "Total Belanja",
+          amount: "Rp 920.000.000",
+          percentage: 62,
+          icon: BarChart3,
+          trend: "up" as const,
+        },
+        {
+          title: "Silpa Berjalan",
+          amount: "Rp 530.000.000",
+          percentage: 100,
+          icon: Clock,
+          trend: "down" as const,
+        },
       ];
 
   const progressBars = [
@@ -150,11 +170,36 @@ export function RealisasiPage() {
   const kegiatanList = latestRealisasi?.kegiatan?.length
     ? latestRealisasi.kegiatan
     : [
-        { name: "Pembangunan Jalan usat", status: "Selesai", date: "Mei 2025", type: "success" as const },
-        { name: "Rehabilitasi Balai usat", status: "Dalam Proses", date: "Juni 2025", type: "process" as const },
-        { name: "Program Ketahanan Pangan", status: "Berjalan", date: "Mei 2025", type: "process" as const },
-        { name: "Pengadaan Mobil Siaga", status: "Tahap Lelang", date: "Juli 2025", type: "warning" as const },
-        { name: "Bantuan Langsung Tunai (BLT)", status: "Penyaluran", date: "Rutin", type: "success" as const },
+        {
+          name: "Pembangunan Jalan usat",
+          status: "Selesai",
+          date: "Mei 2025",
+          type: "success" as const,
+        },
+        {
+          name: "Rehabilitasi Balai usat",
+          status: "Dalam Proses",
+          date: "Juni 2025",
+          type: "process" as const,
+        },
+        {
+          name: "Program Ketahanan Pangan",
+          status: "Berjalan",
+          date: "Mei 2025",
+          type: "process" as const,
+        },
+        {
+          name: "Pengadaan Mobil Siaga",
+          status: "Tahap Lelang",
+          date: "Juli 2025",
+          type: "warning" as const,
+        },
+        {
+          name: "Bantuan Langsung Tunai (BLT)",
+          status: "Penyaluran",
+          date: "Rutin",
+          type: "success" as const,
+        },
       ];
 
   return (
@@ -164,7 +209,9 @@ export function RealisasiPage() {
         <PageHero
           titleFirst="Realisasi"
           titleSecond="APBDes"
-          description={"Laporan berkala penggunaan dana desa untuk pembangunan dan pelayanan masyarakat."}
+          description={
+            "Laporan berkala penggunaan dana desa untuk pembangunan dan pelayanan masyarakat."
+          }
           badge="Transparansi Anggaran"
           badgeIcon={<TrendingUp className="h-3.5 w-3.5" />}
           breadcrumbs={[{ label: "Laporan" }, { label: "Realisasi" }]}

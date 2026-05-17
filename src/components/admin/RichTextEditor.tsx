@@ -12,7 +12,12 @@ interface RichTextEditorProps {
   disabled?: boolean;
 }
 
-export default function RichTextEditor({ value, onChange, placeholder, disabled }: RichTextEditorProps) {
+export default function RichTextEditor({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const quillRef = useRef<unknown>(null);
   const [ready, setReady] = useState(false);
@@ -64,7 +69,7 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled 
     return () => {
       mounted = false;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync external value changes (e.g. when editing existing berita)

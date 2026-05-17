@@ -459,6 +459,14 @@ export async function saveSettings(s: SystemSettings, updatedBy?: string): Promi
   _settingsData = clean;
   _syncZustand(clean);
 
+  // Invalidate village cache so getVillage() picks up new settings
+  try {
+    const { invalidateVillageCache } = await import("@/lib/village-dynamic");
+    invalidateVillageCache();
+  } catch {
+    // non-critical
+  }
+
   // 3. Supabase write-behind (non-blocking)
   if (isSupabaseConfigured) {
     const sb = getSupabase();
@@ -578,7 +586,7 @@ export async function logAudit(user: string, action: string, detail?: string): P
       detail,
     };
 
-    const { idbPut, idbGetAll, idbReplaceAll } = await import("@/lib/idb-store");
+    const { idbPut, idbCount } = await import("@/lib/idb-store");
     await idbPut("audit_log", entry);
 
     if (isSupabaseConfigured) {
@@ -602,8 +610,12 @@ export async function logAudit(user: string, action: string, detail?: string): P
       }
     }
 
-    const all = await idbGetAll<AuditEntry>("audit_log");
-    if (all.length > 500) {
+    // Only trim audit log if count exceeds limit (was: read-all-then-count → O(n) on every call)
+    const count = await idbCount("audit_log");
+    if (count > 500) {
+      // Fetch only the sorted slice we need to keep (top 500 newest)
+      const { idbGetAll, idbReplaceAll } = await import("@/lib/idb-store");
+      const all = await idbGetAll<AuditEntry>("audit_log");
       const sorted = all.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 500);
       await idbReplaceAll("audit_log", sorted);
     }

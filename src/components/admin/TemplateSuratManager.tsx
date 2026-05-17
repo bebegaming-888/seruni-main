@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import Papa from "papaparse";
 import { FileText, Plus, Pencil, Trash2, Eye, Download, Upload, Search, Copy } from "lucide-react";
 import { generateId } from "@/lib/utils";
 import {
@@ -63,11 +62,15 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
     };
     saveTemplate(copy);
     refresh();
-    toast.success("Template diduplikasi", { description: "Salinan template telah dibuat dengan kode baru." });
+    toast.success("Template diduplikasi", {
+      description: "Salinan template telah dibuat dengan kode baru.",
+    });
   };
   const handleDelete = (t: SuratTemplate) => {
     if (SURAT_MASTER[t.code]) {
-      toast.error("Template Master Sistem tidak dapat dihapus", { description: "Template sistem dilindungi dan tidak dapat dihapus." });
+      toast.error("Template Master Sistem tidak dapat dihapus", {
+        description: "Template sistem dilindungi dan tidak dapat dihapus.",
+      });
       return;
     }
     setConfirmTarget({
@@ -83,16 +86,21 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
   const onSave = () => {
     if (!editing) return;
     if (!editing.code.trim() || !editing.name.trim()) {
-      toast.error("Kode dan Nama Surat wajib diisi", { description: "Isikan kode surat (3-5 karakter) dan nama surat." });
+      toast.error("Kode dan Nama Surat wajib diisi", {
+        description: "Isikan kode surat (3-5 karakter) dan nama surat.",
+      });
       return;
     }
     saveTemplate(editing);
     refresh();
     setEditing(null);
-    toast.success("Template tersimpan", { description: "Template surat telah disimpan ke database." });
+    toast.success("Template tersimpan", {
+      description: "Template surat telah disimpan ke database.",
+    });
   };
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
+    const Papa = await import("papaparse");
     const rows = items.map((t) => ({
       id: t.id,
       code: t.code,
@@ -104,18 +112,21 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
       syarat: t.syarat.join("|"),
       body: t.body,
     }));
-    const csv = Papa.unparse(rows);
+    const csv = Papa.default.unparse(rows);
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = `template-surat-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success(`${rows.length} template diekspor`, { description: `File CSV dengan ${rows.length} template telah diunduh.` });
+    toast.success(`${rows.length} template diekspor`, {
+      description: `File CSV dengan ${rows.length} template telah diunduh.`,
+    });
   };
 
-  const onImport = (file: File) => {
-    Papa.parse<Record<string, string>>(file, {
+  const onImport = async (file: File) => {
+    const Papa = await import("papaparse");
+    Papa.default.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
       complete: (res) => {
@@ -139,7 +150,9 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
           n += 1;
         });
         refresh();
-        toast.success(`Imported ${n} template`, { description: `${n} template surat telah diimpor ke database.` });
+        toast.success(`Imported ${n} template`, {
+          description: `${n} template surat telah diimpor ke database.`,
+        });
       },
     });
   };

@@ -41,7 +41,10 @@ export const Route = createFileRoute("/profil/bpd")({
 });
 
 const TUGAS_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Scale, FileText, UserCheck, CalendarDays,
+  Scale,
+  FileText,
+  UserCheck,
+  CalendarDays,
 };
 
 function resolveTugasIcon(name?: string) {
@@ -69,22 +72,26 @@ function BPDPage() {
     return [
       {
         label: "Pembentukan Peraturan Desa",
-        description: "Melakukan pembahasan dan memberikan persetujuan terhadap Raperdes sebelum ditetapkan Kades.",
+        description:
+          "Melakukan pembahasan dan memberikan persetujuan terhadap Raperdes sebelum ditetapkan Kades.",
         icon: "Scale",
       },
       {
         label: "Pembahasan APBDes",
-        description: "Menampung dan meniscus aspirasi masyarakat dalam rancangan APBDes yang diajukan Kades.",
+        description:
+          "Menampung dan meniscus aspirasi masyarakat dalam rancangan APBDes yang diajukan Kades.",
         icon: "FileText",
       },
       {
         label: "Pengawasan Kinerja",
-        description: "Mengawasi kinerja pemerintah desa dan menyampaikan hasil pengawasan kepada perangkat desa.",
+        description:
+          "Mengawasi kinerja pemerintah desa dan menyampaikan hasil pengawasan kepada perangkat desa.",
         icon: "UserCheck",
       },
       {
         label: "Pelaksanaan Musdes",
-        description: "Mengumpulkan masyarakat dalam musyawarah desa untuk membahas program dan kegiatan pembangunan.",
+        description:
+          "Mengumpulkan masyarakat dalam musyawarah desa untuk membahas program dan kegiatan pembangunan.",
         icon: "CalendarDays",
       },
     ];

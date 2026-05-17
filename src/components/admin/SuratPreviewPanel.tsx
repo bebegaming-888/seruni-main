@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { Loader2, X, Check, ChevronDown, ChevronUp, Image, FileText, Camera, ExternalLink } from "lucide-react";
+import {
+  Loader2,
+  X,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Image,
+  FileText,
+  Camera,
+  ExternalLink,
+} from "lucide-react";
 import { type SuratRecord, lookupPenduduk } from "@/lib/esurat-store";
 import { getTemplate } from "@/lib/template-store";
 import { buildRenderedLetter, type RenderedLetter } from "@/lib/letter-engine";
@@ -41,7 +51,7 @@ interface SuratPreviewPanelProps extends SuratPreviewPanelActions {
 }
 
 /** Check if a file is an image based on MIME type */
-function isImage(mime: string): boolean {
+function isImageMime(mime: string): boolean {
   return mime.startsWith("image/");
 }
 
@@ -56,8 +66,8 @@ function formatSize(bytes: number): string {
 function isSelfie(att: SuratRecord["attachments"][number]): boolean {
   const n = att.name.toLowerCase();
   // Primary signal: file is an image AND filename suggests selfie
-  const isImage = att.type.startsWith("image/");
-  if (!isImage) return false;
+  const isImageFile = att.type.startsWith("image/");
+  if (!isImageFile) return false;
   if (
     n.includes("selfie") ||
     n.includes("foto") ||
@@ -74,15 +84,7 @@ function isSelfie(att: SuratRecord["attachments"][number]): boolean {
 }
 
 /** Lightbox untuk melihat gambar full-size */
-function ImageLightbox({
-  src,
-  alt,
-  onClose,
-}: {
-  src: string;
-  alt: string;
-  onClose: () => void;
-}) {
+function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4"
@@ -127,9 +129,7 @@ function AttachmentsSection({ attachments }: { attachments: SuratRecord["attachm
         >
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
-            <span className="text-sm font-ui font-semibold">
-              Lampiran & Dokumen
-            </span>
+            <span className="text-sm font-ui font-semibold">Lampiran & Dokumen</span>
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">
               {attachments.length} file
             </span>
@@ -159,11 +159,7 @@ function AttachmentsSection({ attachments }: { attachments: SuratRecord["attachm
                       title={`${att.name} — klik untuk memperbesar`}
                     >
                       {att.data_url ? (
-                        <img
-                          src={att.data_url}
-                          alt={att.name}
-                          className="h-20 w-20 object-cover"
-                        />
+                        <img src={att.data_url} alt={att.name} className="h-20 w-20 object-cover" />
                       ) : (
                         <div className="h-20 w-20 bg-muted flex items-center justify-center">
                           <Image className="h-6 w-6 text-muted-foreground" />
@@ -197,10 +193,10 @@ function AttachmentsSection({ attachments }: { attachments: SuratRecord["attachm
                         </p>
                         <p className="text-[10px] text-muted-foreground">
                           {formatSize(att.size)}
-                          {isImage(att.type) && " · Gambar"}
+                          {isImageMime(att.type) && " · Gambar"}
                         </p>
                       </div>
-                      {isImage(att.type) && att.data_url ? (
+                      {isImageMime(att.type) && att.data_url ? (
                         <button
                           className="shrink-0 p-1 rounded hover:bg-muted transition"
                           onClick={() => setLightboxSrc(att.data_url!)}
@@ -330,11 +326,7 @@ export function RejectionModal({
           <Button variant="outline" onClick={handleClose}>
             Batal
           </Button>
-          <Button
-            variant="destructive"
-            onClick={handleConfirm}
-            disabled={alasanList.length === 0}
-          >
+          <Button variant="destructive" onClick={handleConfirm} disabled={alasanList.length === 0}>
             <X className="h-4 w-4 mr-1" /> Konfirmasi Tolak
           </Button>
         </DialogFooter>
@@ -396,7 +388,9 @@ export function SuratPreviewPanel({
     }
 
     loadLetter();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [preview]);
 
   if (isLoading) {
@@ -436,7 +430,11 @@ export function SuratPreviewPanel({
           className="origin-top bg-white shadow-xl"
           style={{ transform: "scale(0.68)", transformOrigin: "top center", marginBottom: "-32%" }}
         >
-          <LetterPrintWrapper letter={letter} namaPemohon={preview.pemohon} nomorSurat={preview.no} />
+          <LetterPrintWrapper
+            letter={letter}
+            namaPemohon={preview.pemohon}
+            nomorSurat={preview.no}
+          />
         </div>
       </div>
 

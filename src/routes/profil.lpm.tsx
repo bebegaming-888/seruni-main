@@ -43,9 +43,14 @@ export const Route = createFileRoute("/profil/lpm")({
 
 function resolveLpmIcon(name?: string): React.ComponentType<{ className?: string }> {
   const map: Record<string, React.ComponentType<{ className?: string }>> = {
-    Home, TrendingUp, Users, ClipboardList, HandHeart, Target,
+    Home,
+    TrendingUp,
+    Users,
+    ClipboardList,
+    HandHeart,
+    Target,
   };
-  return (name && map[name]) ? map[name] : Target;
+  return name && map[name] ? map[name] : Target;
 }
 
 export function LPMPage() {
@@ -77,9 +82,7 @@ export function LPMPage() {
   })();
 
   const kegiatanItems = (() => {
-    const found = pageItems.find(
-      (p) => p.page_key === "profil_lpm" && p.content_type === "custom",
-    );
+    const found = pageItems.find((p) => p.page_key === "profil_lpm" && p.content_type === "custom");
     if (found?.items.length) return found.items;
     return [
       { label: "Januari", description: "Musrenbangdes RKPD 2027" },

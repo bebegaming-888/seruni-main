@@ -294,10 +294,10 @@ export async function syncSaveRecord(
 
   // 2. Offload large attachments to Supabase Storage if configured
   // Clone attachments array to avoid mutating the original record on partial failure
-  if (isSupabaseConfigured && record.attachments.length > 0) {
-    const updatedAttachments = record.attachments.map((att) => ({ ...att }));
+  const recordToSave = { ...record, attachments: record.attachments.map((att) => ({ ...att })) };
+  if (isSupabaseConfigured && recordToSave.attachments.length > 0) {
     let uploadFailed = false;
-    for (const att of updatedAttachments) {
+    for (const att of recordToSave.attachments) {
       if (att.data_url && !att.storage_path) {
         const result = await uploadAttachment({ name: att.name, data_url: att.data_url });
         if (result.ok) {
@@ -311,55 +311,44 @@ export async function syncSaveRecord(
     }
     // Only apply uploaded storage_path values if no attachment failed
     if (!uploadFailed) {
-      record.attachments = updatedAttachments;
+      record.attachments = recordToSave.attachments;
     }
   }
 
   const localRecords = [...getLocalRecords()];
   const idx = localRecords.findIndex((r) => r.no === record.no);
-  if (idx >= 0) localRecords[idx] = { ...record, updated_at: new Date().toISOString() };
-  else localRecords.unshift(record);
+  const now = new Date().toISOString();
+  const localRecord =
+    idx >= 0
+      ? { ...record, updated_at: now, cloudSynced: false as boolean }
+      : { ...record, updated_at: now, cloudSynced: false as boolean };
+  if (idx >= 0) localRecords[idx] = localRecord;
+  else localRecords.unshift(localRecord);
   setLocalRecords(localRecords);
 
   if (!isSupabaseConfigured) {
-    // No cloud configured — tag record as local-only
-    record.cloudSynced = false;
-    const updated = localRecords.map((r) =>
-      r.no === record.no ? { ...r, cloudSynced: false as boolean } : r,
-    );
-    setLocalRecords(updated);
-    return { ok: true, source: "localStorage", record, cloudSynced: false };
+    return { ok: true, source: "localStorage", record: localRecord, cloudSynced: false };
   }
 
   try {
     const sb = getSupabase();
-    if (!sb) return { ok: true, source: "localStorage", record, cloudSynced: false };
+    if (!sb) return { ok: true, source: "localStorage", record: localRecord, cloudSynced: false };
     const { error } = await sb
       .from("surat_requests")
       .upsert(toDbRecord(record), { onConflict: "no" });
     if (error) {
       console.warn("[sync] Supabase upsert failed, IndexedDB still saved:", error.message);
-      // Tag record as failed-sync
-      const failed = localRecords.map((r) =>
-        r.no === record.no ? { ...r, cloudSynced: false as boolean } : r,
-      );
-      setLocalRecords(failed);
-      return { ok: true, source: "localStorage", record, cloudSynced: false };
+      return { ok: true, source: "localStorage", record: localRecord, cloudSynced: false };
     }
     await logAudit({ action: "surat.save", detail: `Surat ${record.no} disimpan`, username });
-    // Tag record as successfully synced
-    const synced = localRecords.map((r) =>
+    const synced = getLocalRecords().map((r) =>
       r.no === record.no ? { ...r, cloudSynced: true as boolean } : r,
     );
     setLocalRecords(synced);
-    return { ok: true, source: "supabase", record, cloudSynced: true };
+    return { ok: true, source: "supabase", record: localRecord, cloudSynced: true };
   } catch (err) {
     console.warn("[sync] Supabase error:", err);
-    const failed = localRecords.map((r) =>
-      r.no === record.no ? { ...r, cloudSynced: false as boolean } : r,
-    );
-    setLocalRecords(failed);
-    return { ok: true, source: "localStorage", record, cloudSynced: false };
+    return { ok: true, source: "localStorage", record: localRecord, cloudSynced: false };
   }
 }
 
@@ -377,6 +366,9 @@ export async function syncSetStatus(
   const idx = localRecords.findIndex((r) => r.no === no);
   if (idx < 0) return { ok: false, source: "localStorage", error: `Record ${no} tidak ditemukan` };
 
+  // Capture original status BEFORE mutating localRecords for optimistic lock check
+  const originalStatus = localRecords[idx].status;
+
   const updated: SuratRecord = {
     ...localRecords[idx],
     status,
@@ -391,8 +383,6 @@ export async function syncSetStatus(
   };
   localRecords[idx] = updated;
   setLocalRecords(localRecords);
-  // Also update individual record in IndexedDB
-  idbPut("esurat_records", updated).catch(console.warn);
 
   if (!isSupabaseConfigured)
     return { ok: true, source: "localStorage", record: updated, cloudSynced: false };
@@ -409,7 +399,10 @@ export async function syncSetStatus(
     if (status === "Ditolak" && catatan) {
       // Parse alasan: format "reason1; reason2; custom reason"
       // rejection_reasons: semicolon-separated list of reason keys
-      const parts = catatan.split(";").map((p: string) => p.trim()).filter(Boolean);
+      const parts = catatan
+        .split(";")
+        .map((p: string) => p.trim())
+        .filter(Boolean);
       if (parts.length > 0) {
         // First N-1 parts are structured reasons, last part may be custom
         updates.rejection_detail = parts[parts.length - 1];
@@ -437,7 +430,7 @@ export async function syncSetStatus(
       .eq("no", no)
       // Optimistic locking — only update if record still has previous status.
       // Prevents concurrent admin sessions from overwriting each other's changes.
-      .eq("status", localRecords[idx].status);
+      .eq("status", originalStatus);
     if (error) {
       // Conflict: another session changed the status — refresh needed
       console.warn("[sync] Status update conflict for", no, ":", error.message);

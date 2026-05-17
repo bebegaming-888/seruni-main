@@ -119,19 +119,20 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   // admin users di-store sebagai plaintext di Supabase (bukan bcrypt).
   // Untuk env var fallback (ADMIN_PASS), password di-set oleh operator saat deployment.
   const b = new TextEncoder().encode(user.password);
-  const passwordsMatch =
-    a.length === b.length && crypto.subtle.timingSafeEqual(a, b);
+  const passwordsMatch = a.length === b.length && crypto.subtle.timingSafeEqual(a, b);
 
   if (!user || !passwordsMatch) {
     // Log failed attempt untuk audit trail
     if (sb && username) {
-      sb.from("audit_log").insert({
-        username: username.trim(),
-        action: "admin.login_failed",
-        detail: "Invalid credentials",
-        ip_address: "unknown",
-        created_at: new Date(),
-      }).catch(() => {}); // non-blocking
+      sb.from("audit_log")
+        .insert({
+          username: username.trim(),
+          action: "admin.login_failed",
+          detail: "Invalid credentials",
+          ip_address: "unknown",
+          created_at: new Date(),
+        })
+        .catch(() => {}); // non-blocking
     }
     return json({ ok: false, error: "Username atau password salah" }, 401);
   }

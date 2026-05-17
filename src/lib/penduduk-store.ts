@@ -2,7 +2,6 @@
 // In-memory cache untuk read sinkron; IndexedDB untuk persistensi async.
 
 import { type Penduduk } from "@/data/penduduk";
-import * as XLSX from "xlsx";
 import { processSmartImport, type SmartImportResult } from "@/lib/smart-import";
 export type { SmartImportResult } from "@/lib/smart-import";
 import { idbGetAll, idbPut, idbDelete, idbReplaceAll } from "@/lib/idb-store";
@@ -552,7 +551,8 @@ export function exportPendudukTemplate(): void {
   URL.revokeObjectURL(url);
 }
 
-export function exportPendudukXLSX(items?: Penduduk[]): void {
+export async function exportPendudukXLSX(items?: Penduduk[]): Promise<void> {
+  const XLSX = await import("xlsx");
   const data = items ?? listPenduduk();
   const rows = data.map((p) =>
     CSV_HEADERS.reduce(

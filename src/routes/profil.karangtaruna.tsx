@@ -40,9 +40,12 @@ export const Route = createFileRoute("/profil/karangtaruna")({
 
 function resolveKtIcon(name?: string): React.ComponentType<{ className?: string }> {
   const map: Record<string, React.ComponentType<{ className?: string }>> = {
-    HeartHandshake, Target, Zap, Users,
+    HeartHandshake,
+    Target,
+    Zap,
+    Users,
   };
-  return (name && map[name]) ? map[name] : Zap;
+  return name && map[name] ? map[name] : Zap;
 }
 
 export function KarangTarunaPage() {
@@ -64,10 +67,26 @@ export function KarangTarunaPage() {
     );
     if (found?.items.length) return found.items;
     return [
-      { label: "Bakti Sosial", description: "Donor darah, pembagian bantuan, dan kepedulian terhadap warga kurang mampu.", icon: "HeartHandshake" },
-      { label: "Pelatihan Keterampilan", description: "Digital marketing, desain grafis, dan manajemen usaha untuk anak muda.", icon: "Target" },
-      { label: "Lingkungan & Kehutanan", description: "Penanaman 500 pohon baru, bank sampah, dan pengelolaan ruang terbuka hijau.", icon: "Zap" },
-      { label: "Pendampingan Lansia", description: "Kunjungan rumah, bantuan harian, dan program kebahagiaan lansia.", icon: "Users" },
+      {
+        label: "Bakti Sosial",
+        description: "Donor darah, pembagian bantuan, dan kepedulian terhadap warga kurang mampu.",
+        icon: "HeartHandshake",
+      },
+      {
+        label: "Pelatihan Keterampilan",
+        description: "Digital marketing, desain grafis, dan manajemen usaha untuk anak muda.",
+        icon: "Target",
+      },
+      {
+        label: "Lingkungan & Kehutanan",
+        description: "Penanaman 500 pohon baru, bank sampah, dan pengelolaan ruang terbuka hijau.",
+        icon: "Zap",
+      },
+      {
+        label: "Pendampingan Lansia",
+        description: "Kunjungan rumah, bantuan harian, dan program kebahagiaan lansia.",
+        icon: "Users",
+      },
     ];
   })();
 

@@ -233,7 +233,6 @@ export default function ESurat() {
     };
     window.addEventListener("esurat-autofill-nik", handler);
     return () => window.removeEventListener("esurat-autofill-nik", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nik]);
 
   // ── Autofill extraData dari data penduduk saat masuk Step 4 ───────────────
@@ -343,9 +342,7 @@ export default function ESurat() {
 
     // Extract selfie from attachments array — store separately per SuratRecord.foto_selfie type
     const selfieEntry = attachments.find(
-      (a) =>
-        a.name.toLowerCase().includes("selfie") ||
-        a.name.toLowerCase().includes("foto"),
+      (a) => a.name.toLowerCase().includes("selfie") || a.name.toLowerCase().includes("foto"),
     );
 
     const record: SuratRecord = {
@@ -365,7 +362,9 @@ export default function ESurat() {
 
     // CAPTCHA guard — offline submissions skip CAPTCHA (enqueued, not submitted directly)
     if (navigator.onLine && TURNSTILE_SITE_KEY && !turnstileToken) {
-      toast.error("Verifikasi CAPTCHA diperlukan", { description: "Selesaikan verifikasi CAPTCHA untuk melanjutkan pengajuan." });
+      toast.error("Verifikasi CAPTCHA diperlukan", {
+        description: "Selesaikan verifikasi CAPTCHA untuk melanjutkan pengajuan.",
+      });
       setSubmitting(false);
       return;
     }
@@ -451,11 +450,16 @@ export default function ESurat() {
                         active ? "text-primary" : done ? "text-success" : "text-muted-foreground"
                       }`}
                     >
-                      {active ? "↓" : done ? "✓" : `${i + 1}.`} {i === 0 ? "Mulai" : `Langkah ${i + 1}`}
+                      {active ? "↓" : done ? "✓" : `${i + 1}.`}{" "}
+                      {i === 0 ? "Mulai" : `Langkah ${i + 1}`}
                     </div>
                     <div
                       className={`font-display text-sm transition-colors ${
-                        active ? "text-foreground font-bold" : done ? "text-success" : "text-muted-foreground"
+                        active
+                          ? "text-foreground font-bold"
+                          : done
+                            ? "text-success"
+                            : "text-muted-foreground"
                       }`}
                     >
                       {s.title}
@@ -946,14 +950,18 @@ function StepDetail({
 
     const remaining = 10 - attachments.length;
     if (files.length > remaining) {
-      toast.error("Maksimal 10 lampiran. Anda bisa menambahkan ${remaining} file lagi.", { description: "Kurangi jumlah lampiran atau hapus file yang tidak diperlukan." });
+      toast.error("Maksimal 10 lampiran. Anda bisa menambahkan ${remaining} file lagi.", {
+        description: "Kurangi jumlah lampiran atau hapus file yang tidak diperlukan.",
+      });
       return;
     }
 
     const newFiles: Lampiran[] = [];
     for (const file of files) {
       if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} terlalu besar. Maks 5MB per file.`, { description: "Perkecil ukuran file atau gunakan format lain." });
+        toast.error(`${file.name} terlalu besar. Maks 5MB per file.`, {
+          description: "Perkecil ukuran file atau gunakan format lain.",
+        });
         continue;
       }
       const data_url = await new Promise<string>((resolve) => {
@@ -1055,13 +1063,13 @@ function StepDetail({
           <h3 className="font-display font-bold text-base">Foto Selfie dengan KTP</h3>
         </div>
         <p className="font-body text-xs text-muted-foreground mb-4">
-          Wajib: foto wajah Anda memegang KTP. Dokumen ini sebagai verifikasi bahwa pemohon
-          adalah benar pemilik NIK tersebut.
+          Wajib: foto wajah Anda memegang KTP. Dokumen ini sebagai verifikasi bahwa pemohon adalah
+          benar pemilik NIK tersebut.
         </p>
 
         {(() => {
-          const selfie = attachments.find((a) =>
-            a.name.toLowerCase().includes("selfie") || a.name.toLowerCase().includes("foto")
+          const selfie = attachments.find(
+            (a) => a.name.toLowerCase().includes("selfie") || a.name.toLowerCase().includes("foto"),
           );
           if (selfie?.data_url) {
             return (
@@ -1114,7 +1122,9 @@ function StepDetail({
                   const file = e.target.files?.[0];
                   if (!file) return;
                   if (file.size > 5 * 1024 * 1024) {
-                    toast.error("Ukuran foto terlalu besar. Maks 5MB.", { description: "Kompres foto atau gunakan format dengan ukuran lebih kecil." });
+                    toast.error("Ukuran foto terlalu besar. Maks 5MB.", {
+                      description: "Kompres foto atau gunakan format dengan ukuran lebih kecil.",
+                    });
                     return;
                   }
                   const data_url = await new Promise<string>((resolve) => {
@@ -1128,7 +1138,15 @@ function StepDetail({
                       !a.name.toLowerCase().includes("selfie") &&
                       !a.name.toLowerCase().includes("foto"),
                   );
-                  setAttachments([...filtered, { name: `selfie_${Date.now()}.jpg`, type: file.type, size: file.size, data_url }]);
+                  setAttachments([
+                    ...filtered,
+                    {
+                      name: `selfie_${Date.now()}.jpg`,
+                      type: file.type,
+                      size: file.size,
+                      data_url,
+                    },
+                  ]);
                   e.target.value = "";
                 }}
               />
@@ -1143,11 +1161,16 @@ function StepDetail({
           <Paperclip className="h-4 w-4 text-primary" />
           <h3 className="font-display font-bold text-base">Dokumen Pendukung Lainnya</h3>
           <span className="ml-auto font-ui text-xs text-muted-foreground">
-            {attachments.filter((a) => !a.name.includes("selfie") && !a.name.includes("foto")).length}/10 file · maks 5MB per file
+            {
+              attachments.filter((a) => !a.name.includes("selfie") && !a.name.includes("foto"))
+                .length
+            }
+            /10 file · maks 5MB per file
           </span>
         </div>
 
-        {attachments.filter((a) => !a.name.includes("selfie") && !a.name.includes("foto")).length > 0 && (
+        {attachments.filter((a) => !a.name.includes("selfie") && !a.name.includes("foto")).length >
+          0 && (
           <div className="space-y-2 mb-4">
             {attachments
               .filter((a) => !a.name.includes("selfie") && !a.name.includes("foto"))
@@ -1159,7 +1182,9 @@ function StepDetail({
                   <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="font-body text-sm truncate">{a.name}</p>
-                    <p className="font-ui text-[11px] text-muted-foreground">{formatSize(a.size)}</p>
+                    <p className="font-ui text-[11px] text-muted-foreground">
+                      {formatSize(a.size)}
+                    </p>
                   </div>
                   <button
                     onClick={() => removeAttachment(i)}
@@ -1174,8 +1199,7 @@ function StepDetail({
 
         {(() => {
           const hasSelfie = attachments.some(
-            (a) =>
-              a.name.toLowerCase().includes("selfie") || a.name.toLowerCase().includes("foto"),
+            (a) => a.name.toLowerCase().includes("selfie") || a.name.toLowerCase().includes("foto"),
           );
           const maxDocs = 10 - (hasSelfie ? 1 : 0);
           const docCount = attachments.filter(

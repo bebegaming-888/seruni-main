@@ -91,7 +91,10 @@ const OTP_PBKDF2_ITERATIONS = 100_000;
 export async function hashOtp(plain: string): Promise<string> {
   // Generate per-OTP random salt (16 bytes, base64url)
   const saltBytes = crypto.getRandomValues(new Uint8Array(16));
-  const saltB64 = btoa(String.fromCharCode(...saltBytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const saltB64 = btoa(String.fromCharCode(...saltBytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
   const keyMaterial = await crypto.subtle.importKey(
     "raw",

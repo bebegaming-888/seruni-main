@@ -67,7 +67,19 @@ import { uploadMedia } from "@/lib/media-upload";
 
 export function CMSManager() {
   const [activeTab, setActiveTab] = useState<
-    "berita" | "agenda" | "pengumuman" | "komoditas" | "galeri" | "apbdes" | "page_content" | "kwt" | "produk_hukum" | "realisasi" | "bumdes" | "pengaduan_kategori" | "koperasi"
+    | "berita"
+    | "agenda"
+    | "pengumuman"
+    | "komoditas"
+    | "galeri"
+    | "apbdes"
+    | "page_content"
+    | "kwt"
+    | "produk_hukum"
+    | "realisasi"
+    | "bumdes"
+    | "pengaduan_kategori"
+    | "koperasi"
   >("berita");
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -102,7 +114,8 @@ export function CMSManager() {
     return items.filter((item: CmsItemRecord) =>
       ((item.title as string) || (item.name as string) || "").toLowerCase().includes(s),
     );
-  }, [items, q]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, items.length]);
 
   // ── Scroll to top when tab or mode changes ──────────────────────────────
   useEffect(() => {
@@ -350,11 +363,15 @@ function CMSForm({
 
   const handleCoverFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      toast.error("Hanya file gambar yang diizinkan", { description: "Gunakan format JPG, PNG, atau WebP." });
+      toast.error("Hanya file gambar yang diizinkan", {
+        description: "Gunakan format JPG, PNG, atau WebP.",
+      });
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("Ukuran file terlalu besar", { description: "Maksimum ukuran file adalah 2MB. Kompres gambar sebelum upload." });
+      toast.error("Ukuran file terlalu besar", {
+        description: "Maksimum ukuran file adalah 2MB. Kompres gambar sebelum upload.",
+      });
       return;
     }
     setCoverUploading(true);
@@ -364,7 +381,9 @@ function CMSForm({
         setFormData((prev) => ({ ...prev, cover_image: result.publicUrl }));
         toast.success("Cover image uploaded", { description: "Gambar cover berhasil diupload." });
       } else {
-        toast.error("Gagal upload cover", { description: result.error ?? "Coba lagi atau gunakan gambar lain." });
+        toast.error("Gagal upload cover", {
+          description: result.error ?? "Coba lagi atau gunakan gambar lain.",
+        });
       }
     } finally {
       setCoverUploading(false);
@@ -373,7 +392,9 @@ function CMSForm({
 
   const handleGaleriFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      toast.error("Hanya file gambar yang diizinkan", { description: "Gunakan format JPG, PNG, atau WebP untuk gambar." });
+      toast.error("Hanya file gambar yang diizinkan", {
+        description: "Gunakan format JPG, PNG, atau WebP untuk gambar.",
+      });
       return;
     }
     setGaleriUploading(true);
@@ -412,22 +433,30 @@ function CMSForm({
       if (schemas[type]) {
         const result = schemas[type].safeParse(formData);
         if (!result.success) {
-          toast.error("Validasi gagal: " + result.error.errors[0].message, { description: "Perbaiki data sesuai format yang diminta." });
+          toast.error("Validasi gagal: " + result.error.errors[0].message, {
+            description: "Perbaiki data sesuai format yang diminta.",
+          });
           return;
         }
       }
 
       if (editingId) {
         await store.update(editingId, formData);
-        toast.success("Berhasil diperbarui", { description: "Perubahan telah disimpan ke database." });
+        toast.success("Berhasil diperbarui", {
+          description: "Perubahan telah disimpan ke database.",
+        });
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await store.add(formData as any);
-        toast.success("Berhasil ditambahkan", { description: "Item baru telah ditambahkan ke database." });
+        toast.success("Berhasil ditambahkan", {
+          description: "Item baru telah ditambahkan ke database.",
+        });
       }
       onClose();
     } catch (err) {
-      toast.error("Gagal menyimpan data", { description: "Coba simpan kembali atau hubungi administrator." });
+      toast.error("Gagal menyimpan data", {
+        description: "Coba simpan kembali atau hubungi administrator.",
+      });
     }
   };
 
@@ -554,7 +583,6 @@ function CMSForm({
                     "PawPrint",
                     "Fish",
                     "Bug",
-                    "Apple",
                     "Cherry",
                     "Grape",
                     "Banana",
@@ -764,7 +792,10 @@ function CMSForm({
                 onChange={(e) =>
                   setFormData((f) => ({
                     ...f,
-                    tags: e.target.value.split(",").map((t) => t.trim()).filter(Boolean),
+                    tags: e.target.value
+                      .split(",")
+                      .map((t) => t.trim())
+                      .filter(Boolean),
                   }))
                 }
                 placeholder="desa, kegiatan, pertanian (pisahkan dengan koma)"
@@ -789,9 +820,7 @@ function CMSForm({
               <label className="flex items-center gap-3 cursor-pointer">
                 <button
                   type="button"
-                  onClick={() =>
-                    setFormData((f) => ({ ...f, featured: !f.featured }))
-                  }
+                  onClick={() => setFormData((f) => ({ ...f, featured: !f.featured }))}
                   className={`relative h-5 w-9 rounded-full transition-colors ${
                     formData.featured ? "bg-primary" : "bg-border"
                   }`}
@@ -953,8 +982,22 @@ function CMSForm({
                   <SelectValue placeholder="Pilih icon" />
                 </SelectTrigger>
                 <SelectContent>
-                  {["Users", "Wallet", "TrendingUp", "ShieldCheck", "PiggyBank", "CreditCard", "BarChart3", "FileText", "DollarSign", "Store", "Package"].map((icon) => (
-                    <SelectItem key={icon} value={icon}>{icon}</SelectItem>
+                  {[
+                    "Users",
+                    "Wallet",
+                    "TrendingUp",
+                    "ShieldCheck",
+                    "PiggyBank",
+                    "CreditCard",
+                    "BarChart3",
+                    "FileText",
+                    "DollarSign",
+                    "Store",
+                    "Package",
+                  ].map((icon) => (
+                    <SelectItem key={icon} value={icon}>
+                      {icon}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -985,7 +1028,6 @@ function CMSForm({
             </div>
           </>
         )}
-
       </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t">

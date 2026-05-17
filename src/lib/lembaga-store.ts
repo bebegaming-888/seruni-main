@@ -9,7 +9,9 @@
  * IDB key: "lembaga"
  */
 
-import { idbGetAll, idbPut, idbReplaceAll, openIDB } from "@/lib/idb-store";
+import { idbGetAll, idbPut, idbReplaceAll } from "@/lib/idb-store";
+import { idbGetAllDynamic, idbPutDynamic, idbReplaceAllDynamic } from "@/lib/idb-dynamic";
+import { autofillFromNik as _wargaAutofill } from "@/lib/warga-autofill";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { logAudit } from "@/lib/settings-store";
 import { isStoreLocked } from "@/lib/settings-lock";
@@ -90,44 +92,6 @@ const IDB_KEY = "lembaga";
 // ── In-Memory Cache ────────────────────────────────────────────────────────────
 let _cache: LembagaDesa[] | null = null;
 let _initialized = false;
-
-// ── Helpers: dynamic IDB keys (bypass strict IDBStoreName) ──────────────────
-
-/** idbGetAll with dynamic store name — raw IDB API bypasses IDBStoreName union */
-async function idbGetAllDynamic<T>(storeName: string): Promise<T[]> {
-  if (typeof window === "undefined") return [];
-  const db = await openIDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readonly");
-    const req = tx.objectStore(storeName).getAll();
-    req.onsuccess = () => resolve(req.result as T[]);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function idbPutDynamic<T>(storeName: string, record: T): Promise<void> {
-  if (typeof window === "undefined") return;
-  const db = await openIDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readwrite");
-    tx.objectStore(storeName).put(record);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-async function idbReplaceAllDynamic<T>(storeName: string, records: T[]): Promise<void> {
-  if (typeof window === "undefined") return;
-  const db = await openIDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readwrite");
-    const oStore = tx.objectStore(storeName);
-    oStore.clear();
-    for (const r of records) oStore.put(r);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
@@ -589,28 +553,8 @@ export async function autofillFromNik(nik: string): Promise<{
   tanggal_lahir: string;
   pendidikan: string;
 } | null> {
-  if (!nik || nik.replace(/\D/g, "").length < 14) return null;
-
-  if (isSupabaseConfigured) {
-    const sb = getSupabase();
-    if (sb) {
-      const { data } = await sb
-        .from("warga")
-        .select("nama,jenis_kelamin,tempat_lahir,tanggal_lahir,pendidikan")
-        .eq("nik", nik)
-        .maybeSingle();
-      if (data) {
-        return {
-          nama: String(data.nama ?? ""),
-          jenis_kelamin: (data.jenis_kelamin as "Laki-Laki" | "Perempuan") ?? "Laki-Laki",
-          tempat_lahir: String(data.tempat_lahir ?? ""),
-          tanggal_lahir: data.tanggal_lahir ? String(data.tanggal_lahir).slice(0, 10) : "",
-          pendidikan: String(data.pendidikan ?? ""),
-        };
-      }
-    }
-  }
-  return null;
+  // Delegate to shared helper — Supabase → IndexedDB fallback
+  return _wargaAutofill(nik);
 }
 
 // ── Helper: count aktif pengurus per lembaga ─────────────────────────────────

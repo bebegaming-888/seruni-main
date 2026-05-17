@@ -51,9 +51,7 @@ export function PageHero({
       className="relative flex items-center overflow-hidden"
       style={{
         minHeight: "25vh",
-        background: bgImage
-          ? `url(${bgImage}) center/cover no-repeat`
-          : BRAND_DARK_FALLBACK,
+        background: bgImage ? `url(${bgImage}) center/cover no-repeat` : BRAND_DARK_FALLBACK,
       }}
     >
       {/* Dark overlay — minimum 70% to ensure text readability */}
@@ -93,10 +91,7 @@ export function PageHero({
               <span key={i} className="flex items-center gap-1.5">
                 <ChevronRight className="h-3 w-3 text-white/40" />
                 {crumb.href ? (
-                  <Link
-                    to={crumb.href}
-                    className="hover:text-white transition-colors"
-                  >
+                  <Link to={crumb.href} className="hover:text-white transition-colors">
                     {crumb.label}
                   </Link>
                 ) : (
@@ -124,10 +119,7 @@ export function PageHero({
           }}
         >
           {titleFirst}
-          <span
-            className="ml-2"
-            style={{ color: "#EEAA78", fontStyle: "italic" }}
-          >
+          <span className="ml-2" style={{ color: "#EEAA78", fontStyle: "italic" }}>
             {titleSecond}
           </span>
         </h1>

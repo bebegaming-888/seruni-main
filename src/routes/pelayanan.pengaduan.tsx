@@ -24,6 +24,7 @@ import {
   listPengaduan,
   getByTicket,
   type Pengaduan,
+  type PengaduanKategori,
   type PengaduanStatus,
 } from "@/lib/pengaduan-store";
 import { usePengaduanKategoriStore } from "@/lib/content-store";

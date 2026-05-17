@@ -34,11 +34,41 @@ export function ProdukHukumPage() {
   const docsData = docsItems.length
     ? docsItems
     : [
-        { id: "1", type: "Perdes", title: "Perdes No. 4 Tahun 2024 tentang APBDes TA 2025", year: "2024", size: "1.2 MB" },
-        { id: "2", type: "Perdes", title: "Perdes No. 3 Tahun 2024 tentang RKPDes 2025", year: "2024", size: "2.4 MB" },
-        { id: "3", type: "Perkades", title: "Perkades No. 8 Tahun 2024 tentang Penyaluran BLT Dana Desa", year: "2024", size: "0.8 MB" },
-        { id: "4", type: "Perdes", title: "Perdes No. 1 Tahun 2023 tentang Pelestarian Budaya Tenun", year: "2023", size: "3.1 MB" },
-        { id: "5", type: "Kepdes", title: "Keputusan Kepala Desa No. 12 Tahun 2024 tentang Pengurus BUMDes", year: "2024", size: "1.1 MB" },
+        {
+          id: "1",
+          type: "Perdes",
+          title: "Perdes No. 4 Tahun 2024 tentang APBDes TA 2025",
+          year: "2024",
+          size: "1.2 MB",
+        },
+        {
+          id: "2",
+          type: "Perdes",
+          title: "Perdes No. 3 Tahun 2024 tentang RKPDes 2025",
+          year: "2024",
+          size: "2.4 MB",
+        },
+        {
+          id: "3",
+          type: "Perkades",
+          title: "Perkades No. 8 Tahun 2024 tentang Penyaluran BLT Dana Desa",
+          year: "2024",
+          size: "0.8 MB",
+        },
+        {
+          id: "4",
+          type: "Perdes",
+          title: "Perdes No. 1 Tahun 2023 tentang Pelestarian Budaya Tenun",
+          year: "2023",
+          size: "3.1 MB",
+        },
+        {
+          id: "5",
+          type: "Kepdes",
+          title: "Keputusan Kepala Desa No. 12 Tahun 2024 tentang Pengurus BUMDes",
+          year: "2024",
+          size: "1.1 MB",
+        },
       ];
 
   const filtered = docsData.filter((d) => {
@@ -55,7 +85,11 @@ export function ProdukHukumPage() {
         <PageHero
           titleFirst="Produk"
           titleSecond="Hukum"
-          description={"Transparansi landasan hukum dan peraturan di " + (village as { name?: string }).name + "."}
+          description={
+            "Transparansi landasan hukum dan peraturan di " +
+            (village as { name?: string }).name +
+            "."
+          }
           badge="Regulasi Desa"
           badgeIcon={<Scale className="h-3.5 w-3.5" />}
           breadcrumbs={[{ label: "Lainnya" }, { label: "Produk Hukum" }]}

@@ -408,11 +408,9 @@ function createContentStore<T extends { id: string }>(storeName: IDBStoreName) {
                 }
                 return r as unknown as T;
               });
-              // Update local IDB cache
-              for (const item of mappedData) {
-                await idbPut(storeName, item);
-              }
-              data = await idbGetAll<T>(storeName);
+              // Batch-write all remote items to IDB in parallel (was: sequential await in loop)
+              await Promise.all(mappedData.map((item) => idbPut(storeName, item)));
+              data = mappedData;
             }
           } catch (err) {
             console.warn(`[content-store] Supabase fetch failed for ${storeName}:`, err);
@@ -430,10 +428,11 @@ function createContentStore<T extends { id: string }>(storeName: IDBStoreName) {
       }
 
       // 1. Update Local (IDB + Zustand)
+      // Optimistic update — use current state + new item instead of re-reading all from IDB
       const newItem = { ...itemPayload, id: generateId() } as T;
       await idbPut(storeName, newItem);
-      const data = await idbGetAll<T>(storeName);
-      set({ items: data });
+      const currentItems = get().items;
+      set({ items: [...currentItems, newItem] });
 
       // 2. Sync to Supabase (Write-Behind)
       if (isSupabaseConfigured) {
@@ -461,8 +460,9 @@ function createContentStore<T extends { id: string }>(storeName: IDBStoreName) {
       if (!existing) return;
       const updated = { ...existing, ...updates };
       await idbPut(storeName, updated);
-      const data = await idbGetAll<T>(storeName);
-      set({ items: data });
+      // Optimistic update instead of re-reading all records
+      const currentItems = get().items;
+      set({ items: currentItems.map((item) => (item.id === id ? updated : item)) });
 
       // 2. Sync to Supabase
       if (isSupabaseConfigured) {
@@ -487,8 +487,9 @@ function createContentStore<T extends { id: string }>(storeName: IDBStoreName) {
 
       // 1. Update Local
       await idbDelete(storeName, id);
-      const data = await idbGetAll<T>(storeName);
-      set({ items: data });
+      // Optimistic update instead of re-reading all records
+      const currentItems = get().items;
+      set({ items: currentItems.filter((item) => item.id !== id) });
 
       // 2. Sync to Supabase
       if (isSupabaseConfigured) {
@@ -540,7 +541,9 @@ export const useKwtStore = createContentStore<KwtItem>("kwt");
 export const useProdukHukumStore = createContentStore<ProdukHukumItem>("produk_hukum");
 export const useRealisasiStore = createContentStore<RealisasiItem>("realisasi");
 export const useBumdesStore = createContentStore<BumdesItem>("bumdes");
-export const usePengaduanKategoriStore = createContentStore<PengaduanKategoriItem>("pengaduan_kategori");
+export const usePengaduanKategoriStore =
+  createContentStore<PengaduanKategoriItem>("pengaduan_kategori");
 export const useMarketplaceStore = createContentStore<MarketplaceItem>("marketplace");
-export const useMarketplaceConfigStore = createContentStore<MarketplaceConfigItem>("marketplace_config");
+export const useMarketplaceConfigStore =
+  createContentStore<MarketplaceConfigItem>("marketplace_config");
 export const useKoprasiStore = createContentStore<KoprasiItem>("koperasi");

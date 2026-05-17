@@ -4,7 +4,6 @@
  * Used by PendudukManager for batch import.
  */
 
-import Papa from "papaparse";
 import type { Penduduk } from "@/data/penduduk";
 import { DEFAULT_SETTINGS, getSettings } from "@/lib/settings-store";
 
@@ -318,11 +317,13 @@ export async function parseFile(
   file: File,
   options?: { onProgress?: (pct: number) => void },
 ): Promise<ImportResult> {
+  // Lazy-load papaparse only when file parsing is triggered
+  const Papa = await import("papaparse");
   return new Promise((resolve, reject) => {
     const data: Penduduk[] = [];
     const errors: ImportResult["errors"] = [];
 
-    Papa.parse<Record<string, string>>(file, {
+    Papa.default.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
       transformHeader: (h) => h.trim(),

@@ -9,7 +9,9 @@
  * Autofill from warga via NIK lookup.
  */
 
-import { idbGetAll, idbPut, idbReplaceAll, openIDB } from "@/lib/idb-store";
+import { idbGetAll, idbPut, idbReplaceAll } from "@/lib/idb-store";
+import { idbGetAllDynamic, idbReplaceAllDynamic, idbPutDynamic } from "@/lib/idb-dynamic";
+import { autofillFromNik as _wargaAutofill } from "@/lib/warga-autofill";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { logAudit } from "@/lib/settings-store";
 import { isStoreLocked } from "@/lib/settings-lock";
@@ -63,43 +65,6 @@ export type PerangkatWithPerson = {
   struktur: PerangkatStruktur;
   person: PerangkatPerson | null;
 };
-
-// ── Dynamic IDB helpers (bypass IDBStoreName union for struktur) ─────────────
-
-async function idbGetAllDynamic<T>(storeName: string): Promise<T[]> {
-  if (typeof window === "undefined") return [];
-  const db = await openIDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readonly");
-    const req = tx.objectStore(storeName).getAll();
-    req.onsuccess = () => resolve(req.result as T[]);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function idbReplaceAllDynamic<T>(storeName: string, records: T[]): Promise<void> {
-  if (typeof window === "undefined") return;
-  const db = await openIDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readwrite");
-    const oStore = tx.objectStore(storeName);
-    oStore.clear();
-    for (const r of records) oStore.put(r);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-async function idbPutDynamic<T>(storeName: string, record: T): Promise<void> {
-  if (typeof window === "undefined") return;
-  const db = await openIDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readwrite");
-    tx.objectStore(storeName).put(record);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
 
 // ── IDB Keys ────────────────────────────────────────────────────────────────
 
@@ -493,47 +458,7 @@ export type AutofillResult = {
  * Returns partial data: nama, ttl, jk, pendidikan.
  */
 export async function autofillFromNik(nik: string): Promise<AutofillResult | null> {
-  if (!nik || nik.replace(/\D/g, "").length < 14) return null;
-
-  try {
-    if (isSupabaseConfigured) {
-      const sb = getSupabase();
-      if (sb) {
-        const { data } = await sb
-          .from("warga")
-          .select("nik,nama,tempat_lahir,tanggal_lahir,jenis_kelamin,pendidikan")
-          .eq("nik", nik)
-          .maybeSingle();
-        if (data) {
-          return {
-            nik: String(data.nik ?? ""),
-            nama: String(data.nama ?? ""),
-            jenis_kelamin: (data.jenis_kelamin as "Laki-Laki" | "Perempuan") ?? "Laki-Laki",
-            tempat_lahir: String(data.tempat_lahir ?? ""),
-            tanggal_lahir: data.tanggal_lahir ? String(data.tanggal_lahir).slice(0, 10) : "",
-            pendidikan: String(data.pendidikan ?? ""),
-          };
-        }
-      }
-    }
-
-    // Fallback: IDB warga
-    const warga = await idbGetAllDynamic<Record<string, unknown>>("penduduk");
-    const found = warga.find((w) => String(w.nik ?? "") === nik);
-    if (found) {
-      return {
-        nik: String(found.nik ?? ""),
-        nama: String(found.nama ?? ""),
-        jenis_kelamin: (found.jenis_kelamin as "Laki-Laki" | "Perempuan") ?? "Laki-Laki",
-        tempat_lahir: String(found.tempat_lahir ?? ""),
-        tanggal_lahir: found.tanggal_lahir ? String(found.tanggal_lahir).slice(0, 10) : "",
-        pendidikan: String(found.pendidikan ?? ""),
-      };
-    }
-  } catch (e) {
-    console.warn("[perangkat-store] autofillFromNik error:", e);
-  }
-  return null;
+  return _wargaAutofill(nik);
 }
 
 // ── Reset ────────────────────────────────────────────────────────────────────

@@ -33,7 +33,11 @@ export function PetaPage() {
         <PageHero
           titleFirst="Peta"
           titleSecond="Interaktif"
-          description={"Jelajahi lokasi penting di " + (village as { name?: string }).name + " secara interaktif."}
+          description={
+            "Jelajahi lokasi penting di " +
+            (village as { name?: string }).name +
+            " secara interaktif."
+          }
           badge="Peta Wilayah"
           badgeIcon={<Navigation className="h-3.5 w-3.5" />}
           breadcrumbs={[{ label: "Lainnya" }, { label: "Peta" }]}

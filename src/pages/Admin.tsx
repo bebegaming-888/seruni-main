@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import QRCode from "qrcode";
 import { generateSuratPdf } from "@/lib/pdf-generator";
 import { Footer } from "@/components/site/Footer";
 import { Link } from "@/components/Link";
@@ -76,9 +75,6 @@ import {
   logAudit,
   healthCheck,
 } from "@/lib/useSupabaseSync";
-import Papa from "papaparse";
-import { jsPDF } from "jspdf";
-import { utils, writeFile } from "xlsx";
 import type { Penduduk } from "@/data/penduduk";
 import {
   ResponsiveContainer,
@@ -213,7 +209,10 @@ export default function AdminPage() {
       return;
     }
     const payload = `SURAT|${preview.no}|${preview.nik}|${preview.kode}|${preview.signed_at ?? ""}`;
-    QRCode.toDataURL(payload, { width: 220, margin: 1 }).then(setQrUrl);
+    // Lazy-load qrcode only when QR preview is needed
+    import("qrcode").then(({ default: QRCode }) => {
+      QRCode.toDataURL(payload, { width: 220, margin: 1 }).then(setQrUrl);
+    });
   }, [preview]);
 
   /* ---------- Stats ---------- */
@@ -394,7 +393,10 @@ export default function AdminPage() {
       const notify = await notifySurat(updated, "approve");
       refresh();
       setPreview(updated);
-      if (notify.ok) toast.success("Disetujui & notifikasi WA dikirim", { description: "Surat telah ditandatangani dan warga akan menerima notifikasi WhatsApp." });
+      if (notify.ok)
+        toast.success("Disetujui & notifikasi WA dikirim", {
+          description: "Surat telah ditandatangani dan warga akan menerima notifikasi WhatsApp.",
+        });
       else toast.warning("Disetujui, WA gagal", { description: notify.message });
     } catch (e) {
       toast.error("Gagal approve", { description: e instanceof Error ? e.message : String(e) });
@@ -407,8 +409,9 @@ export default function AdminPage() {
     }
   };
 
-  const onCsv = (file: File) => {
-    // Baca default lokasi dari settings agar tidak hardcoded saat import CSV
+  const onCsv = async (file: File) => {
+    // Lazy-load papaparse only when CSV import is triggered
+    const Papa = await import("papaparse");
     const village = (() => {
       try {
         return getSettings().wilayah;
@@ -425,7 +428,7 @@ export default function AdminPage() {
       }
     })();
 
-    Papa.parse<Record<string, string>>(file, {
+    Papa.default.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
       complete: (res) => {
@@ -500,8 +503,9 @@ export default function AdminPage() {
     });
   };
 
-  const exportArchive = () => {
-    const csv = Papa.unparse(
+  const exportArchive = async () => {
+    const Papa = await import("papaparse");
+    const csv = Papa.default.unparse(
       archive.map((r) => ({
         no: r.no,
         kode: r.kode,
@@ -526,15 +530,20 @@ export default function AdminPage() {
       detail: `Export arsip surat (${archive.length} record) ke CSV`,
       username,
     });
-    toast.success("Arsip diunduh", { description: `File CSV arsip dengan ${archive.length} record telah diunduh.` });
+    toast.success("Arsip diunduh", {
+      description: `File CSV arsip dengan ${archive.length} record telah diunduh.`,
+    });
   };
 
-  /** Export arsip ke Excel (.xlsx) */
-  const exportArchiveExcel = () => {
+  /** Export arsip ke Excel (.xlsx) — lazy-load xlsx only when triggered */
+  const exportArchiveExcel = async () => {
     if (archive.length === 0) {
-      toast.error("Tidak ada arsip untuk diekspor", { description: "Ekspor tidak dapat dilakukan karena belum ada arsip surat." });
+      toast.error("Tidak ada arsip untuk diekspor", {
+        description: "Ekspor tidak dapat dilakukan karena belum ada arsip surat.",
+      });
       return;
     }
+    const { utils, writeFile } = await import("xlsx");
     const rows = archive.map((r) => ({
       "No. Tracking": r.no,
       Kode: r.kode,
@@ -569,15 +578,20 @@ export default function AdminPage() {
       detail: `Export ${archive.length} record ke XLSX`,
       username,
     });
-    toast.success("Arsip diekspor (.xlsx)", { description: `File Excel dengan ${archive.length} record arsip telah diunduh.` });
+    toast.success("Arsip diekspor (.xlsx)", {
+      description: `File Excel dengan ${archive.length} record arsip telah diunduh.`,
+    });
   };
 
-  /** Export daftar surat (aktif) ke PDF */
-  const exportSuratPdf = () => {
+  /** Export daftar surat (aktif) ke PDF — lazy-load jspdf only when triggered */
+  const exportSuratPdf = async () => {
     if (records.length === 0) {
-      toast.error("Tidak ada surat untuk diekspor", { description: "Ekspor tidak dapat dilakukan karena belum ada surat aktif." });
+      toast.error("Tidak ada surat untuk diekspor", {
+        description: "Ekspor tidak dapat dilakukan karena belum ada surat aktif.",
+      });
       return;
     }
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
@@ -655,7 +669,9 @@ export default function AdminPage() {
       detail: `Export ${Math.min(records.length, 50)} record ke PDF`,
       username,
     });
-    toast.success("PDF diunduh", { description: `Daftar ${Math.min(records.length, 50)} surat telah diunduh sebagai PDF.` });
+    toast.success("PDF diunduh", {
+      description: `Daftar ${Math.min(records.length, 50)} surat telah diunduh sebagai PDF.`,
+    });
   };
 
   return (
@@ -998,32 +1014,39 @@ export default function AdminPage() {
             <div className="mx-auto max-w-7xl">
               <MonitoringTable
                 records={records}
-              onPreview={setPreview}
-              onVerify={verify}
-              onReject={(r) => setRejectTarget(r)}
-              onLanjut={lanjutApproval}
-              onApprove={approve}
-              onSend={(r) =>
-                sendWaNotification(
-                  r.kontak,
-                  `Dokumen ${r.nama_surat} (${r.no}) telah dikirim.`,
-                ).then(() => {
-                  logAudit({
-                    action: "surat.send_wa",
-                    detail: `Kirim notifikasi WA ke ${r.pemohon} (${r.kontak}) untuk surat ${r.no}`,
-                    username,
-                  });
-                  toast.success("Dikirim via WA", { description: `Notifikasi WA untuk ${r.pemohon} (${r.no}) telah dikirim.` });
-                })
-              }
-            />
+                onPreview={setPreview}
+                onVerify={verify}
+                onReject={(r) => setRejectTarget(r)}
+                onLanjut={lanjutApproval}
+                onApprove={approve}
+                onSend={(r) =>
+                  sendWaNotification(
+                    r.kontak,
+                    `Dokumen ${r.nama_surat} (${r.no}) telah dikirim.`,
+                  ).then(() => {
+                    logAudit({
+                      action: "surat.send_wa",
+                      detail: `Kirim notifikasi WA ke ${r.pemohon} (${r.kontak}) untuk surat ${r.no}`,
+                      username,
+                    });
+                    toast.success("Dikirim via WA", {
+                      description: `Notifikasi WA untuk ${r.pemohon} (${r.no}) telah dikirim.`,
+                    });
+                  })
+                }
+              />
             </div>
           </section>
         </>
       ) : view === "archive" ? (
         <section className="py-8 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl">
-            <ArchiveTable archive={archive} onPreview={setPreview} onExport={exportArchive} onExportExcel={exportArchiveExcel} />
+            <ArchiveTable
+              archive={archive}
+              onPreview={setPreview}
+              onExport={exportArchive}
+              onExportExcel={exportArchiveExcel}
+            />
           </div>
         </section>
       ) : (
@@ -1315,7 +1338,9 @@ export default function AdminPage() {
                                           detail: `Kirim notifikasi WA ke ${r.pemohon} (${r.kontak}) untuk surat ${r.no}`,
                                           username,
                                         });
-                                        toast.success("Dikirim via WA", { description: `Notifikasi WA untuk ${r.pemohon} (${r.no}) telah dikirim.` });
+                                        toast.success("Dikirim via WA", {
+                                          description: `Notifikasi WA untuk ${r.pemohon} (${r.no}) telah dikirim.`,
+                                        });
                                       });
                                     }}
                                     className="bg-primary hover:bg-primary-hover"
@@ -1782,7 +1807,9 @@ function ArchiveTable({
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.error("Gagal mengunduh PDF", { description: "Tidak dapat mengunduh PDF arsip. Coba lagi nanti." });
+      toast.error("Gagal mengunduh PDF", {
+        description: "Tidak dapat mengunduh PDF arsip. Coba lagi nanti.",
+      });
     }
   };
 
@@ -1794,12 +1821,8 @@ function ArchiveTable({
             <Archive className="h-6 w-6 text-primary" /> Arsip Surat Keluar
           </h2>
           <div className="flex flex-wrap gap-4 mt-1">
-            <p className="font-body text-sm text-muted-foreground">
-              {stats.total} total arsip
-            </p>
-            <p className="font-body text-sm text-muted-foreground">
-              · {stats.bulanIni} bulan ini
-            </p>
+            <p className="font-body text-sm text-muted-foreground">{stats.total} total arsip</p>
+            <p className="font-body text-sm text-muted-foreground">· {stats.bulanIni} bulan ini</p>
             <p className="font-body text-sm text-muted-foreground">
               · {stats.tahunIni} tahun {new Date().getFullYear()}
             </p>
@@ -1815,7 +1838,11 @@ function ArchiveTable({
               className="pl-9 w-56 rounded-full"
             />
           </div>
-          <Button size="sm" onClick={onExportExcel} className="bg-success hover:bg-success/90 text-background hidden sm:inline-flex">
+          <Button
+            size="sm"
+            onClick={onExportExcel}
+            className="bg-success hover:bg-success/90 text-background hidden sm:inline-flex"
+          >
             <TrendingUp className="h-4 w-4 mr-1.5" /> Excel
           </Button>
           <Button size="sm" onClick={onExport} className="bg-primary hover:bg-primary-hover">

@@ -1,4 +1,4 @@
-name: Deploy to Vercel
+name: Deploy to Netlify
 
 on:
   push:
@@ -33,14 +33,13 @@ jobs:
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
           VITE_ADMIN_DB_TOKEN: ${{ secrets.VITE_ADMIN_DB_TOKEN }}
 
-      - name: Deploy to Vercel
-        run: |
-          cd dist/client
-          npx vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: ./dist/client
+          production-deploy: true
+          enable-pull-request-comment: true
+          enable-commit-comment: true
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-
-
-
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

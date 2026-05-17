@@ -61,7 +61,8 @@ interface Settings {
 }
 
 /** Fetch village + signature settings from app_settings. */
-async function fetchSettings(sb: ReturnType<typeof createClient>): Promise<Settings> {
+type SbClient = ReturnType<typeof createClient>;
+async function fetchSettings(sb: SbClient): Promise<Settings> {
   const { data } = await sb
     .from("app_settings")
     .select("value")
@@ -84,52 +85,62 @@ async function fetchSettings(sb: ReturnType<typeof createClient>): Promise<Setti
     require_qr: true,
   };
 
+  const result: Settings = {
+    village: defVillage,
+    branding: { primary_color: "#1e3a5f" },
+    signature: defSignature,
+  };
+
   if (!data?.value || typeof data.value !== "object") {
-    return {
-      village: defVillage,
-      branding: { primary_color: "#1e3a5f" },
-      signature: defSignature,
-    };
+    return result;
   }
 
   const val = data.value as Record<string, unknown>;
 
-  // village
-  const villageRaw = val.village;
-  const village: SettingsVillage =
-    villageRaw && typeof villageRaw === "object" && !Array.isArray(villageRaw)
-      ? ({
-          name: String((villageRaw as Record<string, unknown>).name ?? defVillage.name),
-          head: String((villageRaw as Record<string, unknown>).head ?? defVillage.head),
-          district: String((villageRaw as Record<string, unknown>).district ?? defVillage.district),
-          regency: String((villageRaw as Record<string, unknown>).regency ?? defVillage.regency),
-          address: String((villageRaw as Record<string, unknown>).address ?? defVillage.address),
-          phone: String((villageRaw as Record<string, unknown>).phone ?? defVillage.phone),
-          email: String((villageRaw as Record<string, unknown>).email ?? ""),
-          province: String((villageRaw as Record<string, unknown>).province ?? defVillage.province),
-        } as SettingsVillage)
-      : defVillage;
+  if (
+    val.village &&
+    typeof val.village === "object" &&
+    val.village !== null &&
+    !Array.isArray(val.village)
+  ) {
+    const vr = val.village as Record<string, unknown>;
+    result.village = {
+      name: String(vr.name ?? defVillage.name),
+      head: String(vr.head ?? defVillage.head),
+      district: String(vr.district ?? defVillage.district),
+      regency: String(vr.regency ?? defVillage.regency),
+      address: String(vr.address ?? defVillage.address),
+      phone: String(vr.phone ?? defVillage.phone),
+      email: vr.email !== undefined ? String(vr.email) : undefined,
+      province: String(vr.province ?? defVillage.province),
+    };
+  }
 
-  // branding
-  const brandingRaw = val.branding;
-  const branding =
-    brandingRaw && typeof brandingRaw === "object" && !Array.isArray(brandingRaw)
-      ? { primary_color: String((brandingRaw as Record<string, unknown>).primary_color ?? "#1e3a5f") }
-      : { primary_color: "#1e3a5f" };
+  if (
+    val.branding &&
+    typeof val.branding === "object" &&
+    val.branding !== null &&
+    !Array.isArray(val.branding)
+  ) {
+    const br = val.branding as Record<string, unknown>;
+    result.branding = { primary_color: String(br.primary_color ?? "#1e3a5f") };
+  }
 
-  // signature
-  const sigRaw = val.signature;
-  const signature: SettingsSignature =
-    sigRaw && typeof sigRaw === "object" && !Array.isArray(sigRaw)
-      ? ({
-          signer_name: String((sigRaw as Record<string, unknown>).signer_name ?? defSignature.signer_name),
-          signer_title: String((sigRaw as Record<string, unknown>).signer_title ?? defSignature.signer_title),
-          require_qr: Boolean((sigRaw as Record<string, unknown>).require_qr ?? defSignature.require_qr),
-          qr_secret: undefined,
-        } as SettingsSignature)
-      : defSignature;
+  if (
+    val.signature &&
+    typeof val.signature === "object" &&
+    val.signature !== null &&
+    !Array.isArray(val.signature)
+  ) {
+    const sr = val.signature as Record<string, unknown>;
+    result.signature = {
+      signer_name: String(sr.signer_name ?? defSignature.signer_name),
+      signer_title: String(sr.signer_title ?? defSignature.signer_title),
+      require_qr: Boolean(sr.require_qr ?? defSignature.require_qr),
+    };
+  }
 
-  return { village, branding, signature };
+  return result;
 }
 
 function createAdminClient(env: Env) {
@@ -273,6 +284,6 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   // Fetch settings
   const settings = await fetchSettings(sb);
 
-  return json({ ok: true, surat, warga, settings }, 200, {
-    "Cache-Control": "private, max-age=60",
-  });
+  const headers: Record<string, string> = { "Cache-Control": "private, max-age=60" };
+  return json({ ok: true, surat, warga, settings }, 200, headers);
+}

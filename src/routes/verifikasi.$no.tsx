@@ -157,7 +157,9 @@ function VerifikasiPage() {
       <PageHero
         titleFirst="Verifikasi"
         titleSecond="Surat"
-        description={"Pengecekan keabsahan dokumen dari " + (v as { village?: string }).village + "."}
+        description={
+          "Pengecekan keabsahan dokumen dari " + (v as { village?: string }).village + "."
+        }
         badge="Verifikasi Surat"
         badgeIcon={<QrCode className="h-3.5 w-3.5" />}
       />
@@ -486,17 +488,23 @@ async function handleShare(record: SuratRecord) {
     await navigator.share({ title: `Surat ${record.nama_surat}`, url });
   } else {
     await navigator.clipboard.writeText(url);
-    toast.success("Link berhasil disalin", { description: "Tautan verifikasi dapat dibagikan ke pihak lain." });
+    toast.success("Link berhasil disalin", {
+      description: "Tautan verifikasi dapat dibagikan ke pihak lain.",
+    });
   }
 }
 
 async function handleCopyNo(no: string) {
   await navigator.clipboard.writeText(no);
-  toast.success("Nomor surat disalin", { description: "Nomor surat siap dicantumkan atau dibagikan." });
+  toast.success("Nomor surat disalin", {
+    description: "Nomor surat siap dicantumkan atau dibagikan.",
+  });
 }
 
 async function handleCopyLink(no: string) {
   const url = `${window.location.origin}/verifikasi/${no}`;
   await navigator.clipboard.writeText(url);
-  toast.success("Link verifikasi disalin", { description: "Tautan verifikasi dapat dibagikan untuk cek status." });
+  toast.success("Link verifikasi disalin", {
+    description: "Tautan verifikasi dapat dibagikan untuk cek status.",
+  });
 }

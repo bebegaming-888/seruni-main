@@ -60,12 +60,39 @@ export function PKKRWPage() {
     );
     if (found?.items.length) return found.items;
     return [
-      { label: "Pendidikan & Keterampilan", description: "Kursus menjahit, Microsoft Office, dan literasi digital untuk ibu-ibu rumah tangga.", status: "Aktif" },
-      { label: "Kesehatan Keluarga", description: "Posyandu balita & lansia, pemeriksaan ibu hamil, dan GERMAS.", status: "Aktif" },
-      { label: "Perencanaan Keluarga", description: "Kelas KB, konsultasi kesehatan reproduksi, dan edukasi gizi balita.", status: "Aktif" },
-      { label: "Kelompok Usaha Bersama", description: "Pembinaan kelompok usaha produktif: kue tradisional, kerajinan, dan pertanian organik.", status: "Aktif" },
-      { label: "Penguatan Rumah Tangga", description: "Bantuan pangan, bedah rumah, dan program keluarga harapan.", status: "Aktif" },
-      { label: "Keterlibatan Masyarakat", description: "Gotong royong, kerja bakti bulanan, dan pengelolaan sampah berbasis komunitas.", status: "Aktif" },
+      {
+        label: "Pendidikan & Keterampilan",
+        description:
+          "Kursus menjahit, Microsoft Office, dan literasi digital untuk ibu-ibu rumah tangga.",
+        status: "Aktif",
+      },
+      {
+        label: "Kesehatan Keluarga",
+        description: "Posyandu balita & lansia, pemeriksaan ibu hamil, dan GERMAS.",
+        status: "Aktif",
+      },
+      {
+        label: "Perencanaan Keluarga",
+        description: "Kelas KB, konsultasi kesehatan reproduksi, dan edukasi gizi balita.",
+        status: "Aktif",
+      },
+      {
+        label: "Kelompok Usaha Bersama",
+        description:
+          "Pembinaan kelompok usaha produktif: kue tradisional, kerajinan, dan pertanian organik.",
+        status: "Aktif",
+      },
+      {
+        label: "Penguatan Rumah Tangga",
+        description: "Bantuan pangan, bedah rumah, dan program keluarga harapan.",
+        status: "Aktif",
+      },
+      {
+        label: "Keterlibatan Masyarakat",
+        description:
+          "Gotong royong, kerja bakti bulanan, dan pengelolaan sampah berbasis komunitas.",
+        status: "Aktif",
+      },
     ];
   })();
 
@@ -75,17 +102,24 @@ export function PKKRWPage() {
 
   const aktifCount = data?.allPengurus.length ?? 0;
 
-  const kwtData = kwtItems.length ? kwtItems.map((k) => ({
-    nama: k.nama,
-    dusun: k.dusun,
-    anggota: k.anggota,
-    produk: k.produk,
-  })) : [
-    { nama: "KWT Melati", dusun: "Mandar", anggota: 28, produk: "Kue tradisional & jajanan pasar" },
-    { nama: "KWT Mawar", dusun: "Sasak", anggota: 22, produk: "Manisan & dodol lombok" },
-    { nama: "KWT Sejahtera", dusun: "Dames", anggota: 35, produk: "Keripik & emping" },
-    { nama: "KWT Anggrek", dusun: "Brantapen Asri", anggota: 19, produk: "Tenun & bordir" },
-  ];
+  const kwtData = kwtItems.length
+    ? kwtItems.map((k) => ({
+        nama: k.nama,
+        dusun: k.dusun,
+        anggota: k.anggota,
+        produk: k.produk,
+      }))
+    : [
+        {
+          nama: "KWT Melati",
+          dusun: "Mandar",
+          anggota: 28,
+          produk: "Kue tradisional & jajanan pasar",
+        },
+        { nama: "KWT Mawar", dusun: "Sasak", anggota: 22, produk: "Manisan & dodol lombok" },
+        { nama: "KWT Sejahtera", dusun: "Dames", anggota: 35, produk: "Keripik & emping" },
+        { nama: "KWT Anggrek", dusun: "Brantapen Asri", anggota: 19, produk: "Tenun & bordir" },
+      ];
 
   return (
     <div className="min-h-screen bg-background">

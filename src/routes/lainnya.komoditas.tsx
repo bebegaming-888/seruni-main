@@ -96,7 +96,11 @@ export function KomoditasPage() {
         <PageHero
           titleFirst="Potensi"
           titleSecond="Komoditas"
-          description={"Memetakan kekayaan sumber daya alam " + (village as { name?: string }).name + " sebagai modal pembangunan ekonomi."}
+          description={
+            "Memetakan kekayaan sumber daya alam " +
+            (village as { name?: string }).name +
+            " sebagai modal pembangunan ekonomi."
+          }
           badge="Kekayaan Alam"
           badgeIcon={<Sprout className="h-3.5 w-3.5" />}
           breadcrumbs={[{ label: "Lainnya" }, { label: "Komoditas" }]}

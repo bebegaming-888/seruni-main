@@ -29,6 +29,24 @@ import { initSettingsLock, lockSettings } from "@/lib/settings-lock";
 
 let _initialized = false;
 
+/** Semua store yang di-lock saat first boot mock. Dipakai juga di settings-lock.ts. */
+const BOOT_LOCKED_STORES = [
+  "settings",
+  "berita",
+  "pengumuman",
+  "agenda",
+  "galeri",
+  "komoditas",
+  "apbdes",
+  "templates",
+  "lembaga",
+  "perangkat_desa",
+  "pengaduan",
+  "esurat",
+  "wilayah",
+  "penduduk",
+] as const;
+
 export async function initAllStores(): Promise<void> {
   if (typeof window === "undefined") return;
   if (_initialized) return;
@@ -41,14 +59,12 @@ export async function initAllStores(): Promise<void> {
     // 1. Migrasi localStorage lama → IndexedDB (sekali saja)
     await runLocalStorageMigration();
 
-    // 2. ✅ KRITIS: init settings DULU, AWAIT sebelum lanjut
-    //    Setelah ini: getSettings() → data nyata dari Supabase/IDB
-    await initSettingsStore();
-    console.info("[store-init] Settings loaded — safe to read getSettings()");
-
-    // 2b. ✅ KRITIS: init hero config — HeroSection depends on this
-    await initHeroConfig();
-    console.info("[store-init] Hero config loaded — safe to read getHeroConfig()");
+    // 2. ✅ KRITIS: init settings + hero config PARALEL (mereka independent)
+    //    Setelah ini: getSettings() + getHeroConfig() → data nyata dari Supabase/IDB
+    await Promise.all([initSettingsStore(), initHeroConfig()]);
+    console.info(
+      "[store-init] Settings + Hero config loaded — safe to read getSettings() / getHeroConfig()",
+    );
 
     // 3. Parallel init store lain (non-blocking, non-fatal)
     await Promise.allSettled([
@@ -74,33 +90,27 @@ export async function initAllStores(): Promise<void> {
         ]);
         // initFromMocks() HANYA dipanggil jika load() mengembalikan data kosong
         // (artinya belum ada data nyata di Supabase/IDB)
-        const ALL_STORES = [
-          "settings",
-          "berita",
-          "pengumuman",
-          "agenda",
-          "galeri",
-          "komoditas",
-          "apbdes",
-          "templates",
-          "lembaga",
-          "perangkat_desa",
-          "pengaduan",
-          "esurat",
-          "wilayah",
-          "penduduk",
-        ];
 
         const { ARTICLES } = await import("@/data/berita");
         const { PENGUMUMAN, AGENDA, KOMODITAS } = await import("@/data/mock-data");
         const { APBDES_DATA } = await import("@/data/apbdes");
 
-        const { default: g1 } = await import("@/assets/galeri-1.jpg");
-        const { default: g2 } = await import("@/assets/galeri-2.jpg");
-        const { default: g3 } = await import("@/assets/galeri-3.jpg");
-        const { default: g4 } = await import("@/assets/wisata-pantai.jpg");
-        const { default: g5 } = await import("@/assets/wisata-budaya.jpg");
-        const { default: g6 } = await import("@/assets/news-1.jpg");
+        // Lazy-load gallery images only when actually needed (first boot, no real data)
+        const [
+          { default: g1 },
+          { default: g2 },
+          { default: g3 },
+          { default: g4 },
+          { default: g5 },
+          { default: g6 },
+        ] = await Promise.all([
+          import("@/assets/galeri-1.jpg"),
+          import("@/assets/galeri-2.jpg"),
+          import("@/assets/galeri-3.jpg"),
+          import("@/assets/wisata-pantai.jpg"),
+          import("@/assets/wisata-budaya.jpg"),
+          import("@/assets/news-1.jpg"),
+        ]);
         const GALERI = [
           { id: "1", url: g1, title: "Gotong royong jumat bersih", category: "Kegiatan" },
           { id: "2", url: g2, title: "Kunjungan SD ke balai desa", category: "Pendidikan" },
@@ -157,7 +167,7 @@ export async function initAllStores(): Promise<void> {
         // Auto-lock semua store SETELAH mock dimuat
         // Jika ada data nyata (dari Supabase), mock tidak dimuat → lock tidak berubah
         if (initTasks.length > 0) {
-          await lockSettings(ALL_STORES, "system:first-boot-mock");
+          await lockSettings([...BOOT_LOCKED_STORES], "system:first-boot-mock");
           console.info("[store-init] First boot — mock data loaded and locked.");
         }
       }),

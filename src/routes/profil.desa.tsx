@@ -53,12 +53,14 @@ export function ProfilDesaPage() {
   const pageConfig = getVillage();
 
   const vision = content?.vision || "Terwujudnya desa yang maju, mandiri, dan sejahtera.";
-  const missions = content?.mission?.length ? content.mission : [
-    "Mewujudkan tata kelola pemerintahan desa yang transparan dan akuntabel.",
-    "Mendorong kemandirian ekonomi masyarakat melalui optimalisasi potensi lokal.",
-    "Meningkatkan kualitas pendidikan, kesehatan, dan kesejahteraan sosial.",
-    "Menjaga kelestarian lingkungan dan budaya lokal.",
-  ];
+  const missions = content?.mission?.length
+    ? content.mission
+    : [
+        "Mewujudkan tata kelola pemerintahan desa yang transparan dan akuntabel.",
+        "Mendorong kemandirian ekonomi masyarakat melalui optimalisasi potensi lokal.",
+        "Meningkatkan kualitas pendidikan, kesehatan, dan kesejahteraan sosial.",
+        "Menjaga kelestarian lingkungan dan budaya lokal.",
+      ];
 
   // Sejarah dari page settings config, fallback paragraphs
   const sejarahDefault = [
@@ -74,12 +76,14 @@ export function ProfilDesaPage() {
   const luasWilayah = v.luas_wilayah || "— Ha";
   const populasiText = v.penduduk_stat || "— Jiwa";
   const dusunCount = v.dusun_list?.length ? `${v.dusun_list.length} Danau` : "—";
-  const pageStats = content?.stats?.length ? content.stats : [
-    { label: "Luas Wilayah", value: luasWilayah, icon: "map" },
-    { label: "Populasi", value: populasiText, icon: "users" },
-    { label: "Dusun", value: dusunCount, icon: "map" },
-    { label: "Kepala Keluarga", value: "— KK", icon: "users" },
-  ];
+  const pageStats = content?.stats?.length
+    ? content.stats
+    : [
+        { label: "Luas Wilayah", value: luasWilayah, icon: "map" },
+        { label: "Populasi", value: populasiText, icon: "users" },
+        { label: "Dusun", value: dusunCount, icon: "map" },
+        { label: "Kepala Keluarga", value: "— KK", icon: "users" },
+      ];
 
   return (
     <div className="min-h-screen bg-background">

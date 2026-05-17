@@ -49,7 +49,18 @@ WRITE: module state (sync) → IndexedDB (async) → Supabase upsert (async, non
 READ:  module state (sync) → IndexedDB (sync fallback)
 ```
 
-**Init saat app mount** (`src/lib/store-init.ts`): semua store di-async init satu per satu sebelum app render.
+**Store init:** `src/lib/store-init.ts` → `initAllStores()` dipanggil di `__root.tsx` (di-await sebelum render pertama). Semua store di-init secara berurutan (settings duluan), lalu CMS stores parallel. Jika Supabase/IDB kosong pada first boot, mock data dimuat lalu store di-lock.
+
+### Init Sequence (Urutan Kritis)
+
+```
+1. initSettingsLock()          → load lock state dari IDB (non-blocking check)
+2. runLocalStorageMigration() → migrasi data lama localStorage → IndexedDB
+3. initSettingsStore()         → ⭐ WAIT— getSettings() baru aman dipanggil setelah ini
+4. initHeroConfig()            → ⭐ WAIT— getHeroConfig() baru aman setelah ini
+5. Promise.allSettled([...])   → semua store lain, non-blocking
+   └── CMS content stores: load() → jika kosong → initFromMocks() → lockSettings()
+```
 
 ### Store Utama
 
@@ -62,9 +73,37 @@ READ:  module state (sync) → IndexedDB (sync fallback)
 | `settings-store.ts` | `settings` | `app_settings` | `id` |
 | `auth.ts` | `users` (IndexedDB) | `admin_users` | `id` |
 
-**Sync lib utama:** `src/lib/useSupabaseSync.ts` — handle semua write-behind, optimistic locking, merge offline records.
+**Sync lib utama:** `src/lib/useSupabaseSync.ts` — handle semua write-behind, optimistic locking (`.eq("status", prevStatus)`), merge offline records. Jika Supabase tidak configured, semua operasi tetap berhasil via IndexedDB.
 
-**Store init:** `src/lib/store-init.ts` → `initAllStores()` dipanggil di `__root.tsx`.
+---
+
+## Settings Lock: Triple-Layer HMR Protection
+
+Tanpa mekanisme ini, HMR akan me-reset store ke default dan overwrite data user. Sistem lock tiga lapis:
+
+```
+Layer 1: Module cache (_lockCache)     → survive HMR re-evaluation
+Layer 2: localStorage (seruni_settings_locked) → survive page refresh
+Layer 3: IndexedDB (settings_lock)      → persist across sessions
+```
+
+**Flow:**
+- `isStoreLocked("esurat")` dipanggil SEBELUM `initFromMocks()` — cek ini **sync** (dipanggil sebelum IndexedDB ready)
+- Jika store locked → init dari IndexedDB, skip Supabase pull
+- User save apapun → auto re-lock semua stores
+
+`unlockSettings()` **mereset ke mock data** — jangan dipanggil kecuali reset memang diinginkan.
+
+---
+
+## Multi-Tab Sync
+
+`src/lib/idb-sync.ts` menangani:
+1. **storage event API** — tab lain menulis ke localStorage, tab ini listen dan re-fetch
+2. **Supabase Realtime broadcast** — optional cross-tab sync via channel
+3. **Conflict resolution** — optimistic locking di Supabase (`eq("status", prevStatus)`); jika conflict, operasi ditolak dengan error "Status sudah berubah"
+
+Signal keys di localStorage: `__settings_saved__`, `__templates_changed__`, `__settings_intent__`.
 
 ---
 
@@ -74,13 +113,7 @@ READ:  module state (sync) → IndexedDB (sync fallback)
 - **Route config:** `src/router.tsx` + `src/routes/__root.tsx`
 - **File-based routes:** `src/routes/*.tsx` → `/pelayanan/e-surat`, `/admin`, dll.
 - **TanStack Search Params:** `useSearch({ from: "/path" })` untuk query params (contoh: `?kode=SKK` di e-surat)
-- **Error boundary:** `DefaultErrorComponent` di `router.tsx` → render saat error
-
-### Halaman Utama
-- `src/pages/ESurat.tsx` — 5-step wizard (Pilih Surat → NIK → Identitas → Detail → Review)
-- `src/pages/admin.tsx` — Admin dashboard container
-- `src/pages/MonitoringSurat.tsx` — Lacak status surat
-- `src/pages/PengajuanSaya.tsx` — Riwayat pengajuan warga
+- **Error boundary:** `DefaultErrorComponent` di `router.tsx`
 
 ---
 
@@ -90,70 +123,60 @@ READ:  module state (sync) → IndexedDB (sync fallback)
 
 **Tracking number format:** `{KODE}-{YYMMDD}-{last6ts}{rand4}` (contoh: `SKK-250515-3f2a1x4k`)
 
-**NIK Lookup cascade:**
-```
-lookupPenduduk(nik) → penduduk-store.getPendudukByNik(nik)
-  → _mem (in-memory) → IndexedDB → Supabase warga (fire-and-forget)
-```
+**Offline submission:** `enqueueOfflineSubmission()` → IndexedDB queue → `processOfflineQueue()` on reconnect → exponential backoff (30s → 2m → 10m → 30m → 2h → 10h max). Jika Supabase configured tapi upload attachment gagal, data_url tetap disimpan di IndexedDB (tidak hilang, hanya tidak di-offload).
 
-**Offline submission:** `enqueueOfflineSubmission()` (offline-queue.ts) → queue → auto-sync on reconnect.
+**Template Surat:** `template-store.ts` → load dari IndexedDB. Templates **tidak sync ke cloud** (local only).
 
-**Template Surat:** `template-store.ts` → `initTemplateStore()` → load dari IndexedDB. Templates **tidak sync ke cloud** (local only).
-
-**Estimasi processing time:** fetch dari edge function `/api/surat/estimasi` (di-cache 5 menit).
+**Letter Engine:** `src/lib/letter-engine.ts` — render `{{placeholder}}` di `dna_clauses` dan `body`, build subject fields, format tanggal/alamat. Digunakan saat generate PDF.
 
 ---
 
 ## API Edge Functions (Cloudflare Pages)
 
-Semua di `functions/`:
-
 ```
 functions/api/auth/admin-login.ts      → POST /api/auth/admin-login
-functions/api/auth/refresh-warga-session.ts
 functions/api/auth/request-otp.ts      → POST /api/auth/request-otp
 functions/api/auth/verify-otp.ts       → POST /api/auth/verify-otp
+functions/api/auth/refresh-warga-session.ts
 functions/api/generate-nomor-surat.ts → POST /api/generate-nomor-surat
 functions/api/generate-pdf.ts          → POST /api/generate-pdf
 functions/api/send-wa.ts               → POST /api/send-wa
 functions/api/surat/estimasi.ts        → POST /api/surat/estimasi
 functions/api/verify-surat.ts          → GET  /api/verify-surat?no=...
+functions/api/push/send.ts             → POST /api/push/send
+functions/api/sippn/validate-nik.ts   → POST /api/sippn/validate-nik
 functions/_scheduled.ts                → Cloudflare Cron (setiap 6 jam)
 ```
 
-**Shared utils:** `functions/_lib/utils.ts` — `hmacSha256Hex`, `base64UrlEncode/Decode`, `hashOtp`.
+**Shared utils:** `functions/_lib/utils.ts` — `hmacSha256Hex`, `base64UrlEncode/Decode`, `hashOtp`. Admin session verify ada di `functions/_lib/admin-session.ts`.
 
 **Env vars untuk Edge Functions** (via Cloudflare Pages Secrets):
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 - `FONNTE_API_KEY`, `ADMIN_WA_NUMBER`
-- `QR_SECRET` (HMAC signing secret)
-- `JWT_SECRET` (admin session signing — used by verifyAdminSession)
-- `ADMIN_SESSION_SECRET` (same HMAC key; required by /api/push/send edge function)
-- `VAPID_PRIVATE_KEY` (web push — not used for admin auth)
+- `QR_SECRET`, `JWT_SECRET`, `ADMIN_SESSION_SECRET`
 
 ---
 
-## Database: 24 Tabel Supabase
+## Database: Schema & Migrations
 
 ERD lengkap ada di `docs/ERD.md`. Tabel inti:
 
 - `warga` — penduduk (NIK sebagai UQ key)
-- `surat_requests` — pengajuan surat (no_surat UQ)
+- `surat_requests` — pengajuan surat (no_surat UQ, optimistic locking via `status`)
 - `surat_template` — template surat (local-managed)
 - `admin_users` — akun admin (fixed superadmin dari env var)
-- `audit_log` — trail semua aksi
-- `cms_contents` — berita/pengumuman/agenda/galeri
+- `audit_log` — trail semua aksi (IP + username)
+- `cms_contents` — berita/pengumuman/agenda/galeri (type-filtered)
 - `app_settings` — settings JSONB + history versioning
-- `surat_types` — 74 jenis surat referensi (migrasi 015)
-- `wilayah`, `village_subdivisions` — hierarki wilayah
+- `surat_types` — 74 jenis surat referensi
+- `wilayah`, `village_subdivisions` — hierarki wilayah Kemendagri
 - `perangkat_desa_struktur`, `perangkat_desa` — struktur jabatan + orang
 - `lembaga_desa`, `struktur_lembaga`, `pengurus_lembaga` — lembaga desa
 - `apbdes_data`, `monografi` — APBDes dan monografi
 - `pengaduan` — tiket pengaduan
 
-**Storage buckets:** `surat-attachments` (public), `public-media` (public), `perangkat-fotos` (public).
-
 **Migrations:** `supabase/migrations/` (31 file, numbered 001–031).
+**Storage buckets:** `surat-attachments` (public), `public-media` (public), `perangkat-fotos` (public).
 
 ---
 
@@ -163,19 +186,6 @@ ERD lengkap ada di `docs/ERD.md`. Tabel inti:
 2. **Warga auth** (`src/lib/warga-auth.ts`): OTP via WhatsApp (Fonnte). OTP di-hash SHA-256. Session token HMAC-signed.
 
 **Role admin:** `Super Admin | Operator | Verifikator | Kepala Desa` (dari `src/lib/roles.ts`).
-
----
-
-## Admin CMS
-
-Semua panel admin di `src/components/admin/`:
-- `PendudukManager` — CRUD + CSV import/export
-- `TemplateSuratManager` — manage template surat
-- `CMSManager` — berita/pengumuman/agenda/galeri
-- `SettingsPanel` — app settings (key-value JSONB)
-- `LembagaManager`, `PerangkatDesaManager`, `WilayahSettings`, `HeroSettings`
-- `AuditLogManager` — lihat trail aksi
-- `SuratPreviewPanel` — preview surat + update status workflow
 
 ---
 
@@ -205,14 +215,14 @@ QR_SECRET, JWT_SECRET
 
 `buildHashPlugin()`: inject `VITE_BUILD_HASH` (git commit hash) untuk service worker cache busting.
 
+`scripts/postbuild.js` (setelah build): baca TanStack manifest → extract `clientEntry` → generate `dist/client/index.html` SPA dengan `window.$_TSR` bootstrap inline. TanStack Start SPA tanpa server memerlukan bootstrap manual ini agar `Sj()` tidak crash.
+
 ---
 
 ## CSS & Theme
 
 - Tailwind v4 + CSS custom properties (`src/styles.css`)
 - shadcn/ui components dari `src/components/ui/` (Radix primitives)
-- Custom section components di `src/components/sections/`
-- Letter renderer components di `src/components/surat/` (PDF output)
 - Mobile-first: default breakpoint <640px, `sm:`, `md:`, `lg:`, `xl:`
 
 ---
@@ -225,101 +235,9 @@ QR_SECRET, JWT_SECRET
 
 ---
 
-## 🧠 Skill System: Auto-Mapping Prompt → Skill
+## Skill System: Quick Reference
 
-### Arsitektur Skill Engine
-
-```
-[User Prompt]
-    ↓
-[Skill Matcher Engine]  ← python skill_matcher.py (no dependencies)
-    ↓
-[Confidence Scoring]  ← keyword match + domain boost + action weight
-    ↓
-[Top-N Skills Ranked]  ← local Seruni skills FIRST (×1.3), then global catalog
-    ↓
-[Auto-Select or Suggest]
-    conf ≥ 0.80 → auto-load SKILL.md → execute
-    conf 0.60–0.79 → suggest + confirm
-    conf < 0.60 → general mode
-```
-
-### Skill Catalog
-
-**Local (Seruni-specific) — 10 project skills:**
-
-| Skill | Fungsi |
-|-------|--------|
-| `esurat-master` | E-surat lifecycle, tracking, status, offline submit |
-| `penduduk-manager` | CRUD penduduk, NIK validation, CSV import/export, statistik |
-| `offline-first` | IndexedDB, write-behind sync, offline queue, conflict resolution |
-| `template-designer` | DNA clauses, form fields, OpenSID format, autofill mapping |
-| `auth-hardener` | HMAC session, OTP WA, role permissions, Turnstile CAPTCHA |
-| `supabase-architect` | Schema migrations, RLS policies, upsert, realtime subscriptions |
-| `admin-dashboard` | Admin panels, role-based access, settings, audit log |
-| `wa-notification` | Fonnte API, status WA templates, Cloudflare Cron reminders |
-| `cms-admin` | Berita, pengumuman, agenda, galeri, komoditas, APBDes |
-| `security-audit` | OWASP Top 10, RLS audit, XSS/CSRF, UU PDP compliance |
-
-**Global (666-skill catalog) — relevant subset:**
-
-| Skill | Relevance |
-|-------|-----------|
-| `database-designer` | Supabase schema design |
-| `api-design-reviewer` | Edge function API review |
-| `dependency-auditor` | CVE scan, package audit |
-| `karpathy-coder` | Code quality, surgical changes |
-| `release-manager` | Changelog, semver |
-| `changelog-generator` | Conventional commits → changelog |
-| `sentry-pro` | Error tracking setup |
-| `tech-debt-tracker` | Code smell inventory |
-| `docker-development` | Dockerfile optimization |
-| `env-secrets-manager` | .env hygiene, leak detection |
-
-### Skill Matcher CLI
-
-```bash
-# Prompt ke skill (mode default)
-python3 skill/project-skills/scripts/skill_matcher.py "audit keamanan API endpoint"
-
-# Interactive mode
-python3 skill/project-skills/scripts/skill_matcher.py --interactive
-
-# List semua skill yang ter-load
-python3 skill/project-skills/scripts/skill_matcher.py --list-all
-
-# Domain mapping
-python3 skill/project-skills/scripts/skill_matcher.py --domains
-```
-
-### Cara Kerja Prompt → Skill Auto-Selection
-
-```
-STEP 1 — PARSE
-  Input: "audit keamanan auth login warga"
-  ↓ tokenize + stop word removal
-  ↓ domain keywords: [audit, keamanan, auth, login, warga]
-  ↓ action verbs: [audit] → weight ×3.0
-
-STEP 2 — SCORE (per skill dalam catalog)
-  exact keyword match in name → +4.0
-  keyword match in description → +2.0
-  domain boost: "auth" in query + "auth" in skill → +5.0
-  action boost: "audit" in query + "audit" in skill → +3.0
-  local skill bonus → ×1.3
-
-STEP 3 — RANK
-  auth-hardener:    score = (5.0 + 3.0 + 5.0 + 3.0) × 1.3 = 20.8 → HIGH
-  security-audit:   score = (3.0 + 4.0 + 2.0) × 1.3 = 11.7 → MED
-  esurat-master:    score = (2.0 + 2.0) = 4.0 → LOW
-
-STEP 4 — OUTPUT
-  ✅ auth-hardener [HIGH 21] — auto-load SKILL.md
-  ✅ security-audit [MED 12]
-  ✅ esurat-master [LOW 4]
-```
-
-### Quick Trigger Reference
+Prompt → skill auto-mapping via `skill/project-skills/scripts/skill_matcher.py` (no dependencies).
 
 | Prompt Pattern | Skill Terpilih | Confidence |
 |---|---|---|
@@ -335,43 +253,11 @@ STEP 4 — OUTPUT
 | "security", "audit", "owasp" | security-audit | HIGH |
 | "schema database", "tabel", "erd" | database-designer | HIGH |
 | "audit API", "endpoint", "review" | api-design-reviewer | HIGH |
-| "npm audit", "cve", "dependency" | dependency-auditor | MED |
-| "changelog", "release", "version" | changelog-generator | MED |
-| "error tracking", "sentry" | sentry-pro | MED |
-
-### Adding New Local Skills
 
 ```bash
-# 1. Create skill folder
-mkdir -p skill/project-skills/skills/my-new-skill/scripts
+# Test skill matching
+python3 skill/project-skills/scripts/skill_matcher.py "audit keamanan API endpoint"
 
-# 2. Write SKILL.md (required fields)
-# ---
-# name: "my-new-skill"
-# description: "Use when ... triggers ..."
-# ---
-
-# 3. Add to DOMAIN_MAP in skill_matcher.py
-DOMAIN_MAP = {
-    "my-keyword": "my-new-skill",  # keyword → folder mapping
-    ...
-}
-
-# 4. Test
-python3 skill/project-skills/scripts/skill_matcher.py "my keyword query"
-```
-
-### Skill Matcher Architecture (No Dependencies)
-
-```
-skill_matcher.py
-├── SkillRegistry._load()      — reads all SKILL.md from disk
-├── SkillRegistry._tokenize() — stop word removal + tokenization
-├── SkillRegistry._score()    — weighted scoring algorithm
-│   ├── Keyword exact match   — name: ×4.0, desc: ×2.0
-│   ├── Domain boost          — 30 domain keywords × boost weight
-│   ├── Action verb boost     — 20 action verbs × verb weight
-│   ├── Exact phrase bonus    — 2-word phrase ×5.0
-│   └── Local source bonus    — local skills ×1.3
-└── format_result()           — colored terminal output
+# List all loaded skills
+python3 skill/project-skills/scripts/skill_matcher.py --list-all
 ```

@@ -44,7 +44,9 @@ function createAdminClient(env: Env) {
 }
 
 /** Fetch fonnte_token dari app_settings table (server-side, admin-configured). */
-async function fetchFonnteTokenFromSettings(sb: ReturnType<typeof createClient>): Promise<string | null> {
+async function fetchFonnteTokenFromSettings(
+  sb: ReturnType<typeof createClient>,
+): Promise<string | null> {
   try {
     const { data } = await sb
       .from("app_settings")
@@ -153,7 +155,11 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   if (!token) {
     console.error("[send-wa] Fonnte token tidak ditemukan — cek SettingsPanel tab E-Signature");
     return new Response(
-      JSON.stringify({ ok: false, message: "Token WhatsApp belum dikonfigurasi. Buka Settings → E-Signature untuk mengisi Fonnte Token." }),
+      JSON.stringify({
+        ok: false,
+        message:
+          "Token WhatsApp belum dikonfigurasi. Buka Settings → E-Signature untuk mengisi Fonnte Token.",
+      }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }

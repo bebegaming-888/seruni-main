@@ -1,6 +1,5 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import Papa from "papaparse";
 import {
   Search,
   Plus,
@@ -63,7 +62,6 @@ import {
   SUMBER_AIR_LIST,
   KEPEMILIKAN_ASET_LIST,
 } from "@/data/penduduk";
-import * as XLSX from "xlsx";
 
 const PAGE_SIZE = 20;
 
@@ -293,9 +291,13 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
     const result = await importPenduduk(rows, username);
     setSmartResult(result);
     refresh();
-    toast.success(`Import selesai: ${result.added} baru, ${result.updated} diperbarui`, { description: "Database penduduk telah diperbarui." });
+    toast.success(`Import selesai: ${result.added} baru, ${result.updated} diperbarui`, {
+      description: "Database penduduk telah diperbarui.",
+    });
     if (result.errors.length > 0) {
-      toast.warning(`${result.errors.length} baris gagal diimport`, { description: "Periksa format data dan kolom yang diperlukan." });
+      toast.warning(`${result.errors.length} baris gagal diimport`, {
+        description: "Periksa format data dan kolom yang diperlukan.",
+      });
     }
   }
 
@@ -304,12 +306,16 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
     refresh();
     setModal(null);
     setPurgeConfirm("");
-    toast.success("Seluruh data penduduk berhasil dihapus", { description: "Semua data penduduk telah dihapus dari sistem." });
+    toast.success("Seluruh data penduduk berhasil dihapus", {
+      description: "Semua data penduduk telah dihapus dari sistem.",
+    });
   }
 
   async function handleImportFile(file: File) {
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext === "xlsx" || ext === "xls") {
+      // Lazy-load xlsx only when importing Excel files
+      const XLSX = await import("xlsx");
       const reader = new FileReader();
       reader.onload = async (e) => {
         const buf = new Uint8Array(e.target!.result as ArrayBuffer);
@@ -323,7 +329,9 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
       };
       reader.readAsArrayBuffer(file);
     } else {
-      Papa.parse<Record<string, string>>(file, {
+      // Lazy-load papaparse only when importing CSV files
+      const Papa = await import("papaparse");
+      Papa.default.parse<Record<string, string>>(file, {
         header: true,
         skipEmptyLines: true,
         complete: async (res) => await runSmartImport(res.data),

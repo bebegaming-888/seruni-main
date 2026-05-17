@@ -13,10 +13,7 @@
 
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import {
-  isWargaLoggedIn,
-  getWargaSession,
-} from "@/lib/warga-auth";
+import { isWargaLoggedIn, getWargaSession } from "@/lib/warga-auth";
 import {
   getRecord,
   saveRecord,
@@ -112,7 +109,7 @@ export default function EditSurat() {
       return;
     }
 
-    if (!EDITABLE_STATUSES.includes(r.status as typeof EDITABLE_STATUSES[number])) {
+    if (!EDITABLE_STATUSES.includes(r.status as (typeof EDITABLE_STATUSES)[number])) {
       setLoading(false);
       setAuthError(
         `Pengajuan tidak dapat diedit karena status saat ini adalah "${r.status}". Hanya pengajuan dengan status "Menunggu Verifikasi" atau "Diverifikasi" yang dapat dikoreksi.`,
@@ -144,13 +141,17 @@ export default function EditSurat() {
     if (!files.length) return;
     const remaining = 10 - attachments.length;
     if (files.length > remaining) {
-      toast.error(`Maksimal 10 lampiran. Sisa ${remaining} slot.`, { description: "Kurangi jumlah lampiran atau hapus file yang tidak diperlukan." });
+      toast.error(`Maksimal 10 lampiran. Sisa ${remaining} slot.`, {
+        description: "Kurangi jumlah lampiran atau hapus file yang tidak diperlukan.",
+      });
       return;
     }
     const newFiles: Lampiran[] = [];
     for (const file of files) {
       if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} terlalu besar. Maks 5MB.`, { description: "Kompres file atau gunakan format dengan ukuran lebih kecil." });
+        toast.error(`${file.name} terlalu besar. Maks 5MB.`, {
+          description: "Kompres file atau gunakan format dengan ukuran lebih kecil.",
+        });
         continue;
       }
       const data_url = await new Promise<string>((resolve) => {
@@ -164,15 +165,20 @@ export default function EditSurat() {
     e.target.value = "";
   };
 
-  const removeAttachment = (i: number) =>
-    setAttachments((a) => a.filter((_, idx) => idx !== i));
+  const removeAttachment = (i: number) => setAttachments((a) => a.filter((_, idx) => idx !== i));
 
   const formatSize = (b: number) =>
-    b < 1024 ? `${b} B` : b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`;
+    b < 1024
+      ? `${b} B`
+      : b < 1024 * 1024
+        ? `${(b / 1024).toFixed(1)} KB`
+        : `${(b / (1024 * 1024)).toFixed(1)} MB`;
 
   const handleSubmit = async () => {
     if (!record || !correctionNote.trim()) {
-      toast.error("Wajib isi catatan koreksi — jelaskan apa yang diperbaiki.", { description: "Jelaskan secara singkat apa yang Anda koreksi dan mengapa." });
+      toast.error("Wajib isi catatan koreksi — jelaskan apa yang diperbaiki.", {
+        description: "Jelaskan secara singkat apa yang Anda koreksi dan mengapa.",
+      });
       return;
     }
     setSubmitting(true);
@@ -184,9 +190,7 @@ export default function EditSurat() {
     if (contactWa !== record.kontak) changedFields.push("kontak");
     if (JSON.stringify(extraData) !== JSON.stringify(record.data)) changedFields.push("data");
     const selfieInAttachments = attachments.find(
-      (a) =>
-        a.name.toLowerCase().includes("selfie") ||
-        a.name.toLowerCase().includes("foto"),
+      (a) => a.name.toLowerCase().includes("selfie") || a.name.toLowerCase().includes("foto"),
     );
     if (selfieInAttachments) {
       // selfie may be new or changed
@@ -196,14 +200,10 @@ export default function EditSurat() {
       }
     }
     const docAttachments = attachments.filter(
-      (a) =>
-        !a.name.toLowerCase().includes("selfie") &&
-        !a.name.toLowerCase().includes("foto"),
+      (a) => !a.name.toLowerCase().includes("selfie") && !a.name.toLowerCase().includes("foto"),
     );
     const oldDocAttachments = (record.attachments ?? []).filter(
-      (a) =>
-        !a.name.toLowerCase().includes("selfie") &&
-        !a.name.toLowerCase().includes("foto"),
+      (a) => !a.name.toLowerCase().includes("selfie") && !a.name.toLowerCase().includes("foto"),
     );
     if (JSON.stringify(docAttachments) !== JSON.stringify(oldDocAttachments)) {
       changedFields.push("attachments");
@@ -215,9 +215,7 @@ export default function EditSurat() {
       changed_fields: changedFields,
     };
     const selfieEntry = attachments.find(
-      (a) =>
-        a.name.toLowerCase().includes("selfie") ||
-        a.name.toLowerCase().includes("foto"),
+      (a) => a.name.toLowerCase().includes("selfie") || a.name.toLowerCase().includes("foto"),
     );
     const updated: SuratRecord = {
       ...record,
@@ -307,11 +305,15 @@ export default function EditSurat() {
           {/* Identity info — read only */}
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-lg bg-muted/50 p-3">
-              <p className="font-ui text-[10px] text-muted-foreground uppercase tracking-wider">Nama</p>
+              <p className="font-ui text-[10px] text-muted-foreground uppercase tracking-wider">
+                Nama
+              </p>
               <p className="font-display font-bold mt-0.5">{record.pemohon}</p>
             </div>
             <div className="rounded-lg bg-muted/50 p-3">
-              <p className="font-ui text-[10px] text-muted-foreground uppercase tracking-wider">NIK</p>
+              <p className="font-ui text-[10px] text-muted-foreground uppercase tracking-wider">
+                NIK
+              </p>
               <p className="font-mono font-bold mt-0.5">{record.nik}</p>
             </div>
           </div>
@@ -331,7 +333,8 @@ export default function EditSurat() {
         <div className="flex items-start gap-3 rounded-xl border border-info/20 bg-info/5 px-4 py-3">
           <Info className="h-4 w-4 text-info shrink-0 mt-0.5" />
           <p className="font-ui text-xs text-info leading-relaxed">
-            <strong>Yang bisa diedit:</strong> nomor WhatsApp, field formulir di bawah, lampiran dokumen, dan catatan koreksi.
+            <strong>Yang bisa diedit:</strong> nomor WhatsApp, field formulir di bawah, lampiran
+            dokumen, dan catatan koreksi.
             <strong> Tidak bisa diedit:</strong> NIK, nama, dan jenis surat.
           </p>
         </div>
@@ -390,7 +393,9 @@ export default function EditSurat() {
                         </SelectTrigger>
                         <SelectContent>
                           {f.options?.map((o) => (
-                            <SelectItem key={o} value={o}>{o}</SelectItem>
+                            <SelectItem key={o} value={o}>
+                              {o}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -463,7 +468,10 @@ export default function EditSurat() {
                     const file = e.target.files?.[0];
                     if (!file) return;
                     if (file.size > 5 * 1024 * 1024) {
-                      toast.error("Ukuran terlalu besar. Maks 5MB.", { description: "Kompres foto selfie dan pastikan ukurannya tidak lebih dari 5MB." });
+                      toast.error("Ukuran terlalu besar. Maks 5MB.", {
+                        description:
+                          "Kompres foto selfie dan pastikan ukurannya tidak lebih dari 5MB.",
+                      });
                       return;
                     }
                     const data_url = await new Promise<string>((resolve) => {
@@ -476,7 +484,15 @@ export default function EditSurat() {
                         !a.name.toLowerCase().includes("selfie") &&
                         !a.name.toLowerCase().includes("foto"),
                     );
-                    setAttachments([...filtered, { name: `selfie_${Date.now()}.jpg`, type: file.type, size: file.size, data_url }]);
+                    setAttachments([
+                      ...filtered,
+                      {
+                        name: `selfie_${Date.now()}.jpg`,
+                        type: file.type,
+                        size: file.size,
+                        data_url,
+                      },
+                    ]);
                     e.target.value = "";
                   }}
                 />
@@ -491,11 +507,16 @@ export default function EditSurat() {
             <Paperclip className="h-4 w-4 text-primary" />
             <h3 className="font-display font-bold text-base">Dokumen Pendukung</h3>
             <span className="ml-auto font-ui text-xs text-muted-foreground">
-              {attachments.filter((a) => !a.name.includes("selfie") && !a.name.includes("foto")).length}/10
+              {
+                attachments.filter((a) => !a.name.includes("selfie") && !a.name.includes("foto"))
+                  .length
+              }
+              /10
             </span>
           </div>
 
-          {attachments.filter((a) => !a.name.includes("selfie") && !a.name.includes("foto")).length > 0 && (
+          {attachments.filter((a) => !a.name.includes("selfie") && !a.name.includes("foto"))
+            .length > 0 && (
             <div className="space-y-2 mb-4">
               {attachments
                 .filter((a) => !a.name.includes("selfie") && !a.name.includes("foto"))
@@ -507,7 +528,9 @@ export default function EditSurat() {
                     <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="font-body text-sm truncate">{a.name}</p>
-                      <p className="font-ui text-[11px] text-muted-foreground">{formatSize(a.size)}</p>
+                      <p className="font-ui text-[11px] text-muted-foreground">
+                        {formatSize(a.size)}
+                      </p>
                     </div>
                     <button
                       onClick={() => removeAttachment(i)}
@@ -520,12 +543,12 @@ export default function EditSurat() {
             </div>
           )}
 
-          <label
-            className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer text-muted-foreground hover:text-primary transition"
-          >
+          <label className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer text-muted-foreground hover:text-primary transition">
             <Upload className="h-6 w-6" />
             <p className="font-body text-sm text-center">Tambah dokumen pendukung</p>
-            <p className="font-ui text-[11px] text-muted-foreground">PDF, JPG, PNG · maks 5MB per file</p>
+            <p className="font-ui text-[11px] text-muted-foreground">
+              PDF, JPG, PNG · maks 5MB per file
+            </p>
             <input
               type="file"
               multiple
@@ -548,16 +571,14 @@ export default function EditSurat() {
             rows={3}
           />
           <p className="font-ui text-[11px] text-muted-foreground mt-1.5">
-            Catatan ini akan dicatat sebagai history perubahan dan membantu admin memahami konteks koreksi Anda.
+            Catatan ini akan dicatat sebagai history perubahan dan membantu admin memahami konteks
+            koreksi Anda.
           </p>
         </div>
 
         {/* Submit */}
         <div className="flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={() => navigate({ to: "/masuk/pengajuan-saya" })}
-          >
+          <Button variant="outline" onClick={() => navigate({ to: "/masuk/pengajuan-saya" })}>
             Batal
           </Button>
           <Button
@@ -576,8 +597,8 @@ export default function EditSurat() {
           <DialogHeader>
             <DialogTitle>Konfirmasi Simpan Koreksi</DialogTitle>
             <DialogDescription>
-              Anda yakin ingin menyimpan koreksi untuk pengajuan #{record.no}?
-              Admin akan melihat perubahan ini dan data lama akan tercatat di log aktivitas.
+              Anda yakin ingin menyimpan koreksi untuk pengajuan #{record.no}? Admin akan melihat
+              perubahan ini dan data lama akan tercatat di log aktivitas.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -589,7 +610,11 @@ export default function EditSurat() {
               disabled={submitting}
               className="bg-primary hover:bg-primary-hover"
             >
-              {submitting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+              {submitting ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4 mr-1" />
+              )}
               Ya, Simpan Koreksi
             </Button>
           </DialogFooter>

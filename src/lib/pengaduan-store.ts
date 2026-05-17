@@ -104,28 +104,7 @@ function makeTicket(): string {
   return `MD-${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
-function normalizeRow(raw: unknown): Pengaduan {
-  const r = raw as Record<string, unknown>;
-  return {
-    ticket: String(r.ticket ?? ""),
-    nama: String(r.nama ?? ""),
-    nik: r.nik ? String(r.nik) : undefined,
-    kontak: String(r.kontak ?? ""),
-    kategori: String(r.kategori ?? "Lainnya") as PengaduanKategori,
-    judul: String(r.judul ?? ""),
-    isi: String(r.isi ?? ""),
-    lampiran_url: r.lampiran_url ? String(r.lampiran_url) : undefined,
-    status: String(r.status ?? "Baru") as PengaduanStatus,
-    prioritas: String(r.prioritas ?? "Normal") as PengaduanPrioritas,
-    admin_catatan: r.admin_catatan ? String(r.admin_catatan) : undefined,
-    admin_tindak: r.admin_tindak ? String(r.admin_tindak) : undefined,
-    created_at: String(r.created_at ?? new Date().toISOString()),
-    updated_at: r.updated_at ? String(r.updated_at) : undefined,
-    resolved_at: r.resolved_at ? String(r.resolved_at) : undefined,
-  };
-}
-
-/** List semua pengaduan (dari IndexedDB, async) */
+/** List semua pengaduan (dari IndexedDB, async) — sorted newest first */
 export async function listPengaduan(): Promise<Pengaduan[]> {
   if (typeof window === "undefined") return [];
   const raw = await idbGetAll<Pengaduan>(STORE_KEY);
@@ -144,7 +123,46 @@ export async function listByStatus(status: PengaduanStatus): Promise<Pengaduan[]
 export async function getByTicket(ticket: string): Promise<Pengaduan | null> {
   if (typeof window === "undefined") return null;
   const raw = await idbGet<Pengaduan>(STORE_KEY, ticket);
-  return raw ? normalizeRow(raw) : null;
+  if (!raw) return null;
+  // Normalize from potential raw-IDB values (numbers, nested objects)
+  const r = raw as unknown as Record<string, unknown>;
+  return {
+    ticket: String(r.ticket ?? raw.ticket ?? ""),
+    nama: String(r.nama ?? raw.nama ?? ""),
+    nik: r.nik ? String(r.nik) : raw.nik ? String(raw.nik) : undefined,
+    kontak: String(r.kontak ?? raw.kontak ?? ""),
+    kategori: String(r.kategori ?? raw.kategori ?? "Lainnya") as PengaduanKategori,
+    judul: String(r.judul ?? raw.judul ?? ""),
+    isi: String(r.isi ?? raw.isi ?? ""),
+    lampiran_url: r.lampiran_url
+      ? String(r.lampiran_url)
+      : raw.lampiran_url
+        ? String(raw.lampiran_url)
+        : undefined,
+    status: String(r.status ?? raw.status ?? "Baru") as PengaduanStatus,
+    prioritas: String(r.prioritas ?? raw.prioritas ?? "Normal") as PengaduanPrioritas,
+    admin_catatan: r.admin_catatan
+      ? String(r.admin_catatan)
+      : raw.admin_catatan
+        ? String(raw.admin_catatan)
+        : undefined,
+    admin_tindak: r.admin_tindak
+      ? String(r.admin_tindak)
+      : raw.admin_tindak
+        ? String(raw.admin_tindak)
+        : undefined,
+    created_at: String(r.created_at ?? raw.created_at ?? new Date().toISOString()),
+    updated_at: r.updated_at
+      ? String(r.updated_at)
+      : raw.updated_at
+        ? String(raw.updated_at)
+        : undefined,
+    resolved_at: r.resolved_at
+      ? String(r.resolved_at)
+      : raw.resolved_at
+        ? String(raw.resolved_at)
+        : undefined,
+  };
 }
 
 /**

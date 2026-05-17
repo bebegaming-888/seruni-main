@@ -105,12 +105,16 @@ export function WilayahSettings({ villageName, onVillageNameChange }: WilayahSet
           <div className="space-y-1.5">
             <Label className="font-ui text-xs font-semibold">Nama Desa</Label>
             <div className="rounded-xl border border-info/20 bg-info/5 px-3 py-2.5 text-sm font-ui">
-              <span className="font-semibold text-foreground">{villageName ?? wilayah.village}</span>
-              <span className="text-[11px] text-muted-foreground ml-2">(sinkron dari Profil Desa)</span>
+              <span className="font-semibold text-foreground">
+                {villageName ?? wilayah.village}
+              </span>
+              <span className="text-[11px] text-muted-foreground ml-2">
+                (sinkron dari Profil Desa)
+              </span>
             </div>
             <p className="font-body text-[11px] text-muted-foreground">
-              Nama Desa diatur di tab{" "}
-              <strong>Profil Desa</strong>. Perubahan di sana akan terlihat di sini secara otomatis.
+              Nama Desa diatur di tab <strong>Profil Desa</strong>. Perubahan di sana akan terlihat
+              di sini secara otomatis.
             </p>
           </div>
           <Field

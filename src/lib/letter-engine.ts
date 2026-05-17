@@ -124,11 +124,14 @@ export function renderVars(text: string, vars: LetterVars): string {
   let result = text;
 
   // Pass 1: {{key || "fallback"}}
-  result = result.replace(/\{\{([\w.]+)\s*\|\|\s*"([^"]+)"\}\}/g, (_, k, fallback) => val(k, fallback));
+  result = result.replace(/\{\{([\w.]+)\s*\|\|\s*"([^"]+)"\}\}/g, (_, k, fallback) =>
+    val(k, fallback),
+  );
 
   // Pass 3: {{key ? 'a' : 'b'}} — inline conditional
-  result = result.replace(/\{\{([\w.]+)\s*\?\s*'([^']+)'\s*:\s*'([^']*)'\}\}/g, (_, k, truthy, falsy) =>
-    val(k) !== "-" ? truthy : falsy,
+  result = result.replace(
+    /\{\{([\w.]+)\s*\?\s*'([^']+)'\s*:\s*'([^']*)'\}\}/g,
+    (_, k, truthy, falsy) => (val(k) !== "-" ? truthy : falsy),
   );
 
   // Pass 4: {{key ? 'prefix' + key + 'suffix' : ''}} — self-referential concat
@@ -148,8 +151,9 @@ export function renderVars(text: string, vars: LetterVars): string {
   );
 
   // Pass 5: {{key ? 'value' : ''}} — simple truthy-only conditional
-  result = result.replace(/\{\{([a-z_][a-z0-9_]*)\s*\?\s*'([^']*)'\s*:\s*''\}\}/g, (_, k, truthy) =>
-    val(k) !== "-" ? truthy : "",
+  result = result.replace(
+    /\{\{([a-z_][a-z0-9_]*)\s*\?\s*'([^']*)'\s*:\s*''\}\}/g,
+    (_, k, truthy) => (val(k) !== "-" ? truthy : ""),
   );
 
   return result;
