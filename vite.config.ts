@@ -1,7 +1,9 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { createRequire } from "module";
 import tsConfigPaths from "vite-tsconfig-paths";
+
 const require = createRequire(import.meta.url);
+
 function buildHashPlugin() {
   return {
     name: "vite-build-hash",
@@ -29,7 +31,6 @@ export default defineConfig({
     },
     plugins: [
       buildHashPlugin(),
-      // Vercel needs this — tsConfigPaths runs after lovable config
       tsConfigPaths({ projects: ["./tsconfig.json"] }),
     ],
     define: {
