@@ -1,6 +1,6 @@
 {
-  "buildCommand": "bun run build",
+  "buildCommand": "echo 'no build'",
   "outputDirectory": "dist/client",
-  "installCommand": "bun install",
+  "installCommand": "echo 'no install'",
   "framework": null
 }
