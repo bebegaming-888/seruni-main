@@ -34,10 +34,13 @@ jobs:
           VITE_ADMIN_DB_TOKEN: ${{ secrets.VITE_ADMIN_DB_TOKEN }}
 
       - name: Deploy to Vercel
-        run: npx vercel deploy dist/client --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          cd dist/client
+          npx vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
 
 
 
