@@ -53,7 +53,7 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     supabase: supabaseOk,
     timestamp: new Date().toISOString(),
     version: "1.0.0",
-    region: (context.env as Record<string, unknown>).CF_REGION ?? "unknown",
+    region: (context.env as unknown as Record<string, unknown>).CF_REGION ?? "unknown",
   };
 
   // Jika Supabase down, tetap return 200 agar monitoring tidak false-alarm

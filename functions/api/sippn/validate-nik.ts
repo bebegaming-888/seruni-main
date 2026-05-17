@@ -23,7 +23,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { createRateLimiter, getClientIp } from "../_lib/rate-limit";
+import { createRateLimiter, getClientIp } from "../../_lib/rate-limit";
 
 interface CacheEntry {
   data: ResidentData | null;

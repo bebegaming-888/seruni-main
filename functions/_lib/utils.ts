@@ -65,9 +65,20 @@ export async function hmacSha256Hex(data: string, secret: string): Promise<strin
     .join("");
 }
 
+/** Constant-time byte comparison to prevent timing attacks.
+ * CF Workers V8 engine supports timingSafeEqual natively.
+ */
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
+}
+
 /** Verify a JWT-like HMAC signature. Returns true if valid.
- * Uses crypto.subtle.timingSafeEqual for constant-time comparison
- * to prevent timing attack leaks on signature bytes.
+ * Uses constant-time comparison to prevent timing attack leaks on signature bytes.
  */
 export async function verifyJwtSignature(token: string, secret: string): Promise<boolean> {
   const parts = token.split(".");
@@ -77,7 +88,7 @@ export async function verifyJwtSignature(token: string, secret: string): Promise
   const a = new TextEncoder().encode(expectedSig);
   const b = new TextEncoder().encode(receivedSig);
   if (a.length !== b.length) return false;
-  return crypto.subtle.timingSafeEqual(a, b);
+  return timingSafeEqual(a, b);
 }
 
 /** OTP hash — PBKDF2 untuk keamanan yang lebih baik daripada plain SHA-256.
@@ -153,7 +164,7 @@ export async function verifyOtpHash(plain: string, storedHash: string): Promise<
     if (computedHex.length !== expectedHex.length) return false;
     const a = new TextEncoder().encode(computedHex);
     const b = new TextEncoder().encode(expectedHex);
-    return a.length === b.length && crypto.subtle.timingSafeEqual(a, b);
+    return a.length === b.length && timingSafeEqual(a, b);
   }
 
   // Legacy format: SHA-256 + fixed salt (untuk backward compat saat migrasi)
@@ -168,7 +179,7 @@ export async function verifyOtpHash(plain: string, storedHash: string): Promise<
   if (legacyHex.length !== storedHash.length) return false;
   const a = new TextEncoder().encode(legacyHex);
   const b = new TextEncoder().encode(storedHash);
-  return a.length === b.length && crypto.subtle.timingSafeEqual(a, b);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /** Legacy hash function (for reading existing SHA-256 hashes during migration). */

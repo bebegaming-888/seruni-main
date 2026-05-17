@@ -42,7 +42,9 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   try {
-    return JSON.parse(base64UrlDecode(parts[1]));
+    const decoder = new TextDecoder();
+    const payloadBuffer = base64UrlDecode(parts[1]);
+    return JSON.parse(decoder.decode(payloadBuffer));
   } catch {
     return null;
   }
@@ -53,7 +55,9 @@ async function resignJwt(token: string, secret: string, extraDays = 7): Promise<
   const parts = token.split(".");
   if (parts.length !== 3) throw new Error("Invalid token format");
 
-  const payload = JSON.parse(base64UrlDecode(parts[1]));
+  const decoder = new TextDecoder();
+  const payloadBuffer = base64UrlDecode(parts[1]);
+  const payload = JSON.parse(decoder.decode(payloadBuffer));
   // Update expiry
   payload.iat = Math.floor(Date.now() / 1000);
   payload.exp = Math.floor(Date.now() / 1000) + extraDays * 24 * 60 * 60;

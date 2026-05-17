@@ -94,8 +94,8 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   // Env var superadmin fallback (always checked — cannot be removed)
   // Gunakan ADMIN_USER / ADMIN_PASS (Cloudflare Secrets, BUKAN VITE_*).
   // VITE_* di-browser bundle; Secrets tidak pernah terekspos ke client.
-  const envUser = (context.env as Record<string, string | undefined>).ADMIN_USER;
-  const envPass = (context.env as Record<string, string | undefined>).ADMIN_PASS;
+  const envUser = context.env.ADMIN_USER;
+  const envPass = context.env.ADMIN_PASS;
   if (
     !user &&
     envUser &&
@@ -118,21 +118,24 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   // stored password (from DB or env var fallback) — plaintext comparison karena
   // admin users di-store sebagai plaintext di Supabase (bukan bcrypt).
   // Untuk env var fallback (ADMIN_PASS), password di-set oleh operator saat deployment.
-  const b = new TextEncoder().encode(user.password);
-  const passwordsMatch = a.length === b.length && crypto.subtle.timingSafeEqual(a, b);
+  const b = new TextEncoder().encode(user!.password);
+  const passwordsMatch = a.length === b.length && (() => {
+    let diff = 0;
+    for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+    return diff === 0;
+  })();
 
   if (!user || !passwordsMatch) {
     // Log failed attempt untuk audit trail
     if (sb && username) {
-      sb.from("audit_log")
+      void sb.from("audit_log")
         .insert({
           username: username.trim(),
           action: "admin.login_failed",
           detail: "Invalid credentials",
           ip_address: "unknown",
           created_at: new Date(),
-        })
-        .catch(() => {}); // non-blocking
+        });
     }
     return json({ ok: false, error: "Username atau password salah" }, 401);
   }
@@ -162,7 +165,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
   const headers = new Headers({
     "Content-Type": "application/json",
-    ...(corsOptions().headers as Record<string, string>),
+    "Access-Control-Allow-Origin": "*",
   });
 
   // RFC 6265 single Set-Cookie header:

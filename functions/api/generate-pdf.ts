@@ -23,7 +23,7 @@
  *   { ok: false, error: string }
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { json, corsOptions } from "../_lib/utils";
 import { createRateLimiter, getClientIp } from "../_lib/rate-limit";
 
@@ -60,14 +60,34 @@ interface Settings {
   signature: SettingsSignature;
 }
 
-/** Fetch village + signature settings from app_settings. */
-type SbClient = ReturnType<typeof createClient>;
-async function fetchSettings(sb: SbClient): Promise<Settings> {
-  const { data } = await sb
+/** Fetch village + signature settings from app_settings.
+ * Accepts nullable SupabaseClient — returns defaults if null (Supabase not configured).
+ */
+async function fetchSettings(sb: SupabaseClient | null): Promise<Settings> {
+  if (!sb) {
+    return {
+      village: {
+        name: "Seruni Mumbul",
+        head: "H. Sumardi, S.Sos.",
+        district: "Pringgabaya",
+        regency: "Lombok Timur",
+        address: "Jl. Raya Pringgabaya No. 88",
+        phone: "+62 812-3456-7890",
+        province: "Nusa Tenggara Barat",
+      },
+      branding: { primary_color: "#1e3a5f" },
+      signature: {
+        signer_name: "H. Sumardi, S.Sos.",
+        signer_title: "Kepala Desa",
+        require_qr: true,
+      },
+    };
+  }
+  const { data } = (await sb
     .from("app_settings")
     .select("value")
     .eq("key", "main_settings")
-    .single();
+    .single()) as { data: { value: unknown } | null };
 
   const defVillage: SettingsVillage = {
     name: "Seruni Mumbul",
@@ -91,11 +111,12 @@ async function fetchSettings(sb: SbClient): Promise<Settings> {
     signature: defSignature,
   };
 
-  if (!data?.value || typeof data.value !== "object") {
+  const rawValue = data?.value as unknown;
+  if (!rawValue || typeof rawValue !== "object") {
     return result;
   }
 
-  const val = data.value as Record<string, unknown>;
+  const val = rawValue as Record<string, unknown>;
 
   if (
     val.village &&

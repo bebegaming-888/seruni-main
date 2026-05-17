@@ -45,16 +45,18 @@ function createAdminClient(env: Env) {
 
 /** Fetch fonnte_token dari app_settings table (server-side, admin-configured). */
 async function fetchFonnteTokenFromSettings(
-  sb: ReturnType<typeof createClient>,
+  sb: Awaited<ReturnType<typeof createAdminClient>>,
 ): Promise<string | null> {
+  if (!sb) return null;
   try {
     const { data } = await sb
       .from("app_settings")
       .select("value")
       .eq("key", "main_settings")
       .single();
-    if (data?.value && typeof data.value === "object" && !Array.isArray(data.value)) {
-      const val = data.value as Record<string, unknown>;
+    const rawValue = (data as { value?: unknown } | null)?.value;
+    if (rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)) {
+      const val = rawValue as Record<string, unknown>;
       const notif = val.notifications;
       if (notif && typeof notif === "object" && !Array.isArray(notif)) {
         const token = (notif as Record<string, unknown>).fonnte_token;
