@@ -83,7 +83,7 @@ export async function verifyQrPayload(
 
 // ── HMAC-SHA256 via Web Crypto API ─────────────────────────────────────────────
 
-/** HMAC-SHA256 → hex string (works in browser, Cloudflare Workers, Node.js 19+) */
+/** HMAC-SHA256 → hex string (browser & Node.js compatible) */
 export async function hmacSha256Hex(data: string, secret: string): Promise<string> {
   const keyData = new TextEncoder().encode(secret);
   const cryptoKey = await crypto.subtle.importKey(

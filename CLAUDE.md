@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Data sync | IndexedDB-first → Supabase write-behind (offline-capable) |
 | Auth | Custom HMAC-SHA256 session (bukan Supabase Auth) |
 | DB | Supabase PostgreSQL + Supabase Storage buckets |
-| Deploy | Cloudflare Pages (SSR + Edge Functions + Scheduled Cron) |
+| Deploy | Netlify (SPA static hosting + Netlify Functions) |
 | Package Manager | Bun |
 | WA Notif | Fonnte API (`src/lib/fonnte.ts`) |
 | PDF generation | `jspdf` (client-side) |
@@ -131,29 +131,14 @@ Signal keys di localStorage: `__settings_saved__`, `__templates_changed__`, `__s
 
 ---
 
-## API Edge Functions (Cloudflare Pages)
+## API Functions (Netlify)
 
 ```
-functions/api/auth/admin-login.ts      → POST /api/auth/admin-login
-functions/api/auth/request-otp.ts      → POST /api/auth/request-otp
-functions/api/auth/verify-otp.ts       → POST /api/auth/verify-otp
-functions/api/auth/refresh-warga-session.ts
-functions/api/generate-nomor-surat.ts → POST /api/generate-nomor-surat
-functions/api/generate-pdf.ts          → POST /api/generate-pdf
-functions/api/send-wa.ts               → POST /api/send-wa
-functions/api/surat/estimasi.ts        → POST /api/surat/estimasi
-functions/api/verify-surat.ts          → GET  /api/verify-surat?no=...
-functions/api/push/send.ts             → POST /api/push/send
-functions/api/sippn/validate-nik.ts   → POST /api/sippn/validate-nik
-functions/_scheduled.ts                → Cloudflare Cron (setiap 6 jam)
+netlify/functions/sign-surat-qr.js  → POST /api/sign-surat-qr
+netlify/functions/generate-pdf.js    → POST /api/generate-pdf
 ```
 
-**Shared utils:** `functions/_lib/utils.ts` — `hmacSha256Hex`, `base64UrlEncode/Decode`, `hashOtp`. Admin session verify ada di `functions/_lib/admin-session.ts`.
-
-**Env vars untuk Edge Functions** (via Cloudflare Pages Secrets):
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
-- `FONNTE_API_KEY`, `ADMIN_WA_NUMBER`
-- `QR_SECRET`, `JWT_SECRET`, `ADMIN_SESSION_SECRET`
+Redirects: `/api/*` → `/.netlify/functions/:splat` (via `netlify.toml`)
 
 ---
 
@@ -183,7 +168,7 @@ ERD lengkap ada di `docs/ERD.md`. Tabel inti:
 ## Auth: Dual-System
 
 1. **Admin auth** (`src/lib/auth.ts`): Fixed account dari `VITE_ADMIN_USER`/`VITE_ADMIN_PASS`. Additional users di IndexedDB + `admin_users` table. Session di `localStorage`/`sessionStorage` (7 hari). Hybrid login: edge function → fallback local.
-2. **Warga auth** (`src/lib/warga-auth.ts`): OTP via WhatsApp (Fonnte). OTP di-hash SHA-256. Session token HMAC-signed.
+2. **Warga auth** (`src/lib/warga-auth.ts`): OTP via WhatsApp (Fonnte). OTP di-hash PBKDF2. Session token HMAC-signed.
 
 **Role admin:** `Super Admin | Operator | Verifikator | Kepala Desa` (dari `src/lib/roles.ts`).
 
@@ -196,15 +181,15 @@ ERD lengkap ada di `docs/ERD.md`. Tabel inti:
 VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
 VITE_ADMIN_USER, VITE_ADMIN_PASS
 VITE_FONNTE_KEY
-VITE_QR_SECRET
 VITE_TURNSTILE_SITE_KEY
 VITE_VAPID_PUBLIC_KEY
 VITE_ADMIN_DB_TOKEN  ← bearer token untuk admin API calls dari browser
 
-# Cloudflare Secrets (Edge Functions only)
+# Netlify Environment Variables (Site → Environment Variables → Production)
 SUPABASE_SERVICE_ROLE_KEY
-FONNTE_API_KEY, ADMIN_WA_NUMBER
-QR_SECRET, JWT_SECRET
+QR_SECRET
+FONNTE_API_KEY
+ADMIN_WA_NUMBER
 ```
 
 ---

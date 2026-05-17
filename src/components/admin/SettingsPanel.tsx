@@ -3008,7 +3008,7 @@ function PushNotificationPanel() {
             <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
               VAPID_PRIVATE_KEY
             </code>{" "}
-            sebagai secret di Cloudflare Pages (Settings → Environment Variables)
+            sebagai secret di Netlify (Site → Environment Variables → Production)
           </li>
         </ol>
       </div>
@@ -3066,7 +3066,7 @@ function PushNotificationPanel() {
             <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
               VAPID_PRIVATE_KEY
             </code>{" "}
-            sebagai secret di Cloudflare Pages (Settings → Environment Variables)
+            sebagai secret di Netlify (Site → Environment Variables → Production)
           </li>
         </ol>
       </div>

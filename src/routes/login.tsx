@@ -7,7 +7,7 @@ import { Eye, EyeOff, Lock, Mail, ShieldCheck, ArrowRight, ShieldAlert } from "l
 import { toast } from "sonner";
 import { getSettings, useSettings } from "@/lib/settings-store";
 
-// Cloudflare Turnstile site key — di-set via .dev.vars / Cloudflare Pages secrets
+// Turnstile site key — di-set via Netlify environment variables
 // Jika tidak ada, widget tidak di-render (dev mode fallback)
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "";
 
@@ -43,7 +43,7 @@ function LoginPage() {
     if (isLoggedIn()) navigate({ to: "/admin" });
   }, [navigate]);
 
-  // Inisialisasi Cloudflare Turnstile setelah mount
+  // Inisialisasi Turnstile setelah mount
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY || !turnstileRef.current) return;
 

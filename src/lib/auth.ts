@@ -190,7 +190,7 @@ export function login(username: string, password: string, remember = false): Ses
     (x) => x.username.toLowerCase() === username.trim().toLowerCase() && x.password === password,
   );
   // Fixed admin TIDAK BISA login via client-side auth.
-  // Ini memaksa penggunaan loginHybrid() → edge function → Cloudflare Secrets.
+  // Ini memaksa penggunaan loginHybrid() → Netlify Function → env vars server-side.
   // Jika edge function gagal/offline, fixed admin juga gagal → "Tidak dapat terhubung ke server"
   if (u?.fixed) return null;
   if (!u) return null;

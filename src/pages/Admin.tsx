@@ -356,8 +356,8 @@ export default function AdminPage() {
       const signed_at = new Date().toISOString();
       const signerName = getSettings().signature.signer_name;
 
-      // QR signing via server-side edge function — QR_SECRET stays in Cloudflare Secrets.
-      // Falls back to unsigned if the edge function is unreachable (degraded mode).
+      // QR signing via Netlify Function — QR_SECRET stays server-side.
+      // Falls back to unsigned if the function is unreachable (degraded mode).
       let qrPayload = "";
       try {
         const res = await fetch("/api/sign-surat-qr", {

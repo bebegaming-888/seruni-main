@@ -1,5 +1,5 @@
 // Type declarations for third-party globals
-// Cloudflare Turnstile
+// Cloudflare Turnstile (browser widget API — platform-agnostic)
 declare global {
   interface Window {
     turnstile: {
