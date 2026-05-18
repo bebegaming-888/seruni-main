@@ -41,23 +41,32 @@ if (!manifest) {
 
 const manifestContent = fs.readFileSync(path.join(manifest.dir, manifest.file), "utf-8");
 
+console.info("[postbuild] Manifest file:", manifest.file);
+console.info("[postbuild] Manifest preview:", manifestContent.substring(0, 500));
+
 // Try multiple patterns for clientEntry
 let match = manifestContent.match(/clientEntry:\s*"([^"]+)"/);
 if (!match) {
   match = manifestContent.match(/clientEntry:\s*'([^']+)'/);
 }
 if (!match) {
-  // Fallback: find any entry-*.js in client assets
+  // Fallback: find any entry-*.js or index-*.js in client assets
   const clientAssets = path.join(distClient, "assets");
-  const files = fs.readdirSync(clientAssets);
-  const entryFile = files.find((f) => f.startsWith("entry-") && f.endsWith(".js"));
-  if (entryFile) {
-    console.info("[postbuild] Using fallback entry:", entryFile);
-    match = [null, `/assets/${entryFile}`];
+  try {
+    const files = fs.readdirSync(clientAssets);
+    console.info("[postbuild] Client assets files:", files.filter(f => f.endsWith(".js")).slice(0, 10));
+    const entryFile = files.find((f) => (f.startsWith("entry-") || f.startsWith("index-")) && f.endsWith(".js"));
+    if (entryFile) {
+      console.info("[postbuild] Using fallback entry:", entryFile);
+      match = [null, `/assets/${entryFile}`];
+    }
+  } catch (e) {
+    console.warn("[postbuild] Could not read client assets:", e.message);
   }
 }
 if (!match) {
   console.warn("[postbuild] clientEntry not found in manifest, skipping");
+  console.warn("[postbuild] Manifest content:", manifestContent);
   process.exit(0);
 }
 const clientEntry = match[1];
