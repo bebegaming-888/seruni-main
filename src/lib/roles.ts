@@ -64,6 +64,13 @@ const MATRIX: Record<AdminRole, Set<ActionKey>> = {
     "surat.approve",
     "surat.reject",
   ]),
+  "Sekretaris Desa": new Set<ActionKey>([
+    "template.view",
+    "template.approve",
+    "template.reject",
+    "surat.approve",
+    "surat.reject",
+  ]),
 };
 
 export function currentRole(): AdminRole | null {

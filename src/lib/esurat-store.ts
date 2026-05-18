@@ -49,6 +49,8 @@ export type SuratRecord = {
   signed_at?: string;
   /** Nama pejabat yang menandatangani */
   signed_by?: string;
+  /** Jabatan pejabat yang menandatangani (Kepala Desa / Sekretaris Desa) */
+  signer_title?: string;
   /** Payload untuk QR code verifikasi */
   qr_payload?: string;
   /** Foto selfie dengan KTP (base64 data URL atau storage path) */

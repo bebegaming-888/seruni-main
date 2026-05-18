@@ -347,14 +347,16 @@ export default function AdminPage() {
       return n;
     });
   };
-  const approve = async (r: SuratRecord) => {
+  const approve = async (r: SuratRecord, signerTitle: string) => {
     if (pendingActions.has(r.no)) return;
     setPendingActions((s) => new Set(s).add(r.no));
     try {
       const tahun = new Date().getFullYear();
       const noSurat = await generateNomorSurat(r.kode, tahun);
       const signed_at = new Date().toISOString();
-      const signerName = getSettings().signature.signer_name;
+      const signerName = signerTitle === "Sekretaris Desa"
+        ? getSettings().signature.sekdes_name ?? "Sekretaris Desa"
+        : getSettings().signature.signer_name;
 
       // QR signing via Netlify Function — QR_SECRET stays server-side.
       // Falls back to unsigned if the function is unreachable (degraded mode).
@@ -363,7 +365,7 @@ export default function AdminPage() {
         const res = await fetch("/api/sign-surat-qr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ no: noSurat, nik: r.nik, kode: r.kode }),
+          body: JSON.stringify({ no: noSurat, nik: r.nik, kode: r.kode, signer: signerTitle }),
         });
         if (res.ok) {
           const data = (await res.json()) as { ok: boolean; raw: string };
@@ -382,6 +384,7 @@ export default function AdminPage() {
         signed_at,
         signed_by: signerName,
         qr_payload: qrPayload,
+        signer_title: signerTitle,
       };
       // Save the official record FIRST — prevents data loss if upsert fails.
       // If save fails, nothing is deleted and the system stays consistent.
@@ -1393,7 +1396,7 @@ export default function AdminPage() {
                         onVerify={verify}
                         onReject={reject}
                         onLanjut={lanjutApproval}
-                        onApprove={approve}
+                        onApprove={(r, signerTitle) => approve(r, signerTitle)}
                       />
                       {preview.status === "Disetujui" && qrUrl && (
                         <div className="flex flex-col items-center mt-4">
@@ -1723,10 +1726,10 @@ function MonitoringTable({
                                 <Button
                                   key={a}
                                   size="sm"
-                                  onClick={() => onApprove(r)}
+                                  onClick={() => { setPreview(r); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                                   className="bg-success hover:bg-success/90 text-background"
                                 >
-                                  <FileSignature className="h-3.5 w-3.5 mr-1" /> Approve
+                                  <Eye className="h-3.5 w-3.5 mr-1" /> Approve
                                 </Button>
                               );
                             if (a === "surat.reject")

@@ -27,6 +27,7 @@ export type PdfGenParams = {
     catatan?: string;
     signed_at?: string;
     signed_by?: string;
+    signer_title?: string;
     qr_payload?: string;
     created_at: string;
     updated_at?: string;
@@ -793,17 +794,18 @@ export async function generateSuratPdf({
 
   y = ttdY;
 
-  // Kolom kanan: kepala desa
+  // Kolom kanan: penanda tangan
+  const signerLabel = surat.signer_title ?? settings.signature.signer_title ?? "Kepala Desa";
   drawLater(`${settings.village.name}, ${tglSurat}`, { size: 9, align: "center" });
   flush();
   if (surat.signed_by) {
-    drawLater("Kepala Desa,", { size: 9, align: "center" });
+    drawLater(`${signerLabel},`, { size: 9, align: "center" });
     flush();
     y -= 50;
     drawLater(surat.signed_by, { size: 10, bold: true, align: "center" });
     flush();
   } else {
-    drawLater("Kepala Desa,", { size: 9, align: "center" });
+    drawLater(`${signerLabel},`, { size: 9, align: "center" });
     flush();
     y -= 50;
     drawLater(settings.signature.signer_name, { size: 10, bold: true, align: "center" });

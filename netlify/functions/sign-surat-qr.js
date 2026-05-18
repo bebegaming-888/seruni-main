@@ -54,7 +54,7 @@ exports.handler = async function (event, context) {
     return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: "Invalid JSON" }) };
   }
 
-  const { no, nik, kode } = body;
+  const { no, nik, kode, signer = "Kepala Desa" } = body;
   if (!no || !nik || !kode) {
     return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: "Parameter no, nik, dan kode wajib diisi" }) };
   }
@@ -68,7 +68,7 @@ exports.handler = async function (event, context) {
   }
 
   // Server-side HMAC-SHA256 signing
-  const data = ["SERUNI-MUMBUL", no, nik, kode, timestamp].join("|");
+  const data = ["SERUNI-MUMBUL", no, nik, kode, signer, timestamp].join("|");
   const signature = await hmacSha256Hex(data, QR_SECRET);
   const raw = [data, signature].join("|");
 

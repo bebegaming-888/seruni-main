@@ -117,6 +117,7 @@ export type SystemSettings = {
   signature: {
     signer_name: string;
     signer_title: string;
+    sekdes_name: string;
     require_qr: boolean;
     qr_secret: string;
     sign_image_url: string;
@@ -239,6 +240,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   signature: {
     signer_name: "",
     signer_title: "",
+    sekdes_name: "",
     require_qr: false,
     qr_secret: "",
     sign_image_url: "",

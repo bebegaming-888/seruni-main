@@ -43,7 +43,8 @@ export type SuratPreviewPanelActions = {
   onVerify?: (r: SuratRecord) => void;
   onReject?: (r: SuratRecord, alasan: string) => void;
   onLanjut?: (r: SuratRecord) => void;
-  onApprove?: (r: SuratRecord) => void;
+  /** onApprove receives record + signer title */
+  onApprove?: (r: SuratRecord, signerTitle: string) => void;
 };
 
 interface SuratPreviewPanelProps extends SuratPreviewPanelActions {
@@ -346,6 +347,8 @@ export function SuratPreviewPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [signerModalOpen, setSignerModalOpen] = useState(false);
+  const [pendingRecord, setPendingRecord] = useState<SuratRecord | null>(null);
 
   const hasActions = !!(onVerify || onReject || onLanjut || onApprove);
 
@@ -474,7 +477,10 @@ export function SuratPreviewPanel({
             <Button
               size="sm"
               className="bg-success hover:bg-success/90 text-background flex-1"
-              onClick={() => onApprove(preview)}
+              onClick={() => {
+                setPendingRecord(preview);
+                setSignerModalOpen(true);
+              }}
             >
               <FileText className="h-4 w-4 mr-1" /> Approve & TTD
             </Button>
@@ -499,6 +505,48 @@ export function SuratPreviewPanel({
         onClose={() => setRejectModalOpen(false)}
         onConfirm={handleReject}
       />
+
+      {/* ── Signer Selection Modal ── */}
+      {pendingRecord && (
+        <Dialog open={signerModalOpen} onOpenChange={(v) => { if (!v) { setSignerModalOpen(false); setPendingRecord(null); } }}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-success" /> Pilih Penandatangan
+              </DialogTitle>
+              <DialogDescription>
+                {pendingRecord.nama_surat} — {pendingRecord.pemohon}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <p className="text-sm font-medium text-foreground">
+                Siapa yang menandatangani surat ini?
+              </p>
+              <div className="space-y-2">
+                <button
+                  onClick={() => { onApprove?.(pendingRecord, "Kepala Desa"); setSignerModalOpen(false); setPendingRecord(null); }}
+                  className="w-full text-left rounded-xl border-2 border-border hover:border-primary/40 hover:bg-primary/5 p-4 transition"
+                >
+                  <p className="font-semibold text-foreground">H. Sumardi, S.Sos.</p>
+                  <p className="text-sm text-muted-foreground">Kepala Desa Seruni Mumbul</p>
+                </button>
+                <button
+                  onClick={() => { onApprove?.(pendingRecord, "Sekretaris Desa"); setSignerModalOpen(false); setPendingRecord(null); }}
+                  className="w-full text-left rounded-xl border-2 border-border hover:border-primary/40 hover:bg-primary/5 p-4 transition"
+                >
+                  <p className="font-semibold text-foreground">Sekretaris Desa</p>
+                  <p className="text-sm text-muted-foreground">Sekretaris Desa Seruni Mumbul</p>
+                </button>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setSignerModalOpen(false); setPendingRecord(null); }}>
+                Batal
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
