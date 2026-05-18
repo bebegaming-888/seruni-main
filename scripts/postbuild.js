@@ -41,7 +41,21 @@ if (!manifest) {
 
 const manifestContent = fs.readFileSync(path.join(manifest.dir, manifest.file), "utf-8");
 
-const match = manifestContent.match(/clientEntry:\s*"([^"]+)"/);
+// Try multiple patterns for clientEntry
+let match = manifestContent.match(/clientEntry:\s*"([^"]+)"/);
+if (!match) {
+  match = manifestContent.match(/clientEntry:\s*'([^']+)'/);
+}
+if (!match) {
+  // Fallback: find any entry-*.js in client assets
+  const clientAssets = path.join(distClient, "assets");
+  const files = fs.readdirSync(clientAssets);
+  const entryFile = files.find((f) => f.startsWith("entry-") && f.endsWith(".js"));
+  if (entryFile) {
+    console.info("[postbuild] Using fallback entry:", entryFile);
+    match = [null, `/assets/${entryFile}`];
+  }
+}
 if (!match) {
   console.warn("[postbuild] clientEntry not found in manifest, skipping");
   process.exit(0);
