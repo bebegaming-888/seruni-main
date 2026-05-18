@@ -36,14 +36,6 @@ jobs:
         uses: nwtgck/actions-netlify@v3.0
         with:
           publish-dir: ./dist/client
-<<<<<<< HEAD
-          production-deploy: true
-          enable-pull-request-comment: true
-          enable-commit-comment: true
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-=======
           production-branch: main
           production-deploy: true
           deploy-message: "Deploy from GitHub Actions — ${{ github.event.head_commit.message }}"
@@ -54,4 +46,3 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         timeout-minutes: 10
->>>>>>> f921567 (ci: add Netlify GitHub Actions deploy workflow (auto-deploy on push))
