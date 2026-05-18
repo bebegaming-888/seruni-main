@@ -103,8 +103,8 @@ try {
 
   const manifestFn = eval(stripped);
   const data = typeof manifestFn === "function" ? manifestFn() : manifestFn;
-  const routes = (data && (data.routes || data)) || {};
-  routesJson = JSON.stringify(routes);
+  // Keep full manifest structure, not just routes
+  routesJson = JSON.stringify(data || {});
   console.info("[postbuild] Routes manifest extracted OK, size:", routesJson.length, "bytes");
 } catch (e) {
   console.warn("[postbuild] Could not extract routes from manifest:", e.message);
