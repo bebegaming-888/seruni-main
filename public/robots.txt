@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+Disallow: /api/
+Disallow: /admin/
+Disallow: /*.json$
+
+# Block common non-content paths
+Disallow: /masuk/edit-surat/
+
+Sitemap: https://serunimumbul.id/sitemap.xml
