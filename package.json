@@ -16,7 +16,6 @@
     "build:analyze": "vite build --mode analyze && npx vite-bundle-analyzer dist/",
     "analyze:bundle": "vite build --mode analyze && node dist-bundle/analyze.js"
   },
-
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
@@ -103,13 +102,17 @@
     "express": "^5.2.1",
     "express-async-errors": "^3.1.1",
     "globals": "^15.15.0",
+    "papaparse": "^5.5.3",
     "pg": "^8.21.0",
     "playwright": "^1.60.0",
     "prettier": "^3.7.3",
+    "qrcode": "^1.5.4",
+    "quill": "^2.0.3",
     "rollup-plugin-visualizer": "^7.0.1",
     "sharp": "^0.34.5",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "xlsx": "^0.18.5"
   }
 }
