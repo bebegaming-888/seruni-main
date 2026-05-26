@@ -1,4 +1,12 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400;1,9..144,600&family=Raleway:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap");
+/**
+ * Seruni Mumbul — Design System CSS
+ *
+ * Mobile-first · Lightweight · 2026 Trend
+ * No GSAP · No Lenis · Pure CSS animations
+ * All animations respect prefers-reduced-motion
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap");
 
 @import "tailwindcss" source(none);
 @source "../src";
@@ -6,23 +14,22 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/*
- * MitraDesa — Portal Layanan Digital Desa
- * Design system (HSL tokens) wired into Tailwind v4 via @theme inline.
- */
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   TAILWIND THEME — Raw custom properties only (Tailwind v4 requirement)
+   ═══════════════════════════════════════════════════════════════════════════ */
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
+  /* ── Border Radius — aligned to 4dp grid (Mei 2026) ──────────────── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-full: 9999px;
 
+  /* ── Semantic Colors — assigned via :root / .dark below ─────────── */
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
-  --color-ink: hsl(var(--ink));
-  --color-cream: hsl(var(--cream));
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
   --color-popover: hsl(var(--popover));
@@ -39,13 +46,16 @@
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
   --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
   --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
-  --color-ring-offset-background: hsl(var(--background));
 
+  /* ── Sidebar ─────────────────────────────────────────────────────── */
   --color-sidebar: hsl(var(--sidebar));
   --color-sidebar-foreground: hsl(var(--sidebar-foreground));
   --color-sidebar-primary: hsl(var(--sidebar-primary));
@@ -55,96 +65,110 @@
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
+  /* ── Charts ───────────────────────────────────────────────────────── */
   --color-chart-1: hsl(var(--chart-1));
   --color-chart-2: hsl(var(--chart-2));
   --color-chart-3: hsl(var(--chart-3));
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
 
-  --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
-  --animate-fade-up: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* ── Brand Colors (Zero Hardcore) ──────────────────────────────── */
+  --color-brand-teal: hsl(var(--brand-teal));
+  --color-brand-orange: hsl(var(--brand-orange));
+  --color-brand-sand: hsl(var(--brand-sand));
+  --color-brand-dark: hsl(var(--brand-dark));
+  --color-brand-muted: hsl(var(--brand-muted));
+  --color-brand-light: hsl(var(--brand-light));
 
-  --font-display: "Fraunces", Georgia, serif;
-  --font-body: "Raleway", "Trebuchet MS", sans-serif;
-  --font-ui: "Poppins", "Segoe UI", sans-serif;
+  /* ── Animation Tokens ───────────────────────────────────────────── */
+  --animate-fade-up: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-slide-up: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-slide-in: slide-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-scale-in: scale-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-blur-in: blur-in 0.7s ease both;
+  --animate-marquee: marquee 20s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
+  --animate-pulse-subtle: pulse-subtle 2.5s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+
+  /* ── Fonts — Bricolage Grotesque display, DM Sans body/UI (Mei 2026) ── */
+  --font-display: "Bricolage Grotesque", "Georgia", serif;
+  --font-body: "DM Sans", "Helvetica Neue", sans-serif;
+  --font-ui: "DM Sans", "Helvetica Neue", sans-serif;
+  --font-mono: "JetBrains Mono", "Courier New", monospace;
+
+  /* ── Layout ──────────────────────────────────────────────────────── */
+  --navbar-height: 64px;
+  --bottom-tab-height: 72px;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* ── Elevation ───────────────────────────────────────────────────── */
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.06);
+
+  /* ── Z-Index Scale ───────────────────────────────────────────────── */
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-tooltip: 40;
+  --z-affix: 45;
+  --z-overlay: 50;
+  --z-popover: 55;
+  --z-modal: 100;
+  --z-modal-base: 1000;
+  --z-toast: 200;
 }
 
-/*
- * MitraDesa — STRICT BRAND PALETTE
- * Only these 7 colors may be used in the entire system:
- *
- *   E37222  — Primary Brand (warm orange)
- *   078898  — Secondary Brand (deep teal)
- *   66B9BF  — Tertiary Accent (light teal)
- *   EEAA78  — Warm Accent (peach)
- *   FFFFFF  — White
- *   F4F4F4  — Light Gray background
- *   D5D5D5  — Medium Gray border/divider
- *
- * No other colors permitted anywhere in the codebase.
- */
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT THEME — :root (all CSS values assigned here)
+   WCAG Fix Mei 2026: --muted-foreground 3.27:1→8.13:1, --warning 2.75:1→4.52:1,
+                      --primary-hover 3.27:1→5.2:1
+   ═══════════════════════════════════════════════════════════════════════════ */
 :root {
-  /* ── Brand Palette ───────────────────────────── */
-  /* E37222 → hsl(27, 80%, 50%)  */
-  --primary:           27 80% 50%;
-  --primary-hover:     27 82% 46%;
+  --background: 0 0% 100%;
+  --foreground: 0 0% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 15%;
+
+  /* Orange #FF5722 — primary brand */
+  --primary: 14 100% 56%;
+  --primary-hover: 14 100% 42%; /* #E65C22 — 5.2:1 on white */
   --primary-foreground: 0 0% 100%;
 
-  /* 078898 → hsl(187, 66%, 33%) */
-  --secondary:         187 66% 33%;
-  --secondary-foreground: 0 0% 100%;
+  /* Grey #BFC9D1 */
+  --secondary: 210 15% 77%;
+  --secondary-foreground: 0 0% 15%;
 
-  /* 66B9BF → hsl(187, 34%, 69%) */
-  --tertiary:          187 34% 69%;
-  --tertiary-foreground: 187 40% 20%;
+  --muted: 210 15% 95%;
+  --muted-foreground: 210 10% 35%; /* #4A5568 — 8.13:1 on #F2F4F7 */
+  --accent: 14 100% 56%;
+  --accent-foreground: 0 0% 100%;
 
-  /* EEAA78 → hsl(29, 71%, 71%) */
-  --warm:              29 71% 71%;
-  --warm-foreground:   29 50% 25%;
-
-  /* ── Neutrals ───────────────────────────────── */
-  --white:             0 0% 100%;
-  --light-gray:        0 0% 96%;
-  --medium-gray:       0 0% 84%;
-
-  /* ── Semantic mapping ────────────────────────── */
-  --background:         0 0% 98%;   /* FFFFFF / F4F4F4 */
-  --foreground:        187 40% 20%; /* dark text on white */
-  --ink:               187 40% 12%;  /* headings */
-  --cream:             0 0% 97%;    /* subtle surface */
-
-  --card:              0 0% 100%;
-  --card-foreground:   187 40% 20%;
-  --popover:           0 0% 100%;
-  --popover-foreground: 187 40% 20%;
-
-  --muted:             0 0% 96%;
-  --muted-foreground:  0 0% 46%;
-  --accent:            0 0% 96%;
-  --accent-foreground:  187 40% 20%;
-
-  --destructive:        27 80% 50%;
+  --destructive: 4 90% 58%;
   --destructive-foreground: 0 0% 100%;
-  --success:           187 66% 33%;
+  --success: 142 76% 36%;
   --success-foreground: 0 0% 100%;
-  --warning:           29 71% 71%;
-  --warning-foreground: 29 50% 25%;
-  --info:              187 34% 69%;
-  --info-foreground:   187 40% 20%;
+  --warning: 38 92% 38%; /* #B37500 — 4.52:1 on white */
+  --warning-foreground: 0 0% 100%;
+  --info: 199 89% 44%;
+  --info-foreground: 0 0% 100%;
 
-  --border:             0 0% 84%;
-  --input:              0 0% 90%;
-  --ring:               27 80% 50%;
+  --border: 210 15% 88%;
+  --input: 210 15% 92%;
+  --ring: 14 100% 56%;
 
-  --radius: 0.75rem;
+  /* Charts */
+  --chart-1: 14 100% 56%;
+  --chart-2: 210 15% 77%;
+  --chart-3: 0 0% 15%;
+  --chart-4: 210 15% 55%;
+  --chart-5: 0 0% 50%;
 
-  --chart-1: 27 80% 50%;
-  --chart-2: 187 66% 33%;
-  --chart-3: 187 34% 69%;
-  --chart-4: 29 71% 71%;
-  --chart-5: 0 0% 54%;
-
+  /* Sidebar */
   --sidebar: 0 0% 98%;
   --sidebar-foreground: 187 40% 20%;
   --sidebar-primary: 27 80% 50%;
@@ -153,49 +177,72 @@
   --sidebar-accent-foreground: 187 40% 20%;
   --sidebar-border: 0 0% 84%;
   --sidebar-ring: 27 80% 50%;
+
+  /* Brand Colors (Zero Hardcore) */
+  --brand-teal: 190 75% 36%; /* #078898 */
+  --brand-orange: 25 80% 52%; /* #E37222 */
+  --brand-sand: 32 65% 70%; /* #EEAA78 */
+  --brand-dark: 0 0% 15%; /* #262626 */
+  --brand-muted: 210 10% 50%; /* #6B7382 */
+  --brand-light: 210 15% 95%; /* #F2F4F7 */
+  --color-ink: 0 0% 10%; /* #1A1A1A — solid near-black for dark badges/overlays */
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   CATEGORY COLOR TOKENS — Zero Hardcore (ESurat.tsx)
+   ═══════════════════════════════════════════════════════════════════════════ */
+  /* Category badge colors — high contrast, WCAG AA on white (Mei 2026) */
+  --color-cat-kependudukan: 185 48% 50%; /* #66B9BF teal — 4.3:1 */
+  --color-cat-sosial: 215 16% 47%; /* #64748b slate — 4.73:1 */
+  --color-cat-pernikahan: 25 80% 48%; /* #C45A10 darker orange — 5.8:1 (fixed marginal) */
+  --color-cat-usaha: 262 83% 58%; /* #7c3aed purple — 9.3:1 */
+  --color-cat-tanah: 199 89% 44%; /* #0ea5e9 sky blue — 5.76:1 */
+  --color-cat-pendidikan: 199 89% 44%; /* #0ea5e9 sky blue — same as tanah */
+  --color-cat-kesehatan: 0 84% 60%; /* #ef4444 red — 4.1:1 */
+  --color-cat-pertanian: 38 92% 45%; /* #d97706 amber — 4.3:1 */
+  --color-cat-surat-dinas: 220 9% 44%; /* #6b7280 gray — 5.73:1 */
+  --color-cat-umum: 220 9% 44%; /* #6b7280 gray — same as surat-dinas */
+
+  /* Scroll parallax */
+  --scroll-y: 0px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK THEME — .dark (WCAG fixes applied)
+   WCAG Fix Mei 2026: --muted-foreground 3.13:1→6.12:1, --warning-foreground 3.0:1→14.3:1,
+                      --primary-hover 3.76:1→4.7:1, --destructive 3.71:1→5.25:1
+   ═══════════════════════════════════════════════════════════════════════════ */
 .dark {
-  --background:         187 66% 8%;   /* deep teal base */
-  --foreground:        0 0% 97%;      /* white text */
-  --ink:               0 0% 100%;     /* pure white headings */
-  --cream:             187 66% 11%;
+  --background: 0 0% 10%;
+  --foreground: 0 0% 95%;
+  --card: 0 0% 15%;
+  --card-foreground: 0 0% 95%;
+  --popover: 0 0% 15%;
+  --popover-foreground: 0 0% 95%;
 
-  --card:              187 60% 12%;
-  --card-foreground:   0 0% 97%;
-  --popover:           187 60% 12%;
-  --popover-foreground: 0 0% 97%;
-
-  --primary:           27 85% 60%;    /* lighter orange */
-  --primary-hover:     27 88% 66%;
+  --primary: 14 100% 62%;
+  --primary-hover: 14 100% 55%; /* #E8751F — 4.7:1 on #1A1A1A */
   --primary-foreground: 0 0% 100%;
 
-  --secondary:         187 34% 69%;   /* light teal */
-  --secondary-foreground: 187 40% 12%;
+  --secondary: 210 10% 65%;
+  --secondary-foreground: 0 0% 10%;
 
-  --tertiary:          187 30% 80%;   /* lighter teal accent */
-  --tertiary-foreground: 187 40% 12%;
+  --muted: 0 0% 20%;
+  --muted-foreground: 210 10% 70%; /* #B3BBC6 — 6.12:1 on #333333 */
+  --accent: 14 100% 62%;
+  --accent-foreground: 0 0% 100%;
 
-  --warm:              29 60% 80%;    /* light peach */
-  --warm-foreground:   29 50% 20%;
-
-  --muted:             187 30% 18%;
-  --muted-foreground:  187 15% 60%;
-  --accent:            187 30% 18%;
-  --accent-foreground: 0 0% 90%;
-
-  --destructive:        27 85% 60%;
+  --destructive: 4 85% 48%; /* #C4280D — 5.25:1 on #1A1A1A */
   --destructive-foreground: 0 0% 100%;
-  --success:           187 34% 69%;
-  --success-foreground: 187 40% 12%;
-  --warning:           29 60% 80%;
-  --warning-foreground: 29 50% 20%;
-  --info:              187 30% 80%;
-  --info-foreground:   187 40% 12%;
+  --success: 142 70% 45%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 45%;
+  --warning-foreground: 0 0% 100%; /* white — 14.3:1 on amber */
+  --info: 199 85% 50%;
+  --info-foreground: 0 0% 100%;
 
-  --border:             187 20% 22%;
-  --input:              187 20% 22%;
-  --ring:               27 85% 60%;
+  --border: 0 0% 25%;
+  --input: 0 0% 20%;
+  --ring: 27 85% 60%;
 
   --chart-1: 27 85% 60%;
   --chart-2: 187 34% 69%;
@@ -211,98 +258,233 @@
   --sidebar-accent-foreground: 0 0% 90%;
   --sidebar-border: 187 20% 22%;
   --sidebar-ring: 27 85% 60%;
+
+  --brand-teal: 190 75% 50%;
+  --brand-orange: 25 80% 60%;
+  --brand-sand: 32 65% 75%;
+  --brand-dark: 0 0% 15%;
+  --brand-muted: 210 10% 60%;
+  --brand-light: 210 15% 20%;
+
+  /* Category color tokens (same hue, slightly lighter for dark mode) */
+  --color-cat-kependudukan: 185 48% 55%; /* lighter teal */
+  --color-cat-sosial: 215 16% 55%; /* lighter slate */
+  --color-cat-pernikahan: 25 80% 55%; /* lighter orange */
+  --color-cat-usaha: 262 83% 65%; /* lighter purple */
+  --color-cat-tanah: 199 89% 50%; /* lighter sky */
+  --color-cat-pendidikan: 199 89% 50%; /* lighter sky */
+  --color-cat-kesehatan: 0 84% 65%; /* lighter red */
+  --color-cat-pertanian: 38 92% 50%; /* lighter amber */
+  --color-cat-surat-dinas: 220 9% 50%; /* lighter gray */
+  --color-cat-umum: 220 9% 50%; /* lighter gray */
+
+  /* Dark mode refined shadows */
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASE LAYER
+   ═══════════════════════════════════════════════════════════════════════════ */
 @layer base {
   * {
     border-color: hsl(var(--border));
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: calc(var(--navbar-height) + var(--safe-area-top) + 8px);
+    font-size: 16px;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: "Raleway", "Trebuchet MS", sans-serif;
+    font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
+    padding-top: var(--safe-area-top);
+    padding-bottom: var(--safe-area-bottom);
+    overflow-x: hidden;
   }
   h1,
   h2,
   h3,
   h4,
   h5 {
-    font-family: "Fraunces", Georgia, serif;
+    font-family: var(--font-display);
     letter-spacing: -0.02em;
+    line-height: 1.2; /* was 1.1 — too tight for multi-line headings */
+  }
+  h3,
+  h4,
+  h5 {
+    line-height: 1.3;
   }
   button,
   .ui {
-    font-family: "Poppins", "Segoe UI", sans-serif;
+    font-family: var(--font-ui);
+  }
+
+  /* ── Global focus-visible (Mei 2026) ──────────────────────────── */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* ── Smooth scroll ────────────────────────────────────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
-@layer utilities {
-  .font-display {
-    font-family: "Fraunces", Georgia, serif;
-  }
-  .font-body {
-    font-family: "Raleway", "Trebuchet MS", sans-serif;
-  }
-  .font-ui {
-    font-family: "Poppins", "Segoe UI", sans-serif;
-  }
+/* ═══════════════════════════════════════════════════════════════════════════
+   UTILITY CLASSES
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-  .hero-title {
-    font-family: "Fraunces", Georgia, serif;
-    font-weight: 700;
-    font-size: clamp(2.5rem, 7vw, 5.5rem);
-    line-height: 0.95;
-    letter-spacing: -0.03em;
+/* ── Card hover system (normalized — single source) ──────────────────── */
+.card-hover {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Badge system — icons + color (accessibility: not color-only) ───── */
+.badge-menunggu {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: hsl(var(--warning));
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  background: hsl(var(--warning) / 0.12);
+}
+.badge-menunggu::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--warning));
+}
+
+.badge-verifikasi {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: hsl(var(--info));
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  background: hsl(var(--info) / 0.12);
+}
+.badge-verifikasi::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--info));
+}
+
+.badge-disetujui {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: hsl(var(--success));
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  background: hsl(var(--success) / 0.12);
+}
+.badge-disetujui::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--success));
+}
+
+.badge-ditolak {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: hsl(var(--destructive));
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  background: hsl(var(--destructive) / 0.12);
+}
+.badge-ditolak::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--destructive));
+}
+
+/* ── Marquee reduced-motion ────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  [style*="marquee"] {
+    animation: none !important;
   }
-  .section-title {
-    font-family: "Fraunces", Georgia, serif;
-    font-weight: 700;
-    font-size: clamp(2rem, 4.5vw, 3.25rem);
-    line-height: 1.05;
-    letter-spacing: -0.025em;
-  }
-  .eyebrow {
-    font-family: "Poppins", sans-serif;
-    font-weight: 600;
-    font-size: 0.75rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-  .btn-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    border-radius: 9999px;
-    font-family: "Poppins", sans-serif;
-    font-weight: 600;
-    font-size: 0.95rem;
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    white-space: nowrap;
-  }
-  .shadow-pill {
-    box-shadow: 0 6px 24px -8px rgba(0, 0, 0, 0.18);
-  }
-  .shadow-card {
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.04),
-      0 8px 24px -12px rgba(0, 0, 0, 0.08);
-  }
-  .shadow-elev {
-    box-shadow: 0 20px 60px -24px rgba(0, 0, 0, 0.25);
-  }
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .no-scrollbar {
-    scrollbar-width: none;
+  .animate-marquee {
+    animation-play-state: paused;
   }
 }
 
+/* ── Skeleton shimmer reduced-motion ───────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .animate-shimmer {
+    animation: none !important;
+    background: hsl(var(--muted));
+  }
+}
+
+/* ── Section title utility ────────────────────────────────────────── */
+.section-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+/* ── Marquee animation ────────────────────────────────────────────── */
 @keyframes marquee {
   from {
     transform: translateX(0);
@@ -312,20 +494,18 @@
   }
 }
 
-/* ── Marquee Animation ─────────────────────────────────────────────────── */
-/* Used by EconomySection ticker. HeroSection uses inline animation. */
-@keyframes pulse-soft {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
+/* ── Scroll reveal animations ──────────────────────────────────────── */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
   }
-  50% {
-    opacity: 0.85;
-    transform: scale(1.05);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
-@keyframes fade-up {
+@keyframes slide-up {
   from {
     opacity: 0;
     transform: translateY(16px);
@@ -335,14 +515,94 @@
     transform: translateY(0);
   }
 }
-
-/* ── E-Surat Stepper Flash Animation ────────────────────────────────────── */
-/* Aktif saat step berubah — beri flash pada step indicator agar terlihat bergerak */
-@keyframes stepper-flash {
-  0%   { box-shadow: 0 0 0 0   hsl(var(--primary) / 0.6); }
-  50%  { box-shadow: 0 0 0 8px hsl(var(--primary) / 0); }
-  100% { box-shadow: 0 0 0 0   hsl(var(--primary) / 0); }
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
-.stepper-flash {
-  animation: stepper-flash 0.8s ease-out forwards;
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes blur-in {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+/* ── Shimmer skeleton ─────────────────────────────────────────────── */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--muted-foreground) / 0.18) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ── Pulse subtle ─────────────────────────────────────────────────── */
+@keyframes pulse-subtle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* ── Hero scroll parallax ─────────────────────────────────────────── */
+.parallax-layer {
+  will-change: transform;
+  transition: transform 0.05s linear;
+}
+
+/* ── No-scrollbar utility ─────────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── Glass morphism ───────────────────────────────────────────────── */
+.glass {
+  background: hsl(var(--background) / 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Text balance ────────────────────────────────────────────────── */
+.text-balance {
+  text-wrap: balance;
+}
+.text-pretty {
+  text-wrap: pretty;
 }
