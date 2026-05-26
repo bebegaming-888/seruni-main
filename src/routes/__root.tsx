@@ -4,6 +4,8 @@ import { getSettings } from "@/lib/settings-store";
 import { getVillage } from "@/lib/village-dynamic";
 import { initSentry } from "@/lib/sentry";
 import { ErrorBoundary } from "@sentry/react";
+import { BottomTabBar } from "@/components/site/BottomTabBar";
+import { Preloader } from "@/components/ui/Preloader";
 
 import { useEffect, useState } from "react";
 import { initAllStores } from "@/lib/store-init";
@@ -35,6 +37,24 @@ function useServiceWorker() {
         reg.active?.postMessage({ type: "PROCESS_OFFLINE_QUEUE" });
       })
       .catch((err) => console.warn("[SW] Registration failed:", err));
+  }, []);
+}
+
+function useSmoothScroll() {
+  useEffect(() => {
+    // CSS-only smooth scroll — no Lenis needed
+    document.documentElement.style.scrollBehavior = "smooth";
+
+    // Sync CSS var for scroll position (for parallax)
+    const handleScroll = () => {
+      document.documentElement.style.setProperty("--scroll-y", `${window.scrollY}px`);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 }
 
@@ -84,6 +104,11 @@ export const Route = createRootRoute({
     const vName = String(getVillage("name") ?? "Desa Seruni Mumbul");
     const tagline = String(settings?.branding?.tagline ?? `Portal Resmi ${vName}`);
     const villageName = String(getVillage("village") ?? vName);
+
+    // Dynamic color-scheme based on settings (light/dark/system)
+    const theme = settings?.appearance?.theme ?? "light";
+    const colorScheme = theme === "system" ? "light dark" : theme;
+
     return {
       meta: [
         { charSet: "utf-8" },
@@ -93,7 +118,7 @@ export const Route = createRootRoute({
         { name: "apple-mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-status-bar-style", content: "default" },
         { name: "apple-mobile-web-app-title", content: villageName },
-        { name: "color-scheme", content: "light" },
+        { name: "color-scheme", content: colorScheme },
         { title: villageName },
         { name: "description", content: tagline },
         { name: "author", content: villageName },
@@ -123,12 +148,51 @@ export const Route = createRootRoute({
 function RootShell({ children }: { children: React.ReactNode }) {
   useServiceWorker();
   useOfflineQueue();
+  useSmoothScroll();
+
+  // FIX (Mei 2026): Apply .dark class to <html> based on theme setting.
+  // CSS already defines .dark {} selectors; this activates them.
+  useEffect(() => {
+    const settings = getSettings();
+    const theme = settings?.appearance?.theme ?? "light";
+    const root = document.documentElement;
+
+    const applyTheme = (isDark: boolean) => {
+      root.classList.toggle("dark", isDark);
+    };
+
+    if (theme === "dark") {
+      applyTheme(true);
+    } else if (theme === "light") {
+      applyTheme(false);
+    } else {
+      // "system" — follow OS preference
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      applyTheme(mq.matches);
+      const handler = (e: MediaQueryListEvent) => applyTheme(e.matches);
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
+    }
+  }, []);
+
   return (
     <html lang="id">
       <head>
+        {/* Prevent dark mode FOUC — must run before React hydrates */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var d=document.documentElement.classList;if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches)){d.add('dark')}else{d.remove('dark')}}catch(e){}})()`,
+          }}
+        />
         <HeadContent />
       </head>
       <body>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:shadow-lg"
+        >
+          Lewati ke konten utama
+        </a>
         <SentryErrorFallback>{children}</SentryErrorFallback>
         <Scripts />
       </body>
@@ -199,41 +263,59 @@ function SentryErrorFallback({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [initProgress, setInitProgress] = useState("Memuat...");
 
   useEffect(() => {
-    // Await store init SEBELUM render — tidak ada race condition
+    console.info("[root] Starting store initialization...");
+
+    let timeoutFired = false;
+    const timeoutId = setTimeout(() => {
+      console.warn("[root] ⏰ 20s ABSOLUTE TIMEOUT — forcing ready (stores may be incomplete)");
+      timeoutFired = true;
+      setReady(true);
+    }, 20_000);
+
     initAllStores()
       .then(() => {
-        setReady(true);
-        console.info("[root] All stores initialized successfully");
+        clearTimeout(timeoutId);
+        if (!timeoutFired) {
+          console.info("[root] ✅ All stores initialized successfully");
+          setInitProgress("Hampir siap...");
+          setReady(true);
+        } else {
+          console.warn("[root] Init completed after timeout already fired");
+        }
       })
       .catch((err) => {
-        console.error("[root] Store initialization failed:", err);
+        clearTimeout(timeoutId);
+        console.error("[root] ❌ Store initialization failed:", err);
+        console.error("[root] Error stack:", err?.stack);
         setError(err instanceof Error ? err.message : "Initialization failed");
-        setReady(true); // tetap render meskipun gagal
+        setInitProgress("Initialization failed");
+        // DO NOT setReady(true) — keep error screen visible
       });
   }, []);
 
   if (!ready) {
-    // Loading state dengan spinner
+    // Loading state dengan spinner + progress message
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-4 max-w-xs">
           <div className="inline-flex h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="font-ui text-sm text-muted-foreground">Memuat aplikasi...</p>
+          <p className="font-ui text-sm text-muted-foreground">{initProgress}</p>
+          {error && <div className="mt-2 text-xs text-destructive font-mono">{error}</div>}
         </div>
       </div>
     );
   }
 
-  if (error) {
-    // Error state (non-blocking — tetap render app)
-    console.warn("[root] App loaded with initialization errors:", error);
-  }
-
   return (
     <>
-      <Outlet />
+      <Preloader />
+      <div id="main-content" className="pb-tab-bar">
+        <Outlet />
+      </div>
+      <BottomTabBar />
       <Toaster richColors position="top-right" />
     </>
   );
