@@ -138,6 +138,27 @@ export const Route = createRootRoute({
         { rel: "preconnect", href: "https://fonts.googleapis.com" },
         { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       ],
+      scripts: [
+        {
+          type: "application/ld+json",
+          innerHTML: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "GovernmentOrganization",
+            "name": vName,
+            "alternateName": `${vName} Village`,
+            "url": "https://serunimumbul.id",
+            "description": `Portal resmi ${vName} — layanan informasi dan pemerintahan desa`,
+            "areaServed": {
+              "@type": "Place",
+              "name": villageName,
+            },
+            "parentOrganization": {
+              "@type": "GovernmentOrganization",
+              "name": "Kecamatan Bersama",
+            },
+          }),
+        },
+      ],
     };
   },
   shellComponent: RootShell,

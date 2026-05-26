@@ -527,6 +527,28 @@ export const Route = createFileRoute("/informasi/berita/$slug")({
   head: ({ params }) => {
     const article = useBeritaStore.getState().items.find((a) => a.slug === params.slug);
     const { village } = getSettings();
+
+    // JSON-LD Article structured data
+    const articleSchema = article
+      ? {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          "headline": article.title,
+          "image": article.cover_image,
+          "datePublished": article.published_at,
+          "dateModified": article.updated_at ?? article.published_at,
+          "author": {
+            "@type": "GovernmentOrganization",
+            "name": village.name,
+          },
+          "publisher": {
+            "@type": "GovernmentOrganization",
+            "name": village.name,
+            "url": "https://serunimumbul.id",
+          },
+        }
+      : null;
+
     return {
       meta: [
         {
@@ -538,6 +560,7 @@ export const Route = createFileRoute("/informasi/berita/$slug")({
         },
         ...(article?.cover_image ? [{ property: "og:image", content: article.cover_image }] : []),
       ],
+      scripts: articleSchema ? [{ type: "application/ld+json", innerHTML: JSON.stringify(articleSchema) }] : [],
     };
   },
   component: ArticleDetailPage,
