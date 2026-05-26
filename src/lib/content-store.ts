@@ -4,7 +4,14 @@
  */
 
 import { create } from "zustand";
-import { idbGet, idbPut, idbDelete, idbGetAll, type IDBStoreName } from "./idb-store";
+import {
+  idbGet,
+  idbPut,
+  idbDelete,
+  idbGetAll,
+  idbReplaceAll,
+  type IDBStoreName,
+} from "./idb-store";
 import { generateId } from "./utils";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { isStoreLocked } from "./settings-lock";
@@ -121,6 +128,22 @@ export type GaleriItem = {
   published_at?: string;
 };
 
+// 5b. Destinasi Wisata
+export type DestinasiItem = {
+  id: string;
+  title: string;
+  desc: string;
+  category: string; // "Alam" | "Budaya" | "Kuliner" | "Edukasi"
+  image_url: string;
+  storage_path?: string;
+  rating: number;
+  reviews: number;
+  lokasi?: string;
+  harga_tiket?: string;
+  jam_buka?: string;
+  published_at?: string;
+};
+
 // 6. APBDes (Anggaran Pendapatan & Belanja Desa)
 export type ApbdesItem = {
   id: string;
@@ -187,6 +210,8 @@ export type ProdukHukumItem = {
   title: string;
   year: string;
   size: string;
+  url?: string; // PDF URL (Supabase Storage path or external URL)
+  description?: string; // short description or legal basis
 };
 
 export type RealisasiItem = {
@@ -408,8 +433,8 @@ function createContentStore<T extends { id: string }>(storeName: IDBStoreName) {
                 }
                 return r as unknown as T;
               });
-              // Batch-write all remote items to IDB in parallel (was: sequential await in loop)
-              await Promise.all(mappedData.map((item) => idbPut(storeName, item)));
+              // Use idbReplaceAll for batch write (single transaction)
+              await idbReplaceAll(storeName, mappedData);
               data = mappedData;
             }
           } catch (err) {
@@ -511,14 +536,13 @@ function createContentStore<T extends { id: string }>(storeName: IDBStoreName) {
       // that exists in Supabase but hasn't finished loading yet.
       await get().load();
 
-      // After load() completes, check if still empty
-      const current = await idbGetAll<T>(storeName);
-      if (current.length === 0) {
+      // Check items from store state instead of re-reading IDB
+      if (get().items.length === 0) {
         // Only load mocks if this store is NOT locked (data guard)
         if (!isStoreLocked(storeName)) {
-          for (const m of mocks) {
-            await idbPut(storeName, { ...m, id: String(m.id) } as T);
-          }
+          // Single batch write instead of per-item idbPut
+          const toSave = mocks.map((m) => ({ ...m, id: String(m.id) })) as unknown as T[];
+          await idbReplaceAll(storeName, toSave);
         }
         // Mark as initialized and reload state
         _storeInitialized = false; // Reset flag to allow re-load
@@ -533,6 +557,7 @@ export const usePengumumanStore = createContentStore<PengumumanItem>("pengumuman
 export const useAgendaStore = createContentStore<AgendaItem>("agenda");
 export const useKomoditasStore = createContentStore<KomoditasItem>("komoditas");
 export const useGaleriStore = createContentStore<GaleriItem>("galeri");
+export const useDestinasiStore = createContentStore<DestinasiItem>("destinasi");
 export const useApbdesStore = createContentStore<ApbdesItem>("apbdes");
 
 // Halaman statis content stores

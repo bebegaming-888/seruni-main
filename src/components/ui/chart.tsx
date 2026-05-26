@@ -42,7 +42,9 @@ const ChartContainer = React.forwardRef<
   // CRITICAL: Sanitize id prop — alphanumeric + dash + underscore only.
   // Mencegah XSS via CSS selector injection (e.g. `" onload=alert(1)//`).
   // CSS attribute selector: [data-chart="..."] — special chars bisa break CSS parsing.
-  const safeId = (id ?? uniqueId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+  // Always call hooks unconditionally — call useId before the nullish coalescing.
+  const _generatedId = React.useId();
+  const safeId = (id ?? _generatedId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
   const chartId = `chart-${safeId}`;
 
   return (

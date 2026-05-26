@@ -9,21 +9,36 @@ export type Penduduk = {
   desa: string;
   dusun: string;
   rt: string;
+  rw?: string;
+  alamat?: string;
+  id_cluster?: number; // OpenSID: Mapping ID cluster wilayah
+
   // ── Identitas ────────────────────────────────────────────────────────────
   nama: string;
   jenis_kelamin: "Laki-Laki" | "Perempuan";
-  status_dalam_kk: string;
+  status_dalam_kk: string; // OpenSID mapping -> hubungan_keluarga_id
+  hubungan_keluarga_id?: number;
   no_kk: string;
   nik: string;
-  status_perkawinan: "Belum Kawin" | "Kawin" | "Cerai Hidup" | "Cerai Mati";
+  status_perkawinan: "Belum Kawin" | "Kawin" | "Cerai Hidup" | "Cerai Mati"; // OpenSID mapping -> status_kawin
   tempat_lahir: string;
   tanggal_lahir: string; // ISO yyyy-mm-dd
-  pendidikan: string;
-  pekerjaan: string;
+  pendidikan: string; // OpenSID mapping -> pendidikan_kk_id
+  pendidikan_kk_id?: number;
+  pekerjaan: string; // OpenSID mapping -> pekerjaan_id
+  pekerjaan_id?: number;
   pendapatan_bulan: string;
-  kewarganegaraan: string;
-  agama: string;
+  kewarganegaraan: string; // OpenSID mapping -> warga_negara_id
+  warga_negara_id?: number;
+  agama: string; // OpenSID mapping -> agama_id
+  agama_id?: number;
   suku: string;
+
+  // ── Status Penduduk (OpenSID Standards) ──────────────────────────────────
+  status_dasar?: number; // 1: Hidup, 2: Mati, 3: Pindah, 4: Hilang
+  ktp_el?: number; // 1: Belum Rekam, 2: Sudah Rekam, 3: KTP-EL Diterbitkan
+  status_rekam?: number; // 1-8 (detail status perekaman KTP)
+
   // ── Perumahan ────────────────────────────────────────────────────────────
   kepemilikan_rumah: string;
   luas_rumah: string;
@@ -33,11 +48,13 @@ export type Penduduk = {
   jenis_atap: string;
   kepemilikan_tanah: string;
   luas_tanah: string;
+
   // ── Fasilitas ────────────────────────────────────────────────────────────
   penerangan: string;
   sumber_energi_masak: string;
   mck: string;
   sumber_air: string;
+
   // ── Sosial & Kesehatan ───────────────────────────────────────────────────
   bantuan_sosial: string;
   bantuan_extra: string;
@@ -45,14 +62,20 @@ export type Penduduk = {
   bpjs_ketenagakerjaan: string;
   kepemilikan_aset: string;
   kondisi_fisik: string;
+  cacat_id?: number; // OpenSID: 1:Cacat Fisik, 2:Cacat Netra, dst
+  sakit_menahun_id?: number; // OpenSID: 1:Jantung, 2:Paru-paru, dst
+  cara_kb_id?: number; // OpenSID: 1:Pil, 2:IUD, dst
+
   // ── Keluarga ─────────────────────────────────────────────────────────────
   nama_ibu: string;
   nama_bapak: string;
-  golongan_darah: string;
-  // ── Legacy (opsional, bisa kosong) ───────────────────────────────────────
+  golongan_darah: string; // OpenSID mapping -> golongan_darah_id
+  golongan_darah_id?: number;
+
+  // ── Legacy (opsional) ────────────────────────────────────────────────────
   no_hp?: string;
-  alamat?: string;
-  rw?: string;
+  email?: string;
+  telegram?: string;
 };
 
 // ── Lookup lists (diambil dari data nyata Tabel_Penduduk.xlsx) ────────────────
@@ -313,4 +336,73 @@ export const PENDUDUK_MOCK: Penduduk[] = [
 export function lookupPenduduk(nik: string): Penduduk | null {
   const clean = nik.trim();
   return PENDUDUK_MOCK.find((p) => p.nik === clean) ?? null;
+}
+
+// ── OpenSID Standard Mapping Helpers ──────────────────────────────────────────
+
+export const MAP_AGAMA: Record<string, number> = {
+  Islam: 1,
+  Kristen: 2,
+  Katholik: 3,
+  Hindu: 4,
+  Buddha: 5,
+  Khonghucu: 6,
+  "Kepercayaan Terhadap Tuhan YME / Lainnya": 7,
+};
+
+export const MAP_GOLONGAN_DARAH: Record<string, number> = {
+  A: 1,
+  B: 2,
+  AB: 3,
+  O: 4,
+  "A+": 5,
+  "A-": 6,
+  "B+": 7,
+  "B-": 8,
+  "AB+": 9,
+  "AB-": 10,
+  "O+": 11,
+  "O-": 12,
+  "Tidak Diketahui": 13,
+};
+
+export const MAP_HUBUNGAN_KK: Record<string, number> = {
+  "Kepala Keluarga": 1,
+  Suami: 2,
+  Istri: 3,
+  Anak: 4,
+  Menantu: 5,
+  Cucu: 6,
+  Orangtua: 7,
+  Mertua: 8,
+  "Famili Lain": 9,
+  Pembantu: 10,
+  Lainnya: 11,
+};
+
+export const MAP_STATUS_KAWIN: Record<string, number> = {
+  "Belum Kawin": 1,
+  Kawin: 2,
+  "Cerai Hidup": 3,
+  "Cerai Mati": 4,
+};
+
+/**
+ * Computes missing OpenSID _id properties based on the string values inside a Penduduk object.
+ * Call this before saving or exporting to ensure standards compliance.
+ */
+export function syncOpenSidProperties(p: Partial<Penduduk>): void {
+  if (p.agama) p.agama_id = MAP_AGAMA[p.agama] || 7;
+  if (p.golongan_darah) p.golongan_darah_id = MAP_GOLONGAN_DARAH[p.golongan_darah] || 13;
+  if (p.status_dalam_kk) p.hubungan_keluarga_id = MAP_HUBUNGAN_KK[p.status_dalam_kk] || 11;
+  // Note: For other standard mappings like Pendidikan/Pekerjaan,
+  // you can extend this dictionary pattern based on OpenSID spec.
+
+  // Ensure default fallback values for critical fields
+  p.status_dasar = Number(p.status_dasar) || 1;
+  p.ktp_el = Number(p.ktp_el) || 1;
+  p.status_rekam = Number(p.status_rekam) || 1;
+  p.cacat_id = Number(p.cacat_id) || 0;
+  p.sakit_menahun_id = Number(p.sakit_menahun_id) || 0;
+  p.cara_kb_id = Number(p.cara_kb_id) || 0;
 }

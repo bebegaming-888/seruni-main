@@ -7,9 +7,11 @@ import { Eye, EyeOff, Lock, Mail, ShieldCheck, ArrowRight, ShieldAlert } from "l
 import { toast } from "sonner";
 import { getSettings, useSettings } from "@/lib/settings-store";
 
-// Turnstile site key — di-set via Netlify environment variables
-// Jika tidak ada, widget tidak di-render (dev mode fallback)
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "";
+// Turnstile site key — set via environment variables
+// Jika tidak ada atau di dev mode, widget tidak di-render
+const TURNSTILE_SITE_KEY = import.meta.env.DEV
+  ? ""
+  : (import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "");
 
 export const Route = createFileRoute("/login")({
   head: () => {
@@ -275,7 +277,7 @@ function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group w-full h-11 rounded-xl bg-primary text-primary-foreground font-ui text-sm font-semibold hover:bg-primary-hover transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
+              className="group w-full h-11 rounded-xl bg-primary text-primary-foreground font-ui text-sm font-semibold hover:bg-primary transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               {loading ? (
                 "Memproses..."

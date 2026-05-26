@@ -1,0 +1,2 @@
+{"type":"config","segment":0,"timestamp":1779573467743,"name":"bug-hunt-20260524","maxIterations":15,"metric":{"name":"bugs_confirmed","unit":"count","direction":"higher"}}
+{"type":"result","segment":0,"timestamp":1779574307279,"value":7,"secondaryMetrics":{},"status":"keep","description":"Iteration 1: 48 files scanned, 7 confirmed bugs (2 critical, 4 medium, 1 low)","commit":"e0f4e2f","durationMs":0}

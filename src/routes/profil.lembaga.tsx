@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Loader2,
   Building2,
+  ChevronRight,
 } from "lucide-react";
 
 export const Route = createFileRoute("/profil/lembaga")({
@@ -56,22 +57,74 @@ const JENIS_ICON: Record<string, React.ElementType> = {
 
 /** Gradient per jenis — brand palette: E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5 */
 const JENIS_GRADIENT: Record<string, string> = {
-  BPD: "from-[#078898]/10 to-[#078898]/20",
-  LPM: "from-[#66B9BF]/10 to-[#66B9BF]/20",
-  PKK: "from-[#E37222]/10 to-[#E37222]/20",
-  KARANG_TARUNA: "from-[#078898]/10 to-[#66B9BF]/20",
-  BUMDES: "from-[#EEAA78]/10 to-[#EEAA78]/20",
-  POSYANDU: "from-[#E37222]/10 to-[#E37222]/20",
-  LINMAS: "from-[#D5D5D5]/10 to-[#D5D5D5]/20",
-  FORUM_ANAK: "from-[#EEAA78]/10 to-[#EEAA78]/20",
-  POKDARWIS: "from-[#66B9BF]/10 to-[#66B9BF]/20",
-  KOPERASI: "from-[#078898]/10 to-[#078898]/20",
-  LEMBAGA_ADAT: "from-[#EEAA78]/10 to-[#EEAA78]/20",
-  POSBANKUM: "from-[#66B9BF]/10 to-[#66B9BF]/20",
-  TSBD: "from-[#E37222]/10 to-[#E37222]/20",
-  LEMBAGA_PEREMPUAN: "from-[#E37222]/10 to-[#E37222]/20",
+  BPD: "from-[hsl(190,75%,36%_/_0.1)] to-[hsl(190,75%,36%_/_0.2)]",
+  LPM: "from-[hsl(183,50%,58%_/_0.1)] to-[hsl(183,50%,58%_/_0.2)]",
+  PKK: "from-[hsl(27,79%,52%_/_0.1)] to-[hsl(27,79%,52%_/_0.2)]",
+  KARANG_TARUNA: "from-[hsl(190,75%,36%_/_0.1)] to-[hsl(183,50%,58%_/_0.2)]",
+  BUMDES: "from-[hsl(27,55%,71%_/_0.1)] to-[hsl(27,55%,71%_/_0.2)]",
+  POSYANDU: "from-[hsl(27,79%,52%_/_0.1)] to-[hsl(27,79%,52%_/_0.2)]",
+  LINMAS: "from-[hsl(0,0%,84%_/_0.1)] to-[hsl(0,0%,84%_/_0.2)]",
+  FORUM_ANAK: "from-[hsl(27,55%,71%_/_0.1)] to-[hsl(27,55%,71%_/_0.2)]",
+  POKDARWIS: "from-[hsl(183,50%,58%_/_0.1)] to-[hsl(183,50%,58%_/_0.2)]",
+  KOPERASI: "from-[hsl(190,75%,36%_/_0.1)] to-[hsl(190,75%,36%_/_0.2)]",
+  LEMBAGA_ADAT: "from-[hsl(27,55%,71%_/_0.1)] to-[hsl(27,55%,71%_/_0.2)]",
+  POSBANKUM: "from-[hsl(183,50%,58%_/_0.1)] to-[hsl(183,50%,58%_/_0.2)]",
+  TSBD: "from-[hsl(27,79%,52%_/_0.1)] to-[hsl(27,79%,52%_/_0.2)]",
+  LEMBAGA_PEREMPUAN: "from-[hsl(27,79%,52%_/_0.1)] to-[hsl(27,79%,52%_/_0.2)]",
   LAINNYA: "from-muted to-muted",
 };
+
+/** 4 halaman dedicated yang tidak masuk daftar lembaga dinamis */
+const DEDICATED_PAGES = [
+  {
+    slug: "bpd",
+    nama: "Badan Permusyawaratan Desa (BPD)",
+    jenis: "BPD" as const,
+    deskripsi:
+      "Wadah representasi suara rakyat dalam pemerintahan desa. BPD menjalankan fungsi pembentukan peraturan desa, pembahasan APBDes, dan pengawasan kinerja pemerintah desa.",
+    icon: Users,
+    gradient: "from-[hsl(190,75%,36%_/_0.1)] to-[hsl(190,75%,36%_/_0.2)]",
+    breadcrumb: "BPD",
+    badge: "Fungsi Legislasi & Pengawasan",
+    badgeIcon: <Building2 className="h-3.5 w-3.5" />,
+  },
+  {
+    slug: "lpm",
+    nama: "Lembaga Pemberdayaan Masyarakat (LPM)",
+    jenis: "LPM" as const,
+    deskripsi:
+      "Mitra strategis pemerintah desa dalam program pembangunan partisipatif. LPM mengoordinasikan partisipasi warga untuk perencanaan dan pengawasan pembangunan.",
+    icon: Target,
+    gradient: "from-[hsl(183,50%,58%_/_0.1)] to-[hsl(183,50%,58%_/_0.2)]",
+    breadcrumb: "LPM",
+    badge: "Pembangunan Partisipatif",
+    badgeIcon: <Building2 className="h-3.5 w-3.5" />,
+  },
+  {
+    slug: "pkkrw",
+    nama: "TP-PKK & KWT",
+    jenis: "PKK" as const,
+    deskripsi:
+      "Pemberdayaan keluarga melalui 6 bidang: pendidikan, kesehatan, ekonomi kreatif, ketahanan pangan, kelestarian lingkungan, dan kesejahteraan sosial.",
+    icon: Heart,
+    gradient: "from-[hsl(27,79%,52%_/_0.1)] to-[hsl(27,79%,52%_/_0.2)]",
+    breadcrumb: "PKK & KWT",
+    badge: "Pemberdayaan Keluarga",
+    badgeIcon: <Building2 className="h-3.5 w-3.5" />,
+  },
+  {
+    slug: "karangtaruna",
+    nama: "Karang Taruna",
+    jenis: "KARANG_TARUNA" as const,
+    deskripsi:
+      "Organisasi kepemudaan yang bergerak di sosial, lingkungan, dan pemberdayaan ekonomi kreatif generasi muda desa.",
+    icon: Users,
+    gradient: "from-[hsl(27,55%,71%_/_0.1)] to-[hsl(27,55%,71%_/_0.2)]",
+    breadcrumb: "Karang Taruna",
+    badge: "Organisasi Kepemudaan",
+    badgeIcon: <Building2 className="h-3.5 w-3.5" />,
+  },
+];
 
 export function LembagaPage() {
   const v = useVillage();
@@ -107,7 +160,57 @@ export function LembagaPage() {
           breadcrumbs={[{ label: "Profil" }, { label: "Lembaga" }]}
         />
 
-        {/* Lembaga Cards */}
+        {/* Dedicated Pages — BPD, LPM, PKK, Karang Taruna */}
+        <section className="px-4 mb-6">
+          <div className="max-w-5xl mx-auto">
+            <p className="font-ui text-xs font-semibold uppercase tracking-wider text-primary mb-3">
+              Profil Lembaga Utama
+            </p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {DEDICATED_PAGES.map((p) => {
+                const Icon = p.icon;
+                return (
+                  <Link
+                    key={p.slug}
+                    to={`/profil/${p.slug}`}
+                    className="group rounded-2xl border border-border bg-card overflow-hidden hover:shadow-card hover:border-primary/30 transition block"
+                  >
+                    <div className={`h-1.5 bg-gradient-to-r ${p.gradient}`} />
+                    <div className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                          <Icon className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-[11px] font-ui font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                              {p.breadcrumb}
+                            </span>
+                            <span className="text-[10px] font-ui text-muted-foreground flex items-center gap-0.5">
+                              {p.badge}
+                            </span>
+                          </div>
+                          <h3 className="font-display text-base font-bold text-ink leading-tight mb-1.5">
+                            {p.nama}
+                          </h3>
+                          <p className="font-body text-sm text-muted-foreground leading-relaxed mb-3 line-clamp-2">
+                            {p.deskripsi}
+                          </p>
+                          <span className="inline-flex items-center gap-1.5 font-ui text-xs font-semibold text-primary">
+                            Lihat Profil{" "}
+                            <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition" />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* Dynamic Lembaga Cards */}
         <section className="px-4 mb-14">
           <div className="max-w-5xl mx-auto">
             {loading ? (

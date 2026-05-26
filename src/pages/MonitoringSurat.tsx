@@ -19,10 +19,27 @@ import {
   HardDrive,
   ListFilter,
   Timer,
+  TrendingUp,
+  Users,
+  FileCheck,
+  X,
+  Inbox,
+  Zap,
+  BarChart3,
+  Activity,
+  RefreshCw,
 } from "lucide-react";
 
 import { initEsuratStore, searchSuratRequests, syncPullAllRecords } from "@/lib/useSupabaseSync";
-import { listRecords, type SuratRecord, fetchEstimasi, fmtEstimasi } from "@/lib/esurat-store";
+import {
+  listRecords,
+  listArchive,
+  statsByStatus,
+  oldestPending,
+  type SuratRecord,
+  fetchEstimasi,
+  fmtEstimasi,
+} from "@/lib/esurat-store";
 import { getOfflineQueue, hasOfflineQueueItems, type OfflineSubmission } from "@/lib/offline-queue";
 import { Loader2 } from "lucide-react";
 
@@ -61,10 +78,10 @@ export default function MonitoringSurat() {
   const [offlineItems, setOfflineItems] = useState<OfflineSubmission[]>([]);
   const [offlineCount, setOfflineCount] = useState(0);
   const [estimasi, setEstimasi] = useState<Record<string, number>>({});
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    // Awal: tunggu store init selesai → pull dari IDB+cloud → baru render
     initEsuratStore()
       .then(() => syncPullAllRecords())
       .then(() => {
@@ -72,7 +89,7 @@ export default function MonitoringSurat() {
       })
       .catch((err) => {
         console.warn("[MonitoringSurat] Gagal load records:", err);
-        if (mounted) setRecords(listRecords()); // fallback ke cache lokal
+        if (mounted) setRecords(listRecords());
       });
     hasOfflineQueueItems().then((has) => setOfflineCount(has ? 1 : 0));
     getOfflineQueue().then((items) => {
@@ -81,7 +98,6 @@ export default function MonitoringSurat() {
         setOfflineCount(items.length);
       }
     });
-    // Fetch estimasi durasi pemrosesan
     fetchEstimasi().then((data) => {
       if (mounted) setEstimasi(data);
     });
@@ -90,8 +106,65 @@ export default function MonitoringSurat() {
     };
   }, []);
 
+  // Real-time stats from esurat-store
+  // Note: statsByStatus() and oldestPending() have internal caching, no need to memoize
+  const stats = useMemo(() => statsByStatus(), []);
+  const pending = useMemo(() => oldestPending(), []);
+  const totalActive = records.length;
+  const totalArchive = listArchive().length;
+  const totalAll = totalActive + totalArchive;
+  const pendingCount = (stats["Menunggu Verifikasi"] ?? 0) + (stats["Menunggu Approval"] ?? 0);
+
+  // Quick stats for sidebar
+  const StatCard = ({
+    label,
+    value,
+    color,
+    icon: Icon,
+  }: {
+    label: string;
+    value: number;
+    color: string;
+    icon: React.ElementType;
+  }) => (
+    <div className={`flex items-center gap-3 p-3 rounded-xl border ${color}`}>
+      <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="font-ui text-2xl font-bold">{value}</p>
+        <p className="font-ui text-[11px] text-muted-foreground">{label}</p>
+      </div>
+    </div>
+  );
+
+  // Oldest pending items
+  const OldestCard = ({ r, idx }: { r: SuratRecord; idx: number }) => (
+    <Link
+      key={r.no}
+      to={`/lacak?no=${r.no}`}
+      className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted transition-colors group"
+    >
+      <div className="h-8 w-8 rounded-full bg-warning/20 text-warning flex items-center justify-center shrink-0 text-xs font-bold">
+        {idx + 1}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-ui text-xs font-semibold truncate">{r.nama_surat}</p>
+        <p className="font-ui text-[10px] text-muted-foreground">
+          {r.pemohon} · {r.status}
+        </p>
+      </div>
+      <div className="text-[10px] font-ui text-muted-foreground shrink-0">
+        {Math.round((Date.now() - new Date(r.created_at).getTime()) / 86400000)}d
+      </div>
+    </Link>
+  );
+
+  // Sync status summary
+  const syncedCount = records.filter((r) => r.cloudSynced === true).length;
+  const localCount = records.filter((r) => r.cloudSynced !== true).length;
+
   const filtered = useMemo(() => {
-    // Gabungkan lokal + cloud, unik by no
     const all = [...records];
     cloudRecords.forEach((cr) => {
       if (!all.find((r) => r.no === cr.no)) all.push(cr);
@@ -110,7 +183,6 @@ export default function MonitoringSurat() {
     return filtered;
   }, [filtered, tab]);
 
-  /** Badge estimasi pemrosesan per jenis surat */
   const EstimasiBadge = ({ kode }: { kode: string }) => {
     const jam = estimasi[kode];
     if (!jam) return null;
@@ -133,7 +205,6 @@ export default function MonitoringSurat() {
     });
   }, [q, offlineItems]);
 
-  // Debounced cloud search
   useEffect(() => {
     if (q.length < 4) {
       setCloudRecords([]);
@@ -162,7 +233,6 @@ export default function MonitoringSurat() {
     );
   };
 
-  /** Dot indicator: green=synced cloud, yellow=stored local, grey=unknown */
   const SyncDot = ({ synced }: { synced?: boolean }) => {
     if (synced === true)
       return (
@@ -188,8 +258,8 @@ export default function MonitoringSurat() {
 
   const TABS: { key: TabFilter; label: string; icon: React.ElementType; count?: number }[] = [
     { key: "semua", label: "Semua", icon: ListFilter },
-    { key: "lokal", label: "Lokal", icon: HardDrive },
-    { key: "server", label: "Server", icon: Cloud },
+    { key: "lokal", label: "Lokal", icon: HardDrive, count: localCount || undefined },
+    { key: "server", label: "Server", icon: Cloud, count: syncedCount || undefined },
     {
       key: "offline",
       label: "Offline",
@@ -209,171 +279,369 @@ export default function MonitoringSurat() {
         badgeIcon={<Search className="h-3.5 w-3.5" />}
       />
 
-      <section className="py-10 px-4 sm:px-8">
-        <div className="mx-auto max-w-5xl space-y-6">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Cari no. tracking atau NIK..."
-              className="pl-12 h-14 text-base rounded-2xl"
-            />
-            {loading && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                <Loader2 className="h-5 w-5 text-primary animate-spin" />
+      {/* Mobile sidebar toggle */}
+      <div className="py-6 px-4 sm:px-8">
+        <div className="mx-auto max-w-7xl flex gap-6">
+          {/* Sidebar */}
+          <aside
+            className={`
+              fixed inset-y-0 right-0 z-50 w-72 bg-card border-l border-border shadow-xl
+              transform transition-transform duration-300 ease-in-out
+              flex flex-col
+              ${sidebarOpen ? "translate-x-0" : "translate-x-full"}
+              sm:relative sm:translate-x-0 sm:z-auto sm:shadow-none sm:border-l sm:border-border
+              sm:w-64 sm:shrink-0
+              hidden sm:flex flex-col
+              top-0
+            `}
+          >
+            {/* Sidebar header */}
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                <span className="font-display text-sm font-bold">Statistik</span>
               </div>
-            )}
-          </div>
-
-          {/* Tab filter */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {TABS.map(({ key, label, icon: Icon, count }) => (
               <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={`inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-xs font-ui font-semibold transition-colors ${
-                  tab === key
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Tutup statistik"
+                className="min-h-[44px] min-w-[44px] rounded-lg flex items-center justify-center hover:bg-muted transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
-                <Icon className="h-3.5 w-3.5" />
-                {label}
-                {count !== undefined && (
-                  <span
-                    className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
-                      tab === key
-                        ? "bg-primary-foreground/20 text-primary-foreground"
-                        : "bg-destructive text-destructive-foreground"
-                    }`}
-                  >
-                    {count}
-                  </span>
-                )}
+                <X className="h-4 w-4" />
               </button>
-            ))}
-          </div>
-
-          {/* Offline queue panel */}
-          {tab === "offline" ? (
-            <OfflineQueuePanel items={filteredOffline} q={q} />
-          ) : filteredByTab.length === 0 ? (
-            <div className="text-center py-16 rounded-2xl border border-dashed border-border bg-card">
-              <FileText className="h-12 w-12 mx-auto text-muted-foreground/50" />
-              <h3 className="font-display text-xl font-bold mt-4">
-                {tab === "lokal"
-                  ? "Tidak ada pengajuan lokal"
-                  : tab === "server"
-                    ? "Tidak ada pengajuan di server"
-                    : "Belum ada pengajuan"}
-              </h3>
-              <p className="font-body text-muted-foreground mt-2 max-w-sm mx-auto">
-                {tab === "lokal"
-                  ? "Semua pengajuan sudah tersinkron ke server."
-                  : tab === "server"
-                    ? "Pastikan Supabase sudah dikonfigurasi untuk mencari di server."
-                    : "Mulai ajukan surat pertama Anda — prosesnya hanya 5 menit."}
-              </p>
-              {tab === "semua" && (
-                <Link
-                  to="/pelayanan/e-surat"
-                  className="inline-flex mt-6 btn-pill bg-primary text-primary-foreground hover:bg-primary-hover"
-                >
-                  Ajukan Surat
-                </Link>
-              )}
             </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredByTab.map((r) => (
-                <div
-                  key={r.no}
-                  className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-card hover:shadow-elev transition-shadow"
-                >
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <SyncDot synced={r.cloudSynced} />
-                        <span className="font-ui text-[11px] font-bold text-primary tracking-widest">
-                          {r.kode}
-                        </span>
-                        <span className="font-mono text-xs text-muted-foreground">#{r.no}</span>
-                        <EstimasiBadge kode={r.kode} />
-                      </div>
-                      <h3 className="font-display text-lg font-bold">{r.nama_surat}</h3>
-                      <p className="font-body text-sm text-muted-foreground mt-1">
-                        {r.pemohon} · {r.nik}
-                      </p>
-                      <p className="font-ui text-xs text-muted-foreground mt-1">
-                        Diajukan:{" "}
-                        {new Date(r.created_at).toLocaleString("id-ID", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
-                      </p>
-                      {/* Quick action: verifikasi link untuk surat yang sudah disetujui */}
-                      {r.status === "Disetujui" && r.no && (
-                        <Link
-                          to="/verifikasi/$no"
-                          params={{ no: r.no }}
-                          className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/10 text-success text-xs font-ui font-semibold hover:bg-success/20 transition"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Lihat & Verifikasi Surat
-                        </Link>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <SyncDot synced={r.cloudSynced} />
-                      <StatusBadge status={r.status} />
-                    </div>
-                  </div>
 
-                  {/* Progress timeline */}
-                  <div className="mt-5 pt-5 border-t border-border">
-                    <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
-                      {STATUSES.slice(0, 4).map((s, i) => {
-                        const currentIdx = STATUSES.findIndex((x) => x.key === r.status);
-                        const done = i <= currentIdx && r.status !== "Ditolak";
-                        const Icon = s.icon;
-                        return (
-                          <div key={s.key} className="flex items-center gap-1 sm:gap-2 shrink-0">
-                            <div
-                              className={`h-7 w-7 rounded-full flex items-center justify-center ${done ? "bg-success text-background" : "bg-muted text-muted-foreground"}`}
-                            >
-                              <Icon className="h-3.5 w-3.5" />
-                            </div>
-                            <span
-                              className={`font-ui text-[11px] hidden sm:inline ${done ? "text-foreground font-semibold" : "text-muted-foreground"}`}
-                            >
-                              {s.key}
-                            </span>
-                            {i < 3 && (
-                              <div
-                                className={`h-px w-4 sm:w-8 ${done ? "bg-success" : "bg-border"}`}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Total summary */}
+              <div className="rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Activity className="h-3.5 w-3.5 text-primary" />
+                  <span className="font-ui text-[10px] font-semibold text-primary tracking-widest uppercase">
+                    Ringkasan
+                  </span>
+                </div>
+                <p className="font-display text-4xl font-bold text-foreground">{totalAll}</p>
+                <p className="font-ui text-xs text-muted-foreground mt-0.5">Total pengajuan</p>
+                <div className="flex items-center gap-3 mt-3">
+                  <div className="text-center">
+                    <p className="font-ui text-lg font-bold">{totalActive}</p>
+                    <p className="font-ui text-[10px] text-muted-foreground">Aktif</p>
+                  </div>
+                  <div className="h-8 w-px bg-border" />
+                  <div className="text-center">
+                    <p className="font-ui text-lg font-bold">{totalArchive}</p>
+                    <p className="font-ui text-[10px] text-muted-foreground">Arsip</p>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Per-status breakdown */}
+              <div>
+                <p className="font-ui text-[10px] font-semibold text-muted-foreground tracking-widest uppercase mb-2">
+                  Per Status
+                </p>
+                <div className="space-y-1.5">
+                  {STATUSES.map((s) => {
+                    const Icon = s.icon;
+                    const count = stats[s.key as keyof typeof stats] ?? 0;
+                    const pct = totalAll > 0 ? Math.round((count / totalAll) * 100) : 0;
+                    return (
+                      <div
+                        key={s.key}
+                        className="flex items-center gap-2 p-2 rounded-xl hover:bg-muted/50 transition"
+                      >
+                        <div
+                          className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${s.color}`}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="font-ui text-xs truncate">{s.key}</span>
+                            <span className="font-ui text-xs font-bold shrink-0 ml-1">{count}</span>
+                          </div>
+                          {/* Progress bar */}
+                          <div className="h-1 mt-1 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-primary/60 transition-all duration-500"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Pending alert */}
+              {pendingCount > 0 && (
+                <div className="rounded-2xl bg-warning/10 border border-warning/20 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Zap className="h-3.5 w-3.5 text-warning" />
+                    <span className="font-ui text-[10px] font-bold text-warning tracking-widest uppercase">
+                      Butuh Tindakan
+                    </span>
+                  </div>
+                  <p className="font-display text-2xl font-bold">{pendingCount}</p>
+                  <p className="font-ui text-[10px] text-muted-foreground">menunggu diproses</p>
+                </div>
+              )}
+
+              {/* Oldest pending */}
+              {pending.length > 0 && (
+                <div>
+                  <p className="font-ui text-[10px] font-semibold text-muted-foreground tracking-widest uppercase mb-2 flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" /> Paling Lama
+                  </p>
+                  <div className="space-y-1.5">
+                    {pending.slice(0, 5).map((r, i) => (
+                      <OldestCard key={r.no} r={r} idx={i} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sync status */}
+              <div className="rounded-2xl border border-border p-3">
+                <p className="font-ui text-[10px] font-semibold text-muted-foreground tracking-widest uppercase mb-2">
+                  Sinkronisasi
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-success" />
+                    <span className="font-ui text-xs">{syncedCount} server</span>
+                  </div>
+                  <div className="h-3 w-px bg-border" />
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-warning" />
+                    <span className="font-ui text-xs">{localCount} lokal</span>
+                  </div>
+                </div>
+                {offlineCount > 0 && (
+                  <div className="mt-2 flex items-center gap-1.5 text-warning">
+                    <WifiOff className="h-3 w-3" />
+                    <span className="font-ui text-[10px]">{offlineCount} antri offline</span>
+                  </div>
+                )}
+              </div>
             </div>
+          </aside>
+
+          {/* Mobile overlay */}
+          {sidebarOpen && (
+            <div
+              className="fixed inset-0 z-40 bg-black/50 sm:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
           )}
 
-          <div className="text-center pt-4">
-            <Link
-              to="/pelayanan/e-surat"
-              className="btn-pill bg-ink text-background hover:bg-ink/90"
-            >
-              + Ajukan Surat Baru
-            </Link>
+          {/* Main content */}
+          <div className="flex-1 min-w-0">
+            {/* Mobile stats bar */}
+            <div className="sm:hidden mb-4">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                <div className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl bg-muted border border-border">
+                  <Activity className="h-4 w-4 text-primary" />
+                  <span className="font-ui text-sm font-bold">{totalAll}</span>
+                  <span className="font-ui text-xs text-muted-foreground">total</span>
+                </div>
+                <div className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl bg-warning/10 border border-warning/20">
+                  <Clock className="h-4 w-4 text-warning" />
+                  <span className="font-ui text-sm font-bold">{pendingCount}</span>
+                  <span className="font-ui text-xs text-muted-foreground">pending</span>
+                </div>
+                <div className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl bg-success/10 border border-success/20">
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                  <span className="font-ui text-sm font-bold">{stats["Disetujui"] ?? 0}</span>
+                  <span className="font-ui text-xs text-muted-foreground">selesai</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile sidebar toggle button */}
+            <div className="flex items-center justify-between mb-4 sm:hidden">
+              <p className="font-ui text-xs text-muted-foreground">
+                {filteredByTab.length} pengajuan
+              </p>
+              <button
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Buka statistik"
+                className="min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-ui font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                <BarChart3 className="h-4 w-4" />
+                Statistik
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Cari no. tracking atau NIK..."
+                className="pl-12 h-14 text-base rounded-2xl"
+              />
+              {loading && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                </div>
+              )}
+            </div>
+
+            {/* Tab filter */}
+            <div className="flex items-center gap-1.5 flex-wrap mt-4">
+              {TABS.map(({ key, label, icon: Icon, count }) => (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className={`inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-xs font-ui font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                    tab === key
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                  {count !== undefined && (
+                    <span
+                      className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
+                        tab === key
+                          ? "bg-primary-foreground/20 text-primary-foreground"
+                          : "bg-primary/20 text-primary"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Content */}
+            <div className="mt-6">
+              {tab === "offline" ? (
+                <OfflineQueuePanel items={filteredOffline} q={q} />
+              ) : filteredByTab.length === 0 ? (
+                <div className="text-center py-16 rounded-2xl border border-dashed border-border bg-card">
+                  <Inbox className="h-12 w-12 mx-auto text-muted-foreground/50" />
+                  <h3 className="font-display text-xl font-bold mt-4">
+                    {tab === "lokal"
+                      ? "Tidak ada pengajuan lokal"
+                      : tab === "server"
+                        ? "Tidak ada pengajuan di server"
+                        : "Belum ada pengajuan"}
+                  </h3>
+                  <p className="font-body text-muted-foreground mt-2 max-w-sm mx-auto">
+                    {tab === "lokal"
+                      ? "Semua pengajuan sudah tersinkron ke server."
+                      : tab === "server"
+                        ? "Pastikan Supabase sudah dikonfigurasi untuk mencari di server."
+                        : "Mulai ajukan surat pertama Anda — prosesnya hanya 5 menit."}
+                  </p>
+                  {tab === "semua" && (
+                    <Link
+                      to="/pelayanan/e-surat"
+                      className="inline-flex mt-6 btn-pill bg-primary text-primary-foreground hover:bg-primary"
+                    >
+                      Ajukan Surat
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredByTab.map((r) => (
+                    <div
+                      key={r.no}
+                      className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-card hover:shadow-elev transition-shadow"
+                    >
+                      <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <SyncDot synced={r.cloudSynced} />
+                            <span className="font-ui text-[11px] font-bold text-primary tracking-widest">
+                              {r.kode}
+                            </span>
+                            <span className="font-mono text-xs text-muted-foreground">#{r.no}</span>
+                            <EstimasiBadge kode={r.kode} />
+                          </div>
+                          <h3 className="font-display text-lg font-bold">{r.nama_surat}</h3>
+                          <p className="font-body text-sm text-muted-foreground mt-1">
+                            {r.pemohon} · {r.nik}
+                          </p>
+                          <p className="font-ui text-xs text-muted-foreground mt-1">
+                            Diajukan:{" "}
+                            {new Date(r.created_at).toLocaleString("id-ID", {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })}
+                          </p>
+                          {r.status === "Disetujui" && r.no && (
+                            <Link
+                              to="/verifikasi/$no"
+                              params={{ no: r.no }}
+                              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/10 text-success text-xs font-ui font-semibold hover:bg-success/20 transition"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Lihat & Verifikasi Surat
+                            </Link>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <SyncDot synced={r.cloudSynced} />
+                          <StatusBadge status={r.status} />
+                        </div>
+                      </div>
+
+                      {/* Progress timeline */}
+                      <div className="mt-5 pt-5 border-t border-border">
+                        <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
+                          {STATUSES.slice(0, 4).map((s, i) => {
+                            const currentIdx = STATUSES.findIndex((x) => x.key === r.status);
+                            const done = i <= currentIdx && r.status !== "Ditolak";
+                            const Icon = s.icon;
+                            return (
+                              <div
+                                key={s.key}
+                                className="flex items-center gap-1 sm:gap-2 shrink-0"
+                              >
+                                <div
+                                  className={`h-7 w-7 rounded-full flex items-center justify-center ${done ? "bg-success text-background" : "bg-muted text-muted-foreground"}`}
+                                >
+                                  <Icon className="h-3.5 w-3.5" />
+                                </div>
+                                <span
+                                  className={`font-ui text-[11px] hidden sm:inline ${done ? "text-foreground font-semibold" : "text-muted-foreground"}`}
+                                >
+                                  {s.key}
+                                </span>
+                                {i < 3 && (
+                                  <div
+                                    className={`h-px w-4 sm:w-8 ${done ? "bg-success" : "bg-border"}`}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="text-center pt-8">
+              <Link
+                to="/pelayanan/e-surat"
+                className="btn-pill bg-ink text-background hover:bg-ink/90"
+              >
+                + Ajukan Surat Baru
+              </Link>
+            </div>
           </div>
         </div>
-      </section>
+      </div>
 
       <Footer />
     </div>

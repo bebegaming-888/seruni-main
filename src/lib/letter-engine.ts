@@ -12,6 +12,7 @@ import type { Penduduk } from "@/data/penduduk";
 import { getSettings } from "@/lib/settings-store";
 import { getVillage } from "@/lib/village-dynamic";
 import { getMediaUrl } from "@/lib/media-upload";
+import { BULAN_ID } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -24,8 +25,6 @@ export type SubjectRow = {
 
 export type RenderedLetter = {
   header: {
-    logoKabupatenUrl: string;
-    logoDesaUrl: string;
     namaKabupaten: string;
     namaKecamatan: string;
     namaDesa: string;
@@ -49,26 +48,12 @@ export type RenderedLetter = {
     jabatan: string;
     namaPejabat: string;
     qrPayload?: string;
+    signImageUrl?: string;
+    footerText?: string;
   };
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const BULAN_ID = [
-  "",
-  "Januari",
-  "Februari",
-  "Maret",
-  "April",
-  "Mei",
-  "Juni",
-  "Juli",
-  "Agustus",
-  "September",
-  "Oktober",
-  "November",
-  "Desember",
-];
 
 export function fmtTanggal(iso?: string): string {
   if (!iso)
@@ -123,10 +108,19 @@ export function renderVars(text: string, vars: LetterVars): string {
 
   let result = text;
 
-  // Pass 1: {{key || "fallback"}}
-  result = result.replace(/\{\{([\w.]+)\s*\|\|\s*"([^"]+)"\}\}/g, (_, k, fallback) =>
-    val(k, fallback),
+  // Pass 1: {{key || "fallback"}} | {{key||fallback}} | {{key||'fallback'}}
+  // Handles DNA_CLAUSES_PRESETS format: {{tempat_lahir_ayah||''}}, {{nama || "Anonim"}}, {{key||Anonim}}
+  result = result.replace(
+    /\{\{([\w.]+)\s*\|\|\s*(?:'([^']*)'|"([^"]*)"|([^{}\s]+?))\}\}/g,
+    (_, k, sq, dq, bare) => {
+      const fallback = sq ?? dq ?? bare ?? "";
+      // Empty-string fallback → return "" (caller passes `|| ''` for conditional concatenation)
+      return fallback === "" ? val(k, "") : val(k, fallback);
+    },
   );
+
+  // Pass 2: {{key}} — basic replacement (no fallback), unresolved → "-"
+  result = result.replace(/\{\{(\w+)\}\}/g, (_, k) => val(k, "-"));
 
   // Pass 3: {{key ? 'a' : 'b'}} — inline conditional
   result = result.replace(
@@ -305,12 +299,6 @@ export function buildRenderedLetter(opts: {
   // Header — read from structured kop_lines
   const kop = settings.kopSurat;
   const header: RenderedLetter["header"] = {
-    logoKabupatenUrl: kop.logo_kab_storage_path
-      ? getMediaUrl(kop.logo_kab_storage_path, "public-media")
-      : kop.logo_kab_url || "",
-    logoDesaUrl: kop.logo_desa_storage_path
-      ? getMediaUrl(kop.logo_desa_storage_path, "public-media")
-      : kop.logo_desa_url || "",
     namaKabupaten:
       kop.kop_lines.find((l) => l.id === "kab")?.text ??
       `PEMERINTAH KABUPATEN ${v.regency.toUpperCase()}`,
@@ -365,6 +353,10 @@ export function buildRenderedLetter(opts: {
     jabatan: settings.signature.signer_title,
     namaPejabat: settings.signature.signer_name,
     qrPayload,
+    signImageUrl: settings.signature.sign_image_storage_path
+      ? getMediaUrl(settings.signature.sign_image_storage_path, "public-media")
+      : settings.signature.sign_image_url || undefined,
+    footerText: kop.footer_enabled ? kop.footer_text : undefined,
   };
 
   return { header, title, signer, subject, body, closing, signature };
@@ -389,24 +381,66 @@ export const DEFAULT_SUBJECT_FIELDS: SubjectFieldConfig[] = [
   { key: "alamat", label: "Alamat", source: "warga", required: true, order: 8 },
 ];
 
+/** Mapping Kode Klasifikasi Arsip Surat (Permendagri 83/2022) */
+export const KODE_KLASIFIKASI_SURAT: Record<string, string> = {
+  /* KEPENDUDUKAN & UMUM */
+  SK_DOMISILI: "470",
+  SK_DOMISILI_USAHA: "470",
+  SK_BEDA_IDENTITAS: "470",
+  SK_PENDUDUK: "470",
+  SURAT_JALAN: "470",
+  SP_KTP: "470",
+  SP_KK: "474",
+  SK_WNI_KETURUNAN: "470",
+
+  /* KEMATIAN, KELAHIRAN & PINDAH */
+  SP_AKTA_KELAHIRAN: "474.1",
+  SP_AKTA_KEMATIAN: "474.3",
+  SK_AHLI_WARIS: "474",
+  SK_PINDAH: "475",
+
+  /* PERNIKAHAN & KELUARGA */
+  SK_BELUM_MENIKAH: "474.2",
+  SK_NIKAH: "474.2",
+  SK_JANDA_DUDA: "474.2",
+  SK_CERAI: "474.2",
+  DISPENSA_NIKAH: "474.2",
+  WALI_NIKAH: "474.2",
+  SK_IZIN_ORANG_TUA: "140",
+
+  /* SOSIAL, PENDIDIKAN & EKONOMI */
+  SKTM: "401",
+  SK_PENGHASILAN: "401",
+  SK_PROFESI_USAHA: "503",
+  SK_BEASISWA: "420",
+  SK_AKTIF_SEKOLAH: "420",
+  SK_PENELITIAN: "070",
+  SK_DISABILITAS: "460",
+  SK_LANSIA: "460",
+  SK_YATIM_PIATU: "460",
+  VERIF_DTKS: "460",
+  SURAT_BANTUAN: "460",
+
+  /* PERTANAHAN & PERIZINAN */
+  SK_TANAH_MILIK: "593",
+  SK_JUAL_BELI_TANAH: "593",
+  SK_HIBAH_TANAH: "593",
+  SK_TANAH_WAKAF: "593",
+  SK_HARGA_TANAH: "593",
+  SK_RUMAH_MILIK: "593",
+  SK_BELUM_PUNYA_RUMAH: "140",
+  IZIN_KERAMAIAN: "332",
+  SP_SKCK: "332",
+
+  /* ADMINISTRASI KHUSUS */
+  SURAT_KUASA: "140",
+  SK_KEHILANGAN: "140",
+  SP_INSTANSI: "140",
+  SPTJM: "140",
+};
+
 /** Preset subject fields per jenis surat */
 export const SUBJECT_FIELDS_PRESETS: Record<string, SubjectFieldConfig[]> = {
-  SKD: [
-    { key: "nama", label: "Nama", source: "warga", required: true, order: 1 },
-    { key: "nik", label: "NIK", source: "warga", required: true, order: 2 },
-    {
-      key: "tempat_tanggal_lahir",
-      label: "Tempat/Tanggal Lahir",
-      source: "warga",
-      required: true,
-      order: 3,
-    },
-    { key: "jenis_kelamin", label: "Jenis Kelamin", source: "warga", required: true, order: 4 },
-    { key: "pekerjaan", label: "Pekerjaan", source: "warga", required: true, order: 5 },
-    { key: "agama", label: "Agama", source: "warga", required: true, order: 6 },
-    { key: "kewarganegaraan", label: "Kewarganegaraan", source: "warga", required: true, order: 7 },
-    { key: "alamat", label: "Alamat", source: "warga", required: true, order: 8 },
-  ],
   SKTM: [
     { key: "nama", label: "Nama", source: "warga", required: true, order: 1 },
     { key: "nik", label: "NIK", source: "warga", required: true, order: 2 },
@@ -423,7 +457,7 @@ export const SUBJECT_FIELDS_PRESETS: Record<string, SubjectFieldConfig[]> = {
     { key: "penghasilan", label: "Penghasilan/Bulan", source: "request", required: true, order: 7 },
     { key: "tanggungan", label: "Jumlah Tanggungan", source: "request", required: true, order: 8 },
   ],
-  SKU: [
+  SK_PROFESI_USAHA: [
     { key: "nama", label: "Nama", source: "warga", required: true, order: 1 },
     { key: "nik", label: "NIK", source: "warga", required: true, order: 2 },
     {
@@ -433,589 +467,261 @@ export const SUBJECT_FIELDS_PRESETS: Record<string, SubjectFieldConfig[]> = {
       required: true,
       order: 3,
     },
-    { key: "jenis_kelamin", label: "Jenis Kelamin", source: "warga", required: true, order: 4 },
-    { key: "alamat", label: "Alamat", source: "warga", required: true, order: 5 },
-    { key: "nama_usaha", label: "Nama Usaha", source: "request", required: true, order: 6 },
-    { key: "jenis_usaha", label: "Jenis Usaha", source: "request", required: true, order: 7 },
-    { key: "alamat_usaha", label: "Alamat Usaha", source: "request", required: true, order: 8 },
+    { key: "alamat", label: "Alamat", source: "warga", required: true, order: 4 },
+    { key: "nama_usaha", label: "Nama Usaha", source: "request", required: true, order: 5 },
+    { key: "jenis_usaha", label: "Jenis Usaha", source: "request", required: true, order: 6 },
+    { key: "alamat_usaha", label: "Alamat Usaha", source: "request", required: true, order: 7 },
   ],
 };
 
 /** DNA clauses per jenis surat — relevansi logis, tidak mempersulit */
 export const DNA_CLAUSES_PRESETS: Record<string, string[]> = {
-  /* KEPENDUDUKAN */
-  SKD: [
+  /* KEPENDUDUKAN & UMUM */
+  SK_DOMISILI: [
     "Dengan ini menyatakan bahwa :",
     "Nama        : {{nama}}\nNIK         : {{nik}}\nTempat/Tgl Lahir: {{tempat_tanggal_lahir}}\nAlamat     : {{alamat}}",
-    "adalah benar warga kami yang berdomisili di {{alamat}}.",
+    "adalah benar warga kami yang berdomisili tetap di alamat tersebut di atas.",
     "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
   ],
-  PINDAH_DOMISILI: [
+  SK_DOMISILI_USAHA: [
     "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Bahwa yang bersangkutan akan melakukan pindah domisili dengan tujuan:\nAlamat Tujuan  : {{alamat_tujuan}}\nJenis Kepindahan: {{jenis_kepindahan}}\nJumlah Pengikut: {{jumlah_pengikut}} orang",
-    "Surat keterangan ini dibuat sebagai persyaratan administrasi kepindahan.",
+    "Nama Usaha  : {{nama_usaha}}\nJenis Usaha : {{jenis_usaha}}\nAlamat Usaha: {{alamat_usaha}}",
+    "Adalah benar usaha tersebut berdomisili dan beroperasi di wilayah Desa {{nama_desa}}, yang dikelola oleh:",
+    "Nama Pemilik: {{nama}}\nNIK         : {{nik}}\nAlamat      : {{alamat}}",
+    "Surat keterangan domisili usaha ini dibuat untuk keperluan {{keperluan}}.",
   ],
-  PENDATANG: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}} (numpek di KK {{nama_pemilik_kk}})",
-    "Asal daerah : {{asal}}\nAlasan            : {{alasan_datang}}",
-    "Surat keterangan ini dibuat untuk pencatatan administratif dan bukan merupakan izin menetap.",
-  ],
-  KK_BARU: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan belum memiliki Kartu Keluarga (KK) dengan alasan: {{alasan}}.\nJumlah anggota keluarga yang akan terdaftar: {{jumlah_anggota}} orang.\nDaftar anggota keluarga:\n{{daftar_anggota}}",
-    "Surat keterangan ini dibuat sebagai persyaratan pengurusan KK baru di Dukcapil.",
-  ],
-  BEDA_NAMA: [
+  SK_BEDA_IDENTITAS: [
     "Dengan ini menyatakan bahwa :",
     "Nama pada Dokumen 1 ({{jenis_dokumen1}}) : {{dokumen1}}\nNama pada Dokumen 2 ({{jenis_dokumen2}}) : {{dokumen2}}",
-    "Keduanya adalah benar orang yang sama. Perbedaan nama bukan untuk tujuan pemalsuan identitas.",
+    "Keduanya adalah benar orang yang sama. Perbedaan identitas tersebut bukan untuk tujuan pemalsuan, melainkan karena kesalahan administratif.",
     "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
   ],
-  ALAMAT_SEMENTARA: [
+  SK_PENDUDUK: [
     "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat Tetap : {{alamat}}",
-    "Yang bersangkutan saat ini berdomisili sementara di {{alamat_sementara}}.\nAlasan       : {{alasan}}",
-    "Surat ini dibuat sebagai bukti alamat sementara dan bukan untuk keperluan tetap.",
+    "Nama        : {{nama}}\nNIK         : {{nik}}\nTempat/Tgl Lahir: {{tempat_tanggal_lahir}}\nAlamat     : {{alamat}}",
+    "Bahwa yang bersangkutan adalah benar warga masyarakat Desa {{nama_desa}} dan tercatat dalam register kependudukan kami.",
+    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
+  ],
+  SURAT_JALAN: [
+    "Dengan ini memberikan SURAT JALAN kepada :",
+    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
+    "Yang bersangkutan bermaksud melakukan perjalanan ke:\nTujuan    : {{tujuan_perjalanan}}\nKeperluan : {{keperluan}}",
+    "Berangkat pada tanggal {{tgl_berangkat}} dan diperkirakan kembali pada tanggal {{tgl_kembali}}.",
+    "Demikian surat jalan ini dibuat untuk dapat dipergunakan sebagaimana mestinya oleh pihak yang berwenang.",
   ],
   SP_KTP: [
     "Dengan ini memberikan PENGANTAR kepada :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
     "",
-    "Untuk pengajuan Pembuatan KTP dengan jenis permohonan {{jenis_permohonan}}.",
+    "Untuk pengajuan Pembuatan/Perpanjangan KTP Elektronik dengan jenis permohonan {{jenis_permohonan}}.",
     "Demikian surat pengantar ini dibuat dan dapat dibawa ke Kantor Dukcapil untuk proses lebih lanjut.",
   ],
   SP_KK: [
     "Dengan ini memberikan PENGANTAR kepada :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
     "",
-    "Untuk pengajuan Pembuatan/Perubahan Kartu Keluarga dengan jenis {{jenis_perubahan}}.",
-    "Demikian surat pengantar ini dibuat untuk dapat dipergunakan sebagaimana mestinya.",
+    "Untuk pengajuan Pembuatan/Perubahan Kartu Keluarga (KK) dengan jenis permohonan {{jenis_permohonan}}.",
+    "Demikian surat pengantar ini dibuat untuk dapat dipergunakan sebagaimana mestinya di Kantor Dukcapil.",
+  ],
+  SK_WNI_KETURUNAN: [
+    "Dengan ini menyatakan bahwa :",
+    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
+    "Yang bersangkutan adalah benar Warga Negara Indonesia Keturunan yang menetap di wilayah kami.",
+    "Surat keterangan ini dibuat untuk keperluan administrasi kependudukan.",
   ],
 
-  /* SOSIAL & EKONOMI */
-  SKTM: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan termasuk keluarga kurang mampu/prasejahtera dengan penghasilan Rp {{penghasilan}} per bulan dan menanggung {{tanggungan}} jiwa.",
-    "{{id_bdt ? 'ID DTKS/BDT : ' + id_bdt + '' : ''}}",
-    "{{program_bantuan ? 'Program Bantuan : ' + program_bantuan + '' : ''}}",
-    "{{no_kartu_bantuan ? 'No. Kartu Bantuan : ' + no_kartu_bantuan + '' : ''}}",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
+  /* KEMATIAN, KELAHIRAN & PINDAH */
+  SP_AKTA_KELAHIRAN: [
+    "Dengan ini memberikan PENGANTAR AKTA KELAHIRAN kepada :",
+    "Nama Bayi     : {{nama_bayi}}\nTgl Lahir    : {{tanggal_lahir}}\nTempat Lahir : {{tempat_lahir}}\nJenis Kelamin : {{jenis_kelamin_bayi}}",
+    "--- DATA AYAH ---",
+    "Nama Ayah    : {{nama_ayah}}\nNIK Ayah     : {{nik_ayah}}\nAlamat       : {{alamat_ayah}}",
+    "--- DATA IBU ---",
+    "Nama Ibu     : {{nama_ibu}}\nNIK Ibu       : {{nik_ibu}}\nAlamat       : {{alamat_ibu}}",
+    "--- DATA PELAPOR ---",
+    "Nama Pelapor : {{nama_pelapor}} ({{hubungan_pelapor}})\nNIK Pelapor  : {{nik_pelapor}}\nAlamat       : {{alamat_pelapor}}",
+    "Surat pengantar ini dibuat sebagai persyaratan pengurusan Akta Kelahiran di Dukcapil.",
   ],
-  SK_PENGHASILAN: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama       : {{nama}}\nNIK        : {{nik}}\nPekerjaan  : {{pekerjaan}}\nPenghasilan : Rp {{penghasilan}} per bulan",
-    // ✅ ADOPSI OpenSID: Data orang tua untuk pelajar
-    "{{nama_ayah ? '--- DATA AYAH ---' : ''}}",
-    "{{nama_ayah ? 'Nama Ayah   : ' + nama_ayah : ''}}",
-    "{{nik_ayah ? 'NIK Ayah    : ' + nik_ayah : ''}}",
-    "{{tempat_lahir_ayah || tanggal_lahir_ayah ? 'TTL Ayah   : ' + (tempat_lahir_ayah||'') + '|' + (tanggal_lahir_ayah||'') : ''}}",
-    "{{pekerjaan_ayah ? 'Pekerjaan  : ' + pekerjaan_ayah : ''}}",
-    "{{penghasilan_ayah ? 'Penghasilan: Rp ' + penghasilan_ayah + '/bulan' : ''}}",
-    "{{alamat_ayah ? 'Alamat     : ' + alamat_ayah : ''}}",
-    "{{nama_ibu ? '--- DATA IBU ---' : ''}}",
-    "{{nama_ibu ? 'Nama Ibu    : ' + nama_ibu : ''}}",
-    "{{nik_ibu ? 'NIK Ibu     : ' + nik_ibu : ''}}",
-    "{{tempat_lahir_ibu || tanggal_lahir_ibu ? 'TTL Ibu    : ' + (tempat_lahir_ibu||'') + '|' + (tanggal_lahir_ibu||'') : ''}}",
-    "{{pekerjaan_ibu ? 'Pekerjaan  : ' + pekerjaan_ibu : ''}}",
-    "{{penghasilan_ibu ? 'Penghasilan: Rp ' + penghasilan_ibu + '/bulan' : ''}}",
-    "{{alamat_ibu ? 'Alamat     : ' + alamat_ibu : ''}}",
-    "{{nama_sekolah ? '--- DATA SEKOLAH ---' : ''}}",
-    "{{nama_sekolah ? 'Sekolah    : ' + nama_sekolah : ''}}",
-    "{{jurusan ? 'Jurusan    : ' + jurusan : ''}}",
-    "{{kelas_semester ? 'Kelas/Smt : ' + kelas_semester : ''}}",
-    "{{nomor_induk ? 'No. Induk  : ' + nomor_induk : ''}}",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
+  SP_AKTA_KEMATIAN: [
+    "Dengan ini memberikan PENGANTAR AKTA KEMATIAN kepada :",
+    "Nama Jenazah    : {{nama_jenazah}}\nNIK             : {{nik_jenazah}}\nTgl Meninggal   : {{tanggal_meninggal}}\nTempat          : {{tempat_meninggal}}\nPenyebab Kematian: {{penyebab}}",
+    "--- DATA PELAPOR ---",
+    "Nama Pelapor : {{nama_pelapor}}\nNIK Pelapor  : {{nik_pelapor}}\nHubungan      : {{hubungan_pelapor}}\nAlamat        : {{alamat_pelapor}}",
+    "Surat pengantar ini dibuat sebagai persyaratan penerbitan Akta Kematian di Dukcapil.",
   ],
-  SK_KEHILANGAN: [
+  SK_AHLI_WARIS: [
     "Dengan ini menyatakan bahwa :",
-    "Nama             : {{nama}}\nNIK              : {{nik}}\nBarang/Dokumen : {{barang_hilang}}\nTempat          : {{tempat_hilang}}\nWaktu           : {{waktu_hilang}}",
-    "Surat keterangan ini diterbitkan untuk keperluan administrasi. Untuk laporan resmi, silakan hubungi kantor polisi terdekat.",
+    "Telah meninggal dunia seorang warga bernama {{nama_alm}} pada tanggal {{tgl_meninggal}}.",
+    "Bahwa almarhum/ah meninggalkan ahli waris yang sah secara hukum, yaitu:\n{{daftar_waris}}",
+    "Surat keterangan ahli waris ini dibuat di bawah sumpah para ahli waris untuk keperluan pengurusan klaim/warisan, dan jika terjadi sengketa hukum di kemudian hari, sepenuhnya menjadi tanggung jawab para pihak.",
   ],
-  SP_SKCK: [
-    "Dengan ini memberikan PENGANTAR kepada :",
+  SK_PINDAH: [
+    "Dengan ini menyatakan bahwa :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
     "",
-    "Bahwa yang bersangkutan adalah benar warga kami dan selama berdomisili di Desa {{nama_desa}}, tidak pernah tercatat melakukan tindak pidana/kejahatan.",
-    "Surat pengantar ini dibuat untuk pengajuan SKCK dan keperluan {{keperluan}}.",
-  ],
-  SK_KELAKUAN_BAIK: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan dikenal berkelakuan baik, tidak pernah tersangkut masalah hukum, dan aktif dalam kegiatan sosial kemasyarakatan.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  SK_TIDAK_PUNYA_KERJA: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan saat ini tidak memiliki pekerjaan tetap dan termasuk kategori Pencari Kerja.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  VERIF_DTKS: [
-    "Dengan ini memberikan PENGANTAR VERIFIKASI DTKS kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Bahwa warga tersebut telah kami verifikasi dan data kehadirannya tercatat dalam sistem kami.\nProgram bantuan yang dituju: {{program_bantuan}}.",
-    "Surat ini dibuat sebagai bahan verifikasi Data Terpadu Kesejahteraan Sosial (DTKS).",
+    "Bahwa yang bersangkutan akan pindah domisili dengan tujuan:\nAlamat Tujuan  : {{alamat_tujuan}}\nAlasan Pindah  : {{alasan_pindah}}\nJumlah Pengikut: {{jumlah_pengikut}} orang",
+    "Surat keterangan ini dibuat sebagai persyaratan pengurusan surat pindah antar desa/kecamatan/kabupaten.",
   ],
 
   /* PERNIKAHAN & KELUARGA */
   SK_BELUM_MENIKAH: [
     "Dengan ini menyatakan bahwa :",
-    "Nama              : {{nama}}\nNIK               : {{nik}}\nTempat/Tgl Lahir : {{tempat_tanggal_lahir}}",
-    "Yang bersangkutan berstatus BELUM MENIKAH / belum pernah melangsungkan pernikahan.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}} sebagai salah satu syarat pengajuan akta nikah.",
+    "Nama              : {{nama}}\nNIK               : {{nik}}\nTempat/Tgl Lahir : {{tempat_tanggal_lahir}}\nAlamat           : {{alamat}}",
+    "Berdasarkan catatan kependudukan kami, yang bersangkutan berstatus BELUM MENIKAH / belum pernah melangsungkan pernikahan.",
+    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
   ],
   SK_NIKAH: [
-    "Dengan ini memberikan SURAT PENGANTAR NIKAH kepada :",
+    "Dengan ini memberikan PENGANTAR NIKAH kepada :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
     "",
-    "Bahwa yang bersangkutan memenuhi persyaratan untuk melangsungkan pernikahan.{{binti ? '\nNama Binti (Nama gadis ibu kandung): ' + binti : ''}}",
-    "Model Formulir  : {{model_formulir}}\nNama Pasangan  : {{nama_calon}}\nNIK Pasangan   : {{nik_calon}}",
-    "Demikian surat pengantar nikah ini dibuat dan dapat dipergunakan sebagaimana mestinya.",
+    "Bahwa yang bersangkutan tidak terdapat halangan untuk melangsungkan pernikahan (N1, N2, N4) dengan:",
+    "Nama Pasangan  : {{nama_calon}}\nNIK Pasangan   : {{nik_calon}}\nAlamat Pasangan: {{alamat_calon}}",
+    "Demikian surat pengantar nikah ini dibuat untuk dipergunakan di Kantor Urusan Agama (KUA) / Catatan Sipil.",
   ],
-  SK_NIKAH_NONMUSLIM: [
-    "Dengan ini memberikan SURAT PENGANTAR NIKAH NON-MUSLIM kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Bahwa yang bersangkutan rencana akan melangsungkan pernikahan dan surat ini dibuat untuk dicatatkan di Kantor Catatan Sipil.",
-  ],
-  SK_JANDA: [
+  SK_JANDA_DUDA: [
     "Dengan ini menyatakan bahwa :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan saat ini berstatus JANDA.",
+    "Yang bersangkutan saat ini berstatus {{status_pernikahan}} (Cerai Hidup/Cerai Mati).",
     "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
   ],
-  SK_DUDA: [
+  SK_CERAI: [
     "Dengan ini menyatakan bahwa :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan saat ini berstatus DUDA.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  SK_HUBUNGAN_KELUARGA: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama              : {{nama}}\nNIK               : {{nik}}\nHubungan Keluarga : {{hubungan}}",
-    "Dengan ini menyatakan bahwa yang bersangkutan memiliki hubungan keluarga dengan {{nama_anggota_keluarga}}.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}} dan bukan merupakan akta catatan sipil.",
-  ],
-  SK_AHLI_WARIS: [
-    "Dengan ini menyatakan bahwa :",
-    "Yang bersangkutan adalah benar ahli waris sah dari:\nNama Almarhum/ah : {{nama_alm}}\nTanggal Meninggal : {{tgl_meninggal}}\nDaftar Ahli Waris :\n{{daftar_waris}}",
-    "Surat keterangan ini dibuat sebagai salah satu persyaratan pengurusan klaim dan bukan merupakan pengesahan waris secara hukum.",
+    "Yang bersangkutan memohon surat pengantar terkait proses {{jenis_proses_cerai}} (Gugat Cerai / Talak) dengan pasangannya:",
+    "Nama Pasangan : {{nama_pasangan}}\nNIK Pasangan  : {{nik_pasangan}}",
+    "Surat ini dibuat sebagai pengantar administrasi ke Pengadilan Agama / Pengadilan Negeri.",
   ],
   DISPENSA_NIKAH: [
     "Dengan ini memberikan PENGANTAR DISPENSASI NIKAH kepada :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
     "",
-    "Bahwa yang bersangkutan mengajukan dispensasi nikah ke Pengadilan Agama dengan alasan: {{alasan}}.",
-    "Surat pengantar ini dibuat sebagai persyaratan pengajuan dispensasi nikah dan bukan merupakan izin nikah.",
+    "Bahwa yang bersangkutan mengajukan dispensasi nikah karena {{alasan_dispensasi}}.",
+    "Surat pengantar ini dibuat sebagai persyaratan pengajuan permohonan ke Pengadilan Agama/KUA.",
   ],
   WALI_NIKAH: [
     "Dengan ini memberikan KETERANGAN WALI NIKAH HAKIM kepada :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
     "",
-    "Bahwa yang bersangkutan tidak memiliki wali nikah yang dapat hadir karena: {{alasan_tidak_ada_wali}}.",
-    "Surat keterangan ini menjadi dasar pengajuan penunjukan wali nikah hakim ke Pengadilan Agama.",
+    "Bahwa yang bersangkutan memohon penunjukan Wali Hakim karena {{alasan_wali_hakim}}.",
+    "Surat keterangan ini menjadi dasar pengajuan ke Pengadilan Agama/KUA.",
+  ],
+  SK_IZIN_ORANG_TUA: [
+    "Dengan ini menyatakan bahwa kami selaku Orang Tua / Wali :",
+    "Nama Pemberi Izin : {{nama_pemberi_izin}}\nNIK               : {{nik_pemberi_izin}}\nHubungan          : {{hubungan}}",
+    "Memberikan izin dan persetujuan penuh kepada anak/tanggungan kami:",
+    "Nama Anak   : {{nama}}\nNIK Anak    : {{nik}}",
+    "Untuk keperluan {{keperluan_izin}} (bekerja ke luar negeri/menikah/operasi medis).",
+    "Demikian surat izin ini dibuat tanpa paksaan dari pihak mana pun.",
   ],
 
-  /* USAHA & EKONOMI */
-  SKU: [
+  /* SOSIAL, PENDIDIKAN & EKONOMI */
+  SKTM: [
+    "Dengan ini menyatakan bahwa :",
+    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
+    "Berdasarkan pendataan tingkat kesejahteraan desa, yang bersangkutan termasuk keluarga kurang mampu/prasejahtera dengan penghasilan rata-rata Rp {{penghasilan}} per bulan dan menanggung {{tanggungan}} jiwa.",
+    "Surat keterangan tidak mampu ini dibuat untuk keperluan administrasi pengajuan keringanan/bantuan.",
+  ],
+  SK_PENGHASILAN: [
+    "Dengan ini menyatakan bahwa :",
+    "Nama       : {{nama}}\nNIK        : {{nik}}\nPekerjaan  : {{pekerjaan}}\nPenghasilan: Rp {{penghasilan}} per bulan",
+    "Surat keterangan penghasilan ini diterbitkan berdasarkan pengakuan/pernyataan dari yang bersangkutan dan dibuat untuk keperluan {{keperluan}}.",
+  ],
+  SK_PROFESI_USAHA: [
     "Dengan ini menyatakan bahwa :",
     "Nama       : {{nama}}\nNIK        : {{nik}}\nAlamat     : {{alamat}}",
-    "Yang bersangkutan memiliki dan mengelola usaha dengan data:\nNama Usaha    : {{nama_usaha}}\nJenis Usaha    : {{jenis_usaha}}\nAlamat Usaha  : {{alamat_usaha}}",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}. Untuk perizinan resmi (NIB), silakan mengurus melalui sistem OSS.",
+    "Yang bersangkutan adalah benar berprofesi sebagai / memiliki usaha:\nBidang Pekerjaan / Nama Usaha: {{nama_usaha}}\nJenis/Sektor  : {{jenis_usaha}}\nLokasi        : {{alamat_usaha}}",
+    "Surat keterangan ini menerangkan profesi/usaha warga untuk keperluan {{keperluan}} dan bukan izin resmi OSS.",
   ],
-  IZIN_KERAMAIAN: [
-    "Dengan ini memberikan IZIN KERAMAIAN kepada :",
-    "Nama Acara   : {{nama_acara}}\nPelaksana   : {{nama}}\nLokasi      : {{lokasi}}",
-    "Tanggal      : {{tgl_mulai}} s.d. {{tgl_selesai}}\nPerkiraan Tamu: {{jumlah_tamu}} orang",
-    "Surat izin ini wajib dibawa saat acara dan dapat ditunjukkan kepada pihak berwajib.",
-  ],
-  SK_PETERNAK: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan berprofesi sebagai peternak di wilayah Desa {{nama_desa}}.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  SK_PENGRAJIN: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan bergerak di bidang kerajinan/seni: {{jenis_kerajinan}}.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  SK_PEDAGANG_PASAR: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan tercatat sebagai pedagang di {{nama_pasar}}.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-
-  /* TANAH & PROPERTI */
-  SK_TANAH_MILIK: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}",
-    "Berdasarkan data yang kami miliki, yang bersangkutan memiliki/menguasai tanah:\nLokasi     : {{lokasi_tanah}}\nLuas       : {{luas_tanah}}\nBatas-batas: {{batas}}",
-    "Surat ini KETERANGAN dari Pemerintah Desa dan BUKAN merupakan sertifikat tanah. Untuk kepastian hukum, silakan menghubungi BPN.",
-  ],
-  SK_TANAH_TIDAK_SENGKETA: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}",
-    "Tanah yang dikuasai:\nLokasi     : {{lokasi_tanah}}\nLuas       : {{luas_tanah}}\nBatas-batas: {{batas}}",
-    "Tanah tersebut bebas sengketa dan tidak sedang dalam proses hukum di pengadilan.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  SK_HIBAH_TANAH: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama            : {{nama}}\nNIK             : {{nik}}",
-    "Tanah yang dihibahkan:\nLokasi        : {{lokasi_tanah}}\nLuas          : {{luas_tanah}}\nPenerima Hibah: {{penerima_hibah}}",
-    "Surat keterangan ini dibuat sebagai tahap awal pengurusan hibah tanah di PPAT dan BPN.",
-  ],
-  SK_JUAL_BELI_TANAH: [
-    "Dengan ini menyatakan bahwa :",
-    "Transaksi jual beli tanah:\nLokasi  : {{lokasi_tanah}}\nLuas    : {{luas_tanah}}\nPenjual : {{penjual}}\nPembeli : {{pembeli}}",
-    "Surat keterangan ini dibuat sebagai tahap awal pengurusan Akta Jual Beli (AJB) di PPAT.",
-  ],
-  SK_RUMAH_MILIK: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}",
-    "Yang bersangkutan memiliki bangunan rumah:\nLokasi      : {{lokasi_rumah}}\nLuas        : {{luas_bangunan}} m2\nTahun Dibangun: {{tahun_bangun}}",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}} dan bukan merupakan IMB/PBG resmi.",
-  ],
-  SK_BELUM_PUNYA_RUMAH: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan saat ini belum memiliki rumah/kediaman sendiri.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  SK_TANAH_WAKAF: [
-    "Dengan ini menyatakan bahwa :",
-    "Tanah wakaf:\nLokasi    : {{lokasi_tanah}}\nLuas      : {{luas_tanah}}\nNadzir    : {{nadzir_wakaf}}\nTujuan    : {{tujuan_wakaf}}",
-    "Surat keterangan ini dibuat sebagai tahap awal pendaftaran wakaf di BWI.",
-  ],
-
-  /* PENDIDIKAN */
   SK_BEASISWA: [
     "Dengan ini menyatakan bahwa :",
     "Nama    : {{nama}}\nNIK     : {{nik}}\nAlamat  : {{alamat}}",
-    "Yang bersangkutan saat ini menempuh pendidikan:\nNama Institusi   : {{nama_institusi}}\nProgram Beasiswa : {{program_beasiswa}}",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  SK_PENELITIAN: [
-    "Dengan ini memberikan SURAT PENGANTAR kepada :",
-    "Nama Kegiatan : {{judul_kegiatan}}\nInstitusi     : {{nama_institusi}}\nLokasi        : {{lokasi_penelitian}}\nLama          : {{lama_kegiatan}}\nPeserta       : {{jumlah_peserta}} orang",
-    "Surat pengantar ini dibuat sebagai salah satu persyaratan kegiatan.",
-  ],
-  SK_PUTUS_SEKOLAH: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan pernah duduk di bangku pendidikan namun kemudian putus sekolah.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
+    "Berdasarkan catatan kami, yang bersangkutan mengajukan permohonan Surat Keterangan untuk melengkapi persyaratan program Beasiswa.",
+    "Kami menyatakan bahwa yang bersangkutan berkelakuan baik dan layak dipertimbangkan sebagai penerima beasiswa.",
   ],
   SK_AKTIF_SEKOLAH: [
     "Dengan ini menyatakan bahwa :",
-    "Nama        : {{nama}}\nNIK         : {{nik}}\nNama Sekolah: {{nama_sekolah}}\nJenjang     : {{jenjang}}",
-    "Yang bersangkutan saat ini masih aktif bersekolah.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
+    "Nama        : {{nama}}\nNIK         : {{nik}}\nInstitusi   : {{nama_sekolah}}",
+    "Yang bersangkutan tercatat berdomisili di desa kami dan dilaporkan masih berstatus sebagai Siswa/Mahasiswa aktif.",
+    "Surat keterangan ini dibuat untuk keperluan administrasi.",
   ],
-
-  /* KESEHATAN & KHUSUS */
+  SK_PENELITIAN: [
+    "Dengan ini memberikan SURAT PENGANTAR PENELITIAN kepada :",
+    "Nama Peneliti : {{nama}}\nInstitusi     : {{nama_institusi}}\nJudul Kajian  : {{judul_penelitian}}\nLokasi        : {{lokasi_penelitian}}",
+    "Pemerintah Desa {{nama_desa}} mengetahui dan mengizinkan kegiatan riset/penelitian tersebut sesuai dengan peraturan yang berlaku.",
+  ],
   SK_DISABILITAS: [
     "Dengan ini menyatakan bahwa :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan termasuk kategori penyandang disabilitas: {{jenis_disabilitas}}.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
+    "Yang bersangkutan tercatat dalam data desa sebagai penyandang disabilitas ({{jenis_disabilitas}}).",
+    "Surat keterangan ini dibuat untuk pengurusan hak dan bantuan disabilitas.",
   ],
   SK_LANSIA: [
     "Dengan ini menyatakan bahwa :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan saat ini berusia {{umur}} tahun dan termasuk kategori lanjut usia (Lansia).",
+    "Yang bersangkutan saat ini tercatat sebagai warga Lanjut Usia (Lansia) di desa kami.",
     "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
   ],
   SK_YATIM_PIATU: [
     "Dengan ini menyatakan bahwa :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan termasuk dalam kategori: {{status_yatim}}.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
+    "Yang bersangkutan berstatus {{status_yatim_piatu}} karena orang tuanya telah meninggal dunia.",
+    "Surat keterangan ini dibuat sebagai syarat pengurusan bantuan sosial anak yatim/piatu.",
   ],
-  SK_HAMIL: [
-    "Dengan ini memberikan KETERANGAN HAMIL kepada :",
-    "Nama           : {{nama}}\nNIK            : {{nik}}\nUsia Kandungan : {{usia_kandungan}} bulan",
-    "Surat keterangan ini dibuat sebagai salah satu syarat pemeriksaan dan bukan surat keterangan medis resmi.",
-  ],
-
-  /* PERTANIAN & LINGKUNGAN */
-  SK_PETANI: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan berprofesi sebagai petani di wilayah Desa {{nama_desa}}.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  SK_NELAYAN: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan berprofesi sebagai nelayan di wilayah pesisir Desa {{nama_desa}}.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  SK_BENCANA: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama           : {{nama}}\nNIK            : {{nik}}\nAlamat        : {{alamat}}",
-    "Yang bersangkutan terdampak bencana:\nJenis    : {{jenis_bencana}}\nTanggal  : {{tanggal_kejadian}}\nKerugian: {{kerugian}}",
-    "Surat keterangan ini dibuat untuk keperluan klaim dan bukan surat pernyataan resmi BNPB.",
-  ],
-  SK_PENGGUNAAN_LAHAN: [
-    "Dengan ini menyatakan bahwa :",
-    "Lahan dengan:\nLokasi             : {{lokasi_lahan}}\nLuas              : {{luas_lahan}}\nPeruntukan Sekarang : {{peruntukan_sekarang}}\nPeruntukan Usulan   : {{peruntukan_usulan}}",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  SK_KELOMPOK_TANI: [
-    "Dengan ini menyatakan bahwa :",
-    "Kelompok Tani: {{nama_kelompok}}\nJumlah Anggota: {{jumlah_anggota}} orang",
-    "Kelompok tersebut tercatat di Desa {{nama_desa}}.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-
-  /* SURAT DINAS */
-  SP_INSTANSI: [
-    "Dengan ini memberikan PENGANTAR kepada :",
+  VERIF_DTKS: [
+    "Dengan ini memberikan KETERANGAN VERIFIKASI DTKS kepada :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
     "",
-    "Untuk keperluan kepada:\nInstansi : {{nama_instansi}}\nAlamat  : {{alamat_instansi}}",
-    "Keperluan: {{keperluan}}.",
-    "Demikian surat pengantar ini dibuat dengan sebenar-benarnya.",
+    "Bahwa warga tersebut telah kami verifikasi masuk/memenuhi kriteria Data Terpadu Kesejahteraan Sosial (DTKS).",
+    "Surat ini dibuat untuk diajukan kepada Dinas Sosial terkait program bantuan {{program_bantuan}}.",
   ],
   SURAT_BANTUAN: [
-    "Dengan ini melaporkan permohonan bantuan dari warga kami:",
+    "Dengan ini melaporkan permohonan bantuan sosial untuk:",
     "Nama       : {{nama}}\nNIK        : {{nik}}\nAlamat     : {{alamat}}",
     "",
-    "Jenis bantuan: {{jenis_bantuan}}\nAlasan pengajuan: {{alasan}}.",
-    "Surat keterangan ini dibuat sebagai salah satu syarat pengajuan bantuan.",
-  ],
-  SURAT_REKOMENDASI: [
-    "Dengan ini memberikan REKOMENDASI kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Isi Rekomendasi:\n{{isi_rekomendasi}}",
-    "Demikian surat rekomendasi ini dibuat dengan sebenar-benarnya.",
+    "Kondisi sosial/ekonomi: {{kondisi_sosial}}.\nJenis Bantuan yang Diharapkan: {{jenis_bantuan}}.",
+    "Demikian surat pengantar ini dibuat sebagai usulan ke tingkat yang berwenang.",
   ],
 
-  /* SURAT UMUM & LAINNYA */
-  SPTJM: [
-    "Dengan ini saya yang bertanda tangan di bawah ini:\nNama           : {{nama}}\nNIK            : {{nik}}\nTempat/Tgl Lahir: {{tempat_tanggal_lahir}}\nAlamat         : {{alamat}}",
-    "",
-    "Menyatakan dan bertanggung jawab penuh atas:\nJudul Pernyataan: {{judul_pernyataan}}",
-    "",
-    "Isi Pernyataan:\n{{isi_pernyataan}}",
-    "Surat pernyataan ini dibuat dengan penuh kesadaran tanpa paksaan. Apabila tidak sesuai, saya bersedia dituntut sesuai hukum yang berlaku.",
-    "Surat ini WAJIB dibubuhi MATERAI Rp10.000,-",
-  ],
-  SURAT_KUASA: [
-    "Dengan ini memberikan KUASA dari:\nNama Pemberi Kuasa : {{nama}}\nNIK Pemberi Kuasa  : {{nik}}\nKepada:\nNama Penerima Kuasa : {{penerima_kuasa}}\nNIK Penerima Kuasa  : {{nik_penerima_kuasa}}",
-    "",
-    "Wewenang yang diberikan:\n{{wewenang}}",
-    "Surat kuasa ini dibuat di hadapan competent authority dan WAJIB dibubuhi materai Rp10.000,-",
-  ],
-  SK_WNI_KETURUNAN: [
+  /* PERTANAHAN & PERIZINAN */
+  SK_TANAH_MILIK: [
     "Dengan ini menyatakan bahwa :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan adalah warga negara Indonesia keturunan.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
+    "Berdasarkan riwayat dan penguasaan fisik, menguasai sebidang tanah:\nLokasi     : {{lokasi_tanah}}\nLuas       : {{luas_tanah}} m2\nBatas Utara: {{batas_utara}}\nBatas Timur: {{batas_timur}}\nBatas Selatan: {{batas_selatan}}\nBatas Barat: {{batas_barat}}",
+    "Tanah tersebut benar-benar dikuasai oleh yang bersangkutan, tidak dalam sengketa, dan tidak digadaikan.",
+    "Surat ini BUKAN sertifikat, melainkan Surat Keterangan Penguasaan Tanah untuk keperluan persyaratan administrasi BPN.",
   ],
-  SK_HAJI: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan akan menunaikan ibadah Haji/Umrah.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
+  SK_JUAL_BELI_TANAH: [
+    "Dengan ini menerangkan transaksi Jual Beli Tanah:",
+    "Pihak Pertama (Penjual) : {{penjual}}\nPihak Kedua (Pembeli)   : {{pembeli}}",
+    "Obyek Tanah:\nLokasi : {{lokasi_tanah}}\nLuas   : {{luas_tanah}} m2\nHarga Transaksi: Rp {{harga_jual}}",
+    "Surat keterangan ini dicatat di register desa sebagai pengantar pengurusan Akta Jual Beli (AJB) melalui PPAT.",
   ],
-  SK_PASPOR: [
-    "Dengan ini memberikan PENGANTAR kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Bahwa yang bersangkutan akan mengajukan pembuatan paspor dan membutuhkan surat pengantar dari pemerintah desa.",
-    "Surat pengantar ini dibuat untuk keperluan {{keperluan}} dan bukan merupakan surat rekomendasi imigrasi.",
+  SK_HIBAH_TANAH: [
+    "Dengan ini menerangkan pelimpahan Hak Hibah Tanah:",
+    "Pihak Pemberi Hibah : {{pemberi_hibah}}\nPihak Penerima Hibah: {{penerima_hibah}}",
+    "Obyek Tanah:\nLokasi : {{lokasi_tanah}}\nLuas   : {{luas_tanah}} m2",
+    "Surat keterangan ini dicatat di register desa sebagai pengantar pengurusan Akta Hibah melalui PPAT.",
   ],
-  SK_TKI: [
-    "Dengan ini memberikan PENGANTAR CALON TKI/PMI kepada :",
-    "Nama           : {{nama}}\nNIK            : {{nik}}\nNegara Tujuan : {{negara_tujuan}}\nJenis Pekerjaan: {{jenis_pekerjaan}}",
-    "Perusahaan/PJTKI: {{nama_pt}}",
-    "Surat keterangan ini dibuat sebagai salah satu syarat BP2MI dan Disnaker.",
+  SK_TANAH_WAKAF: [
+    "Dengan ini menerangkan Ikrar Wakaf atas Tanah:",
+    "Pewakaf (Wakif) : {{nama_wakif}}\nPenerima (Nadzir): {{nama_nadzir}}",
+    "Obyek Tanah:\nLokasi : {{lokasi_tanah}}\nLuas   : {{luas_tanah}} m2\nPeruntukan Wakaf: {{peruntukan}}",
+    "Surat keterangan ini diterbitkan sebagai pengantar ke KUA/BWI untuk pengurusan Akta Ikrar Wakaf (AIW).",
   ],
-  SK_ORGANISASI: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan aktif dalam organisasi kemasyarakatan di Desa {{nama_desa}}.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  SK_TIDAK_DI_DESA: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "Yang bersangkutan saat ini tidak berada di Desa {{nama_desa}}.",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-  SP_PTSL: [
-    "Dengan ini memberikan PENGANTAR PTSL kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Untuk pengajuan:\nLokasi Tanah : {{lokasi_tanah}}\nLuas Tanah   : {{luas_tanah}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat Program PTSL oleh BPN.",
-  ],
-  SP_AKTA_KEMATIAN: [
-    "Dengan ini memberikan PENGANTAR AKTA KEMATIAN kepada :",
-    "Nama Jenazah    : {{nama_jenazah}}\nNIK             : {{nik}}\nTgl Meninggal   : {{tanggal_meninggal}}\nTempat          : {{tempat_meninggal}}\nPenyebab Kematian: {{penyebab}}",
-    "--- DATA PELAPOR ---",
-    "Nama Pelapor : {{nama_pelapor}}\nNIK Pelapor  : {{nik_pelapor}}\nHubungan      : {{hubungan_pelapor}}\nAlamat        : {{alamat_pelapor}}",
-    "--- DATA SAKSI ---",
-    "Saksi        : {{nama_saksi}}\nNIK Saksi   : {{nik_saksi}}\nAlamat       : {{alamat_saksi}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat penerbitan Akta Kematian di Dukcapil.",
-  ],
-  SP_AKTA_KELAHIRAN: [
-    "Dengan ini memberikan PENGANTAR AKTA KELAHIRAN kepada :",
-    "Nama Bayi     : {{nama_bayi}}\nTgl Lahir    : {{tanggal_lahir}}\nTempat Lahir : {{tempat_lahir}}\nJenis Kelamin : {{jenis_kelamin_bayi}}",
-    "--- DATA AYAH ---",
-    "Nama Ayah    : {{nama_ayah}}\nNIK Ayah     : {{nik_ayah}}\nTTL Ayah     : {{tempat_lahir_ayah}}|{{tanggal_lahir_ayah}}\nPekerjaan    : {{pekerjaan_ayah}}\nKewarganegaraan: {{kewarganegaraan_ayah}}\nAlamat       : {{alamat_ayah}}",
-    "--- DATA IBU ---",
-    "Nama Ibu     : {{nama_ibu}}\nNIK Ibu       : {{nik_ibu}}\nTTL Ibu       : {{tempat_lahir_ibu}}|{{tanggal_lahir_ibu}}\nPekerjaan    : {{pekerjaan_ibu}}\nKewarganegaraan: {{kewarganegaraan_ibu}}\nAlamat       : {{alamat_ibu}}",
-    "--- DATA PELAPOR ---",
-    "Nama Pelapor : {{nama_pelapor}} ({{hubungan_pelapor}})\nNIK Pelapor  : {{nik_pelapor}}\nAlamat       : {{alamat_pelapor}}",
-    "--- DATA SAKSI ---",
-    "Saksi 1      : {{nama_saksi_1}} | {{nik_saksi_1}} | {{alamat_saksi_1}}",
-    "Saksi 2      : {{nama_saksi_2}} | {{nik_saksi_2}} | {{alamat_saksi_2}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat penerbitan Akta Kelahiran di Dukcapil.",
-  ],
-  SP_AKTA_LAHIR: [
-    "Dengan ini memberikan PENGANTAR untuk penerbitan Akta Lahir kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat pengurusan Akta Lahir bagi warga yang belum memiliki.",
-  ],
-  SP_IZIN_REKLAME: [
-    "Dengan ini memberikan PENGANTAR untuk Izin Reklame kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat pengajuan izin reklame ke Dinas Perizinan.",
-  ],
-  // SP_IMB intentionally removed — references undefined fields {lokasi_bangunan, fungsi_bangunan}
-  // This letter type is not in SURAT_MASTER
-  SP_SANGGAR: [
-    "Dengan ini memberikan PENGANTAR untuk Pendirian Sanggar/Kursus kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat pengajuan izin pendirian sanggar/kursus.",
-  ],
-  SP_BEBAS_NARKOBA: [
-    "Dengan ini memberikan PENGANTAR untuk Pemeriksaan Bebas Narkotika kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat pemeriksaan bebas narkoba diinstansi kesehatan.",
-  ],
-  SP_PENEBANGAN_POHON: [
-    "Dengan ini memberikan PENGANTAR untuk Penebangan Pohon kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nJumlah Pohon : {{jumlah_pohon}} pohon\nLokasi Pohon: {{lokasi}}\nAlasan       : {{alasan}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat pengajuan izin penebangan pohon.",
-  ],
-  SP_PENGGALANGAN_DANA: [
-    "Dengan ini memberikan PENGANTAR untuk Penggalangan Dana kepada :",
-    "Nama Kegiatan : {{nama_acara}}\nTarget Dana  : Rp {{target_dana}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat pengajuan izin penggalangan dana.",
-  ],
-  SP_PENDAFTARAN_TANAH: [
-    "Dengan ini memberikan PENGANTAR untuk Pendaftaran Tanah kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nLokasi : {{lokasi_tanah}}\nLuas   : {{luas_tanah}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat Sporadik/PTSL ke BPN.",
-  ],
-  SP_VERIF_KELAHIRAN: [
-    "Dengan ini memberikan PENGANTAR VERIFIKASI KELAHIRAN kepada :",
-    "Nama Bayi     : {{nama_bayi}}\nTgl Lahir    : {{tanggal_lahir}}\nTempat Lahir : {{tempat_lahir}}\nNama Ibu      : {{nama_ibu}}\nNama Ayah     : {{nama_ayah}}",
-    "Surat pengantar ini dibuat untuk verifikasi data kelahiran di tingkat desa.",
-  ],
-
-  /* ==================== TAMBAHAN DARI OpenSID (3 Surat) ==================== */
-
   SK_HARGA_TANAH: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama        : {{nama}}\nNIK         : {{nik}}\nAlamat     : {{alamat}}",
-    "--- DATA TANAH ---",
-    "Lokasi       : {{lokasi_tanah}}\nLuas Tanah   : {{luas_tanah}} m²{{luas_bangunan ? '\nLuas Bangunan: ' + luas_bangunan + ' m²' : ''}}",
-    "{{atas_nama_tanah ? 'Atas Nama    : ' + atas_nama_tanah : ''}}",
-    "{{nomor_sertifikat ? 'No. Sertifikat: ' + nomor_sertifikat : ''}}",
-    "Harga Tanah  : Rp {{harga_tanah}}/m²{{harga_bangunan ? '\nHarga Bangunan: Rp ' + harga_bangunan + '/m²' : ''}}",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-
-  SK_LAHIR_MATI: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama        : {{nama}}\nNIK         : {{nik}}",
-    "--- DATA IBU ---",
-    "Nama        : {{nama_ibu}}\nKehamilan   : {{lama_kandungan}} bulan",
-    "--- DATA Kelahiran ---",
-    "Tanggal     : {{tanggal_kelahiran}}{{hari ? '\nHari        : ' + hari : ''}}{{jam ? '\nJam         : ' + jam : ''}}\nTempat      : {{tempat_mati}}{{jenis_kelamin_janin ? '\nJenis Kelamin: ' + jenis_kelamin_janin : ''}}",
-    "Surat keterangan ini dibuat untuk keperluan {{keperluan}}.",
-  ],
-
-  SK_IZIN_ORANG_TUA: [
-    "Dengan ini menyatakan bahwa :",
-    "Nama Pemberi Izin : {{nama_pemberi_izin}}",
-    "--- DATA ANAK ---",
-    "Nama        : {{nama_anak}}\nAlamat     : {{alamat_anak}}{{pekerjaan_anak ? '\nPekerjaan  : ' + pekerjaan_anak : ''}}{{status_pekerjaan ? '\nStatus      : ' + status_pekerjaan : ''}}{{negara_tujuan ? '\nTujuan      : ' + negara_tujuan : ''}}{{masa_kontrak ? '\nLama Kontrak: ' + masa_kontrak + ' tahun' : ''}}",
-    "Yang bersangkutan telah memberikan izin {{keperluan}}.",
-  ],
-
-  /* ── Dash aliases untuk kode surat yang pakai dash di SURAT_MASTER
-   * (surat-master.ts gunakan SP-KTP, SK-NIKAH, dll; di sini pakai underscore SP_KTP, SK_NIKAH).
-   * Alias ini memastikan lookup oleh kode dari DB (misal "SP-KTP") menemukan preset yang benar. ── */
-  "SP-KTP": [
-    "Dengan ini memberikan PENGANTAR kepada :",
     "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Untuk pengajuan Pembuatan KTP dengan jenis permohonan {{jenis_permohonan}}.",
-    "Demikian surat pengantar ini dibuat dan dapat dibawa ke Kantor Dukcapil untuk proses lebih lanjut.",
-  ],
-  "SP-KK": [
-    "Dengan ini memberikan PENGANTAR kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Untuk pengajuan Pembuatan/Perubahan Kartu Keluarga dengan jenis {{jenis_perubahan}}.",
-    "Demikian surat pengantar ini dibuat untuk dapat dipergunakan sebagaimana mestinya.",
-  ],
-  "SP-SKCK": [
-    "Dengan ini memberikan PENGANTAR kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Bahwa yang bersangkutan adalah benar warga kami dan selama berdomisili di Desa {{nama_desa}}, tidak pernah tercatat melakukan tindak pidana/kejahatan.",
-    "Surat pengantar ini dibuat untuk pengajuan SKCK dan keperluan {{keperluan}}.",
-  ],
-  "VERIF-DTKS": [
-    "Dengan ini memberikan PENGANTAR VERIFIKASI DTKS kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Bahwa warga tersebut telah kami verifikasi dan data kehadirannya tercatat dalam sistem kami.\nProgram bantuan yang dituju: {{program_bantuan}}.",
-    "Surat ini dibuat sebagai bahan verifikasi Data Terpadu Kesejahteraan Sosial (DTKS).",
-  ],
-  "SK-NIKAH": [
-    "Dengan ini memberikan SURAT PENGANTAR NIKAH kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Bahwa yang bersangkutan memenuhi persyaratan untuk melangsungkan pernikahan.{{binti ? '\nNama Binti (Nama gadis ibu kandung): ' + binti : ''}}",
-    "Model Formulir  : {{model_formulir}}\nNama Pasangan  : {{nama_calon}}\nNIK Pasangan   : {{nik_calon}}",
-    "Demikian surat pengantar nikah ini dibuat dan dapat dipergunakan sebagaimana mestinya.",
-  ],
-  "SP-INSTANSI": [
-    "Dengan ini memberikan PENGANTAR kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Untuk keperluan kepada:\nInstansi : {{nama_instansi}}\nAlamat  : {{alamat_instansi}}",
-    "Keperluan: {{keperluan}}.",
-    "Demikian surat pengantar ini dibuat dengan sebenar-benarnya.",
-  ],
-  "SP-PTSL": [
-    "Dengan ini memberikan PENGANTAR PTSL kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}\nAlamat : {{alamat}}",
-    "",
-    "Untuk pengajuan:\nLokasi Tanah : {{lokasi_tanah}}\nLuas Tanah   : {{luas_tanah}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat Program PTSL oleh BPN.",
-  ],
-  "SP-SANGGAR": [
-    "Dengan ini memberikan PENGANTAR untuk Pendirian Sanggar/Kursus kepada :",
-    "Nama   : {{nama}}\nNIK    : {{nik}}",
-    "Surat pengantar ini dibuat sebagai salah satu syarat pengajuan izin pendirian sanggar/kursus.",
+    "Yang bersangkutan mengajukan permohonan/pengantar terkait perceraian/rujuk dengan:",
+    "Nama Pasangan : {{nama_pasangan}}\nNIK Pasangan  : {{nik_pasangan}}",
+    "Surat keterangan ini dibuat sebagai pengantar ke Pengadilan Agama / KUA terkait proses {{jenis_proses}}.",
   ],
 };
+
+/** Normalize key untuk lookup DNA_CLAUSES_PRESETS — dash → underscore */
+function normalizeDnaKey(key: string): string {
+  return key.replace(/-/g, "_");
+}
+
+/** Get DNA clauses dengan fallback ke underscore key jika dash key tidak ada */
+export function getDnaClauses(code: string): string[] {
+  return DNA_CLAUSES_PRESETS[code] ?? DNA_CLAUSES_PRESETS[normalizeDnaKey(code)] ?? [];
+}

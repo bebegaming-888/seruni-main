@@ -3,8 +3,8 @@ import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { useVillage } from "@/hooks/use-village";
 import { getVillage } from "@/lib/village-dynamic";
-import { useSettings, getSettings } from "@/lib/settings-store";
-
+import { useDestinasiStore, type DestinasiItem } from "@/lib/content-store";
+import { useEffect } from "react";
 import { Compass, MapPin, Camera, Star, ArrowRight, Info } from "lucide-react";
 
 export const Route = createFileRoute("/wisata/destinasi")({
@@ -23,26 +23,14 @@ export const Route = createFileRoute("/wisata/destinasi")({
   component: () => <DestinasiPage />,
 });
 
-function DestinationCard({
-  item,
-}: {
-  item: {
-    id: string;
-    title: string;
-    category: string;
-    rating: number;
-    reviews: number;
-    image: string;
-    desc: string;
-  };
-}) {
+function DestinationCard({ item }: { item: DestinasiItem }) {
   const { village: villageName } = useVillage();
 
   return (
     <div className="group bg-card border border-border rounded-[2.5rem] overflow-hidden hover:shadow-xl transition-all duration-500">
       <div className="relative aspect-[16/10] overflow-hidden">
         <img
-          src={item.image}
+          src={item.image_url}
           alt={item.title}
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
         />
@@ -53,13 +41,15 @@ function DestinationCard({
         </div>
       </div>
       <div className="p-8">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex items-center gap-1 text-warning">
-            <Star className="h-4 w-4 fill-current" />
-            <span className="font-ui text-sm font-bold">{item.rating}</span>
+        {item.rating > 0 && (
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-1 text-warning">
+              <Star className="h-4 w-4 fill-current" />
+              <span className="font-ui text-sm font-bold">{item.rating.toFixed(1)}</span>
+            </div>
+            <span className="text-muted-foreground text-xs font-body">({item.reviews} ulasan)</span>
           </div>
-          <span className="text-muted-foreground text-xs font-body">({item.reviews} ulasan)</span>
-        </div>
+        )}
         <h3 className="font-display text-2xl font-bold text-ink mb-3 group-hover:text-primary transition-colors">
           {item.title}
         </h3>
@@ -67,7 +57,7 @@ function DestinationCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-muted-foreground">
             <MapPin className="h-4 w-4" />
-            <span className="font-ui text-xs font-semibold">{villageName}</span>
+            <span className="font-ui text-xs font-semibold">{item.lokasi ?? villageName}</span>
           </div>
           <button className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-all">
             <ArrowRight className="h-5 w-5" />
@@ -80,39 +70,56 @@ function DestinationCard({
 
 export function DestinasiPage() {
   const { village: villageName } = useVillage();
+  const store = useDestinasiStore();
+  const items = store.items;
 
-  const destinations = [
+  useEffect(() => {
+    store.load();
+  }, [store]);
+
+  const MOCK_DESTINASI: DestinasiItem[] = [
     {
-      id: "1",
+      id: "mock-1",
       title: `Pantai ${villageName}`,
+      desc: "Pantai berpasir putih dengan gradasi air laut biru yang memukau, cocok untuk melihat matahari terbit.",
       category: "Alam",
+      image_url:
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800",
       rating: 4.8,
       reviews: 124,
-      image:
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800",
-      desc: "Pantai berpasir putih dengan gradasi air laut biru yang memukau, cocok untuk melihat matahari terbit.",
+      lokasi: villageName,
+      harga_tiket: "Rp 10.000",
+      jam_buka: "07:00 - 18:00 WITA",
     },
     {
-      id: "2",
+      id: "mock-2",
       title: "Kampung Tenun Sasak",
+      desc: "Pusat kerajinan tenun tradisional di mana pengunjung dapat belajar menenun langsung dari pengrajin lokal.",
       category: "Budaya",
+      image_url:
+        "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&q=80&w=800",
       rating: 4.9,
       reviews: 86,
-      image:
-        "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&q=80&w=800",
-      desc: "Pusat kerajinan tenun tradisional di mana pengunjung dapat belajar menenun langsung dari pengrajin lokal.",
+      lokasi: "Dusun Sasak",
+      harga_tiket: "Rp 15.000",
+      jam_buka: "08:00 - 17:00 WITA",
     },
     {
-      id: "3",
+      id: "mock-3",
       title: `Bukit ${villageName}`,
+      desc: "Spot terbaik untuk melihat panorama seluruh desa dan pesisir dari ketinggian.",
       category: "Alam",
+      image_url:
+        "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=800",
       rating: 4.7,
       reviews: 52,
-      image:
-        "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=800",
-      desc: "Spot terbaik untuk melihat panorama seluruh desa dan pesisir Pringgabaya dari ketinggian.",
+      lokasi: "Dusun Brantapen Asri",
+      harga_tiket: "Gratis",
+      jam_buka: "06:00 - 18:00 WITA",
     },
   ];
+
+  const destinations = items.length > 0 ? items : MOCK_DESTINASI;
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -247,7 +254,7 @@ export function DestinasiPage() {
                   pemandu lokal, dan tips perjalanan.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
-                  <button className="w-full sm:w-auto h-14 px-8 rounded-full bg-primary text-primary-foreground font-ui font-bold hover:bg-primary-hover transition-all">
+                  <button className="w-full sm:w-auto h-14 px-8 rounded-full bg-primary text-primary-foreground font-ui font-bold hover:bg-primary transition-all">
                     Hubungi Tourist Center
                   </button>
                   <div className="flex items-center gap-2 text-background/50 font-ui text-sm italic">

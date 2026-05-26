@@ -142,14 +142,18 @@ export async function processOfflineQueue(): Promise<void> {
         return;
       }
 
-      // Marketplace/order type removed — just acknowledge and remove
-      if (item.type === "CREATE_ORDER") {
-        console.info(`[offline-queue] CREATE_ORDER ${item.id} skipped (marketplace removed)`);
-        await dequeueOfflineSubmission(item.id);
+      console.warn(`[offline-queue] Unknown submission type: ${item.type}`);
+
+      // Handle per-attachment upload retry
+      if (item.type === "attachment_upload") {
+        try {
+          const { processAttachmentQueue } = await import("@/lib/offline-queue-attachments");
+          await processAttachmentQueue();
+        } catch (err) {
+          console.warn("[offline-queue] Attachment queue process error:", err);
+        }
         return;
       }
-
-      console.warn(`[offline-queue] Unknown submission type: ${item.type}`);
     }),
   );
 }

@@ -60,7 +60,7 @@ function scrubObject(obj: unknown): unknown {
 export function initSentry() {
   // Hanya aktif di production + DSN tersedia
   if (import.meta.env.DEV || !SENTRY_DSN) {
-    console.log("[sentry] Skipped (dev mode or no DSN)");
+    // Dev mode or no DSN: skip Sentry initialization silently
     return;
   }
 
@@ -134,8 +134,6 @@ export function initSentry() {
       "ResizeObserver loop",
     ],
   });
-
-  console.log(`[sentry] Initialized (env: ${SENTRY_ENV}, release: ${BUILD_HASH})`);
 }
 
 /** Set user context (untuk tracking per user, NIK di-mask) */
@@ -170,7 +168,10 @@ export function captureException(error: Error, context?: Record<string, unknown>
 /** Capture message (non-error event) */
 export function captureMessage(message: string, level: "info" | "warning" | "error" = "info") {
   if (!SENTRY_DSN || import.meta.env.DEV) {
-    console.log(`[sentry] Message (${level}):`, message);
+    // Dev mode: just log to console in dev environment
+    if (import.meta.env.DEV) {
+      console.log(`[sentry] Message (${level}):`, message);
+    }
     return;
   }
 

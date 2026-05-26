@@ -262,7 +262,7 @@ export default function EditSurat() {
           <p className="font-body text-muted-foreground">{authError}</p>
           <Link
             to="/masuk/pengajuan-saya"
-            className="btn-pill bg-primary text-primary-foreground hover:bg-primary-hover inline-flex"
+            className="btn-pill bg-primary text-primary-foreground hover:bg-primary inline-flex"
           >
             <ArrowLeft className="h-4 w-4 mr-2" /> Kembali ke Pengajuan Saya
           </Link>
@@ -275,11 +275,26 @@ export default function EditSurat() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+      {/* ── BACK BUTTON ── */}
+      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
+          <button
+            onClick={() => window.history.back()}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted hover:bg-muted/80 text-foreground transition-colors font-ui font-semibold"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Kembali</span>
+          </button>
+          <div className="h-6 w-px bg-border mx-1" />
+          <span className="font-ui text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+            Koreksi Pengajuan
+          </span>
+        </div>
+      </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-6">
         {/* Record identity banner */}
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-card">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
               <span className="font-ui text-[10px] font-bold text-primary tracking-widest">
@@ -303,7 +318,7 @@ export default function EditSurat() {
           </div>
 
           {/* Identity info — read only */}
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div className="rounded-lg bg-muted/50 p-3">
               <p className="font-ui text-[10px] text-muted-foreground uppercase tracking-wider">
                 Nama
@@ -340,7 +355,7 @@ export default function EditSurat() {
         </div>
 
         {/* WA Contact */}
-        <div className="rounded-2xl bg-card border border-border p-6 shadow-card">
+        <div className="rounded-2xl bg-card border border-border p-4 sm:p-6 shadow-card">
           <h3 className="font-display font-bold text-base mb-4 flex items-center gap-2">
             <Send className="h-4 w-4 text-primary" /> Nomor WhatsApp
           </h3>
@@ -361,11 +376,11 @@ export default function EditSurat() {
 
         {/* Form fields (editable) */}
         {template.fields.length > 0 && (
-          <div className="rounded-2xl bg-card border border-border p-6 shadow-card">
+          <div className="rounded-2xl bg-card border border-border p-4 sm:p-6 shadow-card">
             <h3 className="font-display font-bold text-base mb-4 flex items-center gap-2">
               <Pencil className="h-4 w-4 text-primary" /> Data Formulir
             </h3>
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {template.fields.map((f) => (
                 <div key={f.key} className={f.colSpan === 2 ? "sm:col-span-2" : ""}>
                   <Label className="font-ui font-semibold">
@@ -415,7 +430,7 @@ export default function EditSurat() {
         )}
 
         {/* Selfie section */}
-        <div className="rounded-2xl bg-card border border-border p-6 shadow-card">
+        <div className="rounded-2xl bg-card border border-border p-4 sm:p-6 shadow-card">
           <div className="flex items-center gap-2 mb-1">
             <Camera className="h-4 w-4 text-success" />
             <h3 className="font-display font-bold text-base">Foto Selfie</h3>
@@ -448,7 +463,8 @@ export default function EditSurat() {
                         ),
                       )
                     }
-                    className="absolute -bottom-2 -right-2 bg-destructive text-white rounded-full p-1.5 hover:bg-destructive/80"
+                    className="absolute -bottom-2 -right-2 bg-destructive text-white rounded-full p-1.5 hover:bg-destructive/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    aria-label="Hapus foto selfie"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -456,7 +472,7 @@ export default function EditSurat() {
               );
             }
             return (
-              <label className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-border hover:border-success hover:bg-success/5 cursor-pointer text-muted-foreground hover:text-success transition">
+              <label className="flex flex-col items-center justify-center gap-2 p-4 sm:p-6 rounded-xl border-2 border-dashed border-border hover:border-success hover:bg-success/5 cursor-pointer text-muted-foreground hover:text-success transition">
                 <Camera className="h-8 w-8" />
                 <p className="font-body text-sm text-center">Upload foto selfie baru</p>
                 <p className="font-ui text-[11px] text-muted-foreground">JPG/PNG · maks 5MB</p>
@@ -502,7 +518,7 @@ export default function EditSurat() {
         </div>
 
         {/* Document attachments */}
-        <div className="rounded-2xl bg-card border border-border p-6 shadow-card">
+        <div className="rounded-2xl bg-card border border-border p-4 sm:p-6 shadow-card">
           <div className="flex items-center gap-2 mb-4">
             <Paperclip className="h-4 w-4 text-primary" />
             <h3 className="font-display font-bold text-base">Dokumen Pendukung</h3>
@@ -534,7 +550,8 @@ export default function EditSurat() {
                     </div>
                     <button
                       onClick={() => removeAttachment(i)}
-                      className="text-muted-foreground hover:text-destructive transition shrink-0"
+                      className="text-muted-foreground hover:text-destructive transition shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg"
+                      aria-label="Hapus lampiran"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -543,7 +560,7 @@ export default function EditSurat() {
             </div>
           )}
 
-          <label className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer text-muted-foreground hover:text-primary transition">
+          <label className="flex flex-col items-center justify-center gap-2 p-4 sm:p-6 rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer text-muted-foreground hover:text-primary transition">
             <Upload className="h-6 w-6" />
             <p className="font-body text-sm text-center">Tambah dokumen pendukung</p>
             <p className="font-ui text-[11px] text-muted-foreground">
@@ -560,7 +577,7 @@ export default function EditSurat() {
         </div>
 
         {/* Correction note */}
-        <div className="rounded-2xl bg-card border border-border p-6 shadow-card">
+        <div className="rounded-2xl bg-card border border-border p-4 sm:p-6 shadow-card">
           <h3 className="font-display font-bold text-base mb-3">
             Catatan Koreksi <span className="text-destructive">*</span>
           </h3>
@@ -577,12 +594,16 @@ export default function EditSurat() {
         </div>
 
         {/* Submit */}
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={() => navigate({ to: "/masuk/pengajuan-saya" })}>
+        <div className="flex flex-col sm:flex-row justify-end gap-3">
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => navigate({ to: "/masuk/pengajuan-saya" })}
+          >
             Batal
           </Button>
           <Button
-            className="btn-pill bg-primary hover:bg-primary-hover"
+            className="btn-pill bg-primary hover:bg-primary w-full sm:w-auto"
             onClick={() => setConfirmOpen(true)}
             disabled={!correctionNote.trim()}
           >
@@ -608,7 +629,7 @@ export default function EditSurat() {
             <Button
               onClick={handleSubmit}
               disabled={submitting}
-              className="bg-primary hover:bg-primary-hover"
+              className="bg-primary hover:bg-primary"
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -620,7 +641,6 @@ export default function EditSurat() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Footer />
     </div>
   );
 }

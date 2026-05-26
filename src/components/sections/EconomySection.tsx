@@ -80,7 +80,7 @@ export function EconomySection() {
             </div>
             <Link
               to="/ekonomi/kdmp"
-              className="btn-pill bg-primary text-primary-foreground hover:bg-primary-hover mt-auto self-start group"
+              className="btn-pill bg-primary text-primary-foreground hover:bg-primary mt-auto self-start group"
             >
               Profil KDMP
               <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />

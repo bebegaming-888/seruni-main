@@ -1,0 +1,102 @@
+[
+  {
+    "bugId": "BUG-1",
+    "verdict": "REAL_BUG",
+    "trueSeverity": "Critical",
+    "confidenceScore": 95,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Confirmed by reading server/api/submit-surat.js:165-180. The storage.upload() call destructures only { error }, not { data, error }. Line 175 accesses data?.path where 'data' is undefined. This causes TypeError on every successful upload, breaking attachment handling. Critical bug — blocks surat submission with attachments.",
+    "suggestedFix": "Line 165: const { data, error } = await sb.storage.from('surat-attachments').upload(filePath, buf, { contentType }); Then line 175: return { ...rest, storage_path: data?.path };"
+  },
+  {
+    "bugId": "BUG-2",
+    "verdict": "NOT_A_BUG",
+    "trueSeverity": "N/A",
+    "confidenceScore": 85,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Skeptic is correct. Rate limit is IP-based (5 per minute per IP, line 32-38). Attacker cannot enumerate NIKs at scale without many IPs. Format validation timing difference is negligible and not exploitable for enumeration. The rate limit applies before the Supabase query, so no practical attack path.",
+    "suggestedFix": "N/A"
+  },
+  {
+    "bugId": "BUG-3",
+    "verdict": "NOT_A_BUG",
+    "trueSeverity": "N/A",
+    "confidenceScore": 90,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Verified CLAUDE.md: warga table primary key is 'nik' (16 digit string). Supabase schema uses character varying, not integer. NIK is stored as string with leading zeros preserved. String(suratRow.nik) is a no-op. No type coercion issue. False positive.",
+    "suggestedFix": "N/A"
+  },
+  {
+    "bugId": "BUG-4",
+    "verdict": "REAL_BUG",
+    "trueSeverity": "Medium",
+    "confidenceScore": 80,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Confirmed: incrementRateLimit() at lines 209-219 catches all errors and only logs. If Supabase RPC fails, rate limit is not enforced. User can submit unlimited surat requests. Real bypass but requires DB failure to trigger, so downgraded to Medium.",
+    "suggestedFix": "Add fallback enforcement: if RPC fails, reject the submission with 503 error. Or use in-memory rate limit as backup."
+  },
+  {
+    "bugId": "BUG-5",
+    "verdict": "NOT_A_BUG",
+    "trueSeverity": "N/A",
+    "confidenceScore": 88,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Skeptic is correct. The phone normalization issue is in send-wa.js, not request-otp.js. Checked send-wa.js:127-128 — the logic handles '0' prefix and '62' prefix but not '62X' where X != 8. However, Fonnte API validates format server-side and returns error. The endpoint logs Fonnte errors (line 156) and returns them to caller. Not a silent failure. Design is resilient, not buggy.",
+    "suggestedFix": "N/A"
+  },
+  {
+    "bugId": "BUG-6",
+    "verdict": "REAL_BUG",
+    "trueSeverity": "Low",
+    "confidenceScore": 75,
+    "confidenceLabel": "medium",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Confirmed: BigInt(Math.round(Number(amount))) loses precision for amounts > MAX_SAFE_INTEGER. Village finance amounts are unlikely to exceed 9 quadrillion rupiah, but the code pattern is incorrect. Real bug but low practical impact. Downgraded to Low.",
+    "suggestedFix": "Parse amount as string and convert directly to BigInt: BigInt(String(amount).replace(/\\..*/, ''))"
+  },
+  {
+    "bugId": "BUG-7",
+    "verdict": "REAL_BUG",
+    "trueSeverity": "Medium",
+    "confidenceScore": 70,
+    "confidenceLabel": "medium",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Confirmed: GET /api/wilayah uses verifyAdmin only, no role check. All authenticated admins (including Verifikator) can read wilayah data. checkRole() is available but not used. This is a missing authorization check. Medium severity — data disclosure to low-privilege admins.",
+    "suggestedFix": "Add role check: const ALLOWED_ROLES = ['Super Admin', 'Operator', 'Kepala Desa']; if (!checkRole(res, req.adminSession, ALLOWED_ROLES)) return;"
+  },
+  {
+    "bugId": "BUG-8",
+    "verdict": "REAL_BUG",
+    "trueSeverity": "Medium",
+    "confidenceScore": 85,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Confirmed: audit_log insert at lines 227-232 has no error handling. If insert fails, admin action succeeds but audit trail is lost. UU PDP compliance violation. Real bug. Medium severity — compliance risk, not runtime failure.",
+    "suggestedFix": "Wrap audit_log insert in try/catch and log error. Consider making audit log insert mandatory (reject admin action if audit fails)."
+  },
+  {
+    "bugId": "BUG-9",
+    "verdict": "REAL_BUG",
+    "trueSeverity": "Critical",
+    "confidenceScore": 92,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Confirmed: Production startup check at lines 48-54 uses (!ALLOWED_ORIGIN || ALLOWED_ORIGIN === '*') but empty string  truthy, so check passes. Then cors({ origin: ALLOWED_ORIGIN || undefined }) at line 126 → origin: '' || undefined = undefined → wildcard CORS. Any origin can make authenticated requests. Critical security gap.",
+    "suggestedFix": "Change check to: if (NODE_ENV === 'production' && (!ALLOWED_ORIGIN || ALLOWED_ORIGIN.trim() === '' || ALLOWED_ORIGIN === '*')) { process.exit(1); }"
+  },
+  {
+    "bugId": "BUG-10",
+    "verdict": "NOT_A_BUG",
+    "trueSeverity": "N/A",
+    "confidenceScore": 80,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Verified server/index.js:221 comment: 'Inventaris Desa (HMAC session required for write, public for read)'. Public read is documented design. Asset inventory is public information per Indonesian village transparency requirements. Not a bug — intentional design.",
+    "suggestedFix": "N/A"
+  }
+]

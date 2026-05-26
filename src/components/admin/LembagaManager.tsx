@@ -255,7 +255,7 @@ function LembagaLogoField({
       {previewUrl && !imgError && (
         <img
           src={previewUrl}
-          alt="Logo"
+          alt={name || "Logo Lembaga"}
           className="h-16 w-16 rounded-xl object-contain border border-border bg-muted/30"
           onError={() => setImgError(true)}
         />
@@ -412,7 +412,7 @@ function LembagaListTab({
         </Select>
         <Button
           onClick={openAdd}
-          className="rounded-xl gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+          className="rounded-xl gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
         >
           <Plus className="h-4 w-4" />
           Tambah Lembaga
@@ -758,7 +758,7 @@ function LembagaListTab({
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="rounded-xl gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+                className="rounded-xl gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 {modal === "add" ? "Simpan" : "Perbarui"}
@@ -1081,7 +1081,7 @@ function StrukturTab({ refreshList }: { refreshList: () => void }) {
         {selectedLembaga && (
           <Button
             onClick={openAddRoot}
-            className="rounded-xl gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+            className="rounded-xl gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
           >
             <Plus className="h-4 w-4" />
             Tambah Jabatan
@@ -1177,6 +1177,7 @@ function StrukturTab({ refreshList }: { refreshList: () => void }) {
               <button
                 onClick={() => setTreeModal(null)}
                 className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center"
+                aria-label="Tutup dialog"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1195,6 +1196,41 @@ function StrukturTab({ refreshList }: { refreshList: () => void }) {
                   placeholder="cth: Ketua, Sekretaris, Bendahara…"
                   className="rounded-xl"
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Jabatan Induk</Label>
+                  <select
+                    value={nodeForm.parent_id ?? ""}
+                    onChange={(e) =>
+                      setNodeForm((f) => ({
+                        ...f,
+                        parent_id: e.target.value ? Number(e.target.value) : null,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">— Tanpa Induk (Akar) —</option>
+                    {tree.map((node) => (
+                      <option key={node.id} value={node.id}>
+                        {node.nama_jabatan}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Level</Label>
+                  <select
+                    value={nodeForm.level}
+                    onChange={(e) => setNodeForm((f) => ({ ...f, level: Number(e.target.value) }))}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value={1}>1 — Jabatan Utama</option>
+                    <option value={2}>2 — Jabatan Bawah 1</option>
+                    <option value={3}>3 — Jabatan Bawah 2</option>
+                    <option value={4}>4 — Jabatan Bawah 3</option>
+                  </select>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Urutan Tampil</Label>
@@ -1216,7 +1252,7 @@ function StrukturTab({ refreshList }: { refreshList: () => void }) {
               <Button
                 onClick={handleSaveNode}
                 disabled={saving}
-                className="rounded-xl gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+                className="rounded-xl gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 Simpan
@@ -1440,7 +1476,7 @@ function StrukturTab({ refreshList }: { refreshList: () => void }) {
               <Button
                 onClick={handleSavePengurus}
                 disabled={saving}
-                className="rounded-xl gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+                className="rounded-xl gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 Simpan

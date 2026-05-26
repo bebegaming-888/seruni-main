@@ -24,25 +24,29 @@ import { Route as ProfilLembagaRouteImport } from './routes/profil.lembaga'
 import { Route as ProfilKarangtarunaRouteImport } from './routes/profil.karangtaruna'
 import { Route as ProfilDesaRouteImport } from './routes/profil.desa'
 import { Route as ProfilBpdRouteImport } from './routes/profil.bpd'
+import { Route as PelayananSuratTerbitRouteImport } from './routes/pelayanan.surat-terbit'
 import { Route as PelayananPengaduanRouteImport } from './routes/pelayanan.pengaduan'
 import { Route as PelayananPendudukRouteImport } from './routes/pelayanan.penduduk'
 import { Route as PelayananMonitoringRouteImport } from './routes/pelayanan.monitoring'
-import { Route as PelayananKonsultasiRouteImport } from './routes/pelayanan.konsultasi'
+import { Route as PelayananLacakRouteImport } from './routes/pelayanan.lacak'
 import { Route as PelayananESuratRouteImport } from './routes/pelayanan.e-surat'
 import { Route as MasukWargaRouteImport } from './routes/masuk.warga'
 import { Route as MasukPengajuanSayaRouteImport } from './routes/masuk.pengajuan-saya'
 import { Route as MasukEditSuratRouteImport } from './routes/masuk.edit-surat'
-import { Route as LaporanRealisasiRouteImport } from './routes/laporan.realisasi'
 import { Route as LaporanApbdesRouteImport } from './routes/laporan.apbdes'
 import { Route as LainnyaProdukHukumRouteImport } from './routes/lainnya.produk-hukum'
+import { Route as LainnyaPotensiDesaRouteImport } from './routes/lainnya.potensi-desa'
 import { Route as LainnyaPetaRouteImport } from './routes/lainnya.peta'
 import { Route as LainnyaMonografiRouteImport } from './routes/lainnya.monografi'
 import { Route as LainnyaKomoditasRouteImport } from './routes/lainnya.komoditas'
+import { Route as InformasiStatistikRouteImport } from './routes/informasi.statistik'
 import { Route as InformasiPengumumanRouteImport } from './routes/informasi.pengumuman'
 import { Route as InformasiIdmRouteImport } from './routes/informasi.idm'
 import { Route as InformasiGaleriRouteImport } from './routes/informasi.galeri'
 import { Route as InformasiBeritaRouteImport } from './routes/informasi.berita'
 import { Route as InformasiAgendaRouteImport } from './routes/informasi.agenda'
+import { Route as AdminMonitoringSuratRouteImport } from './routes/admin.monitoring-surat'
+import { Route as AdminLaporanRwRouteImport } from './routes/admin.laporan-rw'
 import { Route as InformasiBeritaSlugRouteImport } from './routes/informasi.berita.$slug'
 
 const VerifikasiRoute = VerifikasiRouteImport.update({
@@ -120,6 +124,11 @@ const ProfilBpdRoute = ProfilBpdRouteImport.update({
   path: '/profil/bpd',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PelayananSuratTerbitRoute = PelayananSuratTerbitRouteImport.update({
+  id: '/pelayanan/surat-terbit',
+  path: '/pelayanan/surat-terbit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PelayananPengaduanRoute = PelayananPengaduanRouteImport.update({
   id: '/pelayanan/pengaduan',
   path: '/pelayanan/pengaduan',
@@ -135,9 +144,9 @@ const PelayananMonitoringRoute = PelayananMonitoringRouteImport.update({
   path: '/pelayanan/monitoring',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PelayananKonsultasiRoute = PelayananKonsultasiRouteImport.update({
-  id: '/pelayanan/konsultasi',
-  path: '/pelayanan/konsultasi',
+const PelayananLacakRoute = PelayananLacakRouteImport.update({
+  id: '/pelayanan/lacak',
+  path: '/pelayanan/lacak',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PelayananESuratRoute = PelayananESuratRouteImport.update({
@@ -160,11 +169,6 @@ const MasukEditSuratRoute = MasukEditSuratRouteImport.update({
   path: '/masuk/edit-surat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LaporanRealisasiRoute = LaporanRealisasiRouteImport.update({
-  id: '/laporan/realisasi',
-  path: '/laporan/realisasi',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LaporanApbdesRoute = LaporanApbdesRouteImport.update({
   id: '/laporan/apbdes',
   path: '/laporan/apbdes',
@@ -173,6 +177,11 @@ const LaporanApbdesRoute = LaporanApbdesRouteImport.update({
 const LainnyaProdukHukumRoute = LainnyaProdukHukumRouteImport.update({
   id: '/lainnya/produk-hukum',
   path: '/lainnya/produk-hukum',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LainnyaPotensiDesaRoute = LainnyaPotensiDesaRouteImport.update({
+  id: '/lainnya/potensi-desa',
+  path: '/lainnya/potensi-desa',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LainnyaPetaRoute = LainnyaPetaRouteImport.update({
@@ -188,6 +197,11 @@ const LainnyaMonografiRoute = LainnyaMonografiRouteImport.update({
 const LainnyaKomoditasRoute = LainnyaKomoditasRouteImport.update({
   id: '/lainnya/komoditas',
   path: '/lainnya/komoditas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InformasiStatistikRoute = InformasiStatistikRouteImport.update({
+  id: '/informasi/statistik',
+  path: '/informasi/statistik',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InformasiPengumumanRoute = InformasiPengumumanRouteImport.update({
@@ -215,6 +229,16 @@ const InformasiAgendaRoute = InformasiAgendaRouteImport.update({
   path: '/informasi/agenda',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminMonitoringSuratRoute = AdminMonitoringSuratRouteImport.update({
+  id: '/monitoring-surat',
+  path: '/monitoring-surat',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLaporanRwRoute = AdminLaporanRwRouteImport.update({
+  id: '/laporan-rw',
+  path: '/laporan-rw',
+  getParentRoute: () => AdminRoute,
+} as any)
 const InformasiBeritaSlugRoute = InformasiBeritaSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
@@ -224,28 +248,32 @@ const InformasiBeritaSlugRoute = InformasiBeritaSlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/verifikasi': typeof VerifikasiRouteWithChildren
+  '/admin/laporan-rw': typeof AdminLaporanRwRoute
+  '/admin/monitoring-surat': typeof AdminMonitoringSuratRoute
   '/informasi/agenda': typeof InformasiAgendaRoute
   '/informasi/berita': typeof InformasiBeritaRouteWithChildren
   '/informasi/galeri': typeof InformasiGaleriRoute
   '/informasi/idm': typeof InformasiIdmRoute
   '/informasi/pengumuman': typeof InformasiPengumumanRoute
+  '/informasi/statistik': typeof InformasiStatistikRoute
   '/lainnya/komoditas': typeof LainnyaKomoditasRoute
   '/lainnya/monografi': typeof LainnyaMonografiRoute
   '/lainnya/peta': typeof LainnyaPetaRoute
+  '/lainnya/potensi-desa': typeof LainnyaPotensiDesaRoute
   '/lainnya/produk-hukum': typeof LainnyaProdukHukumRoute
   '/laporan/apbdes': typeof LaporanApbdesRoute
-  '/laporan/realisasi': typeof LaporanRealisasiRoute
   '/masuk/edit-surat': typeof MasukEditSuratRoute
   '/masuk/pengajuan-saya': typeof MasukPengajuanSayaRoute
   '/masuk/warga': typeof MasukWargaRoute
   '/pelayanan/e-surat': typeof PelayananESuratRoute
-  '/pelayanan/konsultasi': typeof PelayananKonsultasiRoute
+  '/pelayanan/lacak': typeof PelayananLacakRoute
   '/pelayanan/monitoring': typeof PelayananMonitoringRoute
   '/pelayanan/penduduk': typeof PelayananPendudukRoute
   '/pelayanan/pengaduan': typeof PelayananPengaduanRoute
+  '/pelayanan/surat-terbit': typeof PelayananSuratTerbitRoute
   '/profil/bpd': typeof ProfilBpdRoute
   '/profil/desa': typeof ProfilDesaRoute
   '/profil/karangtaruna': typeof ProfilKarangtarunaRoute
@@ -261,28 +289,32 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/verifikasi': typeof VerifikasiRouteWithChildren
+  '/admin/laporan-rw': typeof AdminLaporanRwRoute
+  '/admin/monitoring-surat': typeof AdminMonitoringSuratRoute
   '/informasi/agenda': typeof InformasiAgendaRoute
   '/informasi/berita': typeof InformasiBeritaRouteWithChildren
   '/informasi/galeri': typeof InformasiGaleriRoute
   '/informasi/idm': typeof InformasiIdmRoute
   '/informasi/pengumuman': typeof InformasiPengumumanRoute
+  '/informasi/statistik': typeof InformasiStatistikRoute
   '/lainnya/komoditas': typeof LainnyaKomoditasRoute
   '/lainnya/monografi': typeof LainnyaMonografiRoute
   '/lainnya/peta': typeof LainnyaPetaRoute
+  '/lainnya/potensi-desa': typeof LainnyaPotensiDesaRoute
   '/lainnya/produk-hukum': typeof LainnyaProdukHukumRoute
   '/laporan/apbdes': typeof LaporanApbdesRoute
-  '/laporan/realisasi': typeof LaporanRealisasiRoute
   '/masuk/edit-surat': typeof MasukEditSuratRoute
   '/masuk/pengajuan-saya': typeof MasukPengajuanSayaRoute
   '/masuk/warga': typeof MasukWargaRoute
   '/pelayanan/e-surat': typeof PelayananESuratRoute
-  '/pelayanan/konsultasi': typeof PelayananKonsultasiRoute
+  '/pelayanan/lacak': typeof PelayananLacakRoute
   '/pelayanan/monitoring': typeof PelayananMonitoringRoute
   '/pelayanan/penduduk': typeof PelayananPendudukRoute
   '/pelayanan/pengaduan': typeof PelayananPengaduanRoute
+  '/pelayanan/surat-terbit': typeof PelayananSuratTerbitRoute
   '/profil/bpd': typeof ProfilBpdRoute
   '/profil/desa': typeof ProfilDesaRoute
   '/profil/karangtaruna': typeof ProfilKarangtarunaRoute
@@ -299,28 +331,32 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/verifikasi': typeof VerifikasiRouteWithChildren
+  '/admin/laporan-rw': typeof AdminLaporanRwRoute
+  '/admin/monitoring-surat': typeof AdminMonitoringSuratRoute
   '/informasi/agenda': typeof InformasiAgendaRoute
   '/informasi/berita': typeof InformasiBeritaRouteWithChildren
   '/informasi/galeri': typeof InformasiGaleriRoute
   '/informasi/idm': typeof InformasiIdmRoute
   '/informasi/pengumuman': typeof InformasiPengumumanRoute
+  '/informasi/statistik': typeof InformasiStatistikRoute
   '/lainnya/komoditas': typeof LainnyaKomoditasRoute
   '/lainnya/monografi': typeof LainnyaMonografiRoute
   '/lainnya/peta': typeof LainnyaPetaRoute
+  '/lainnya/potensi-desa': typeof LainnyaPotensiDesaRoute
   '/lainnya/produk-hukum': typeof LainnyaProdukHukumRoute
   '/laporan/apbdes': typeof LaporanApbdesRoute
-  '/laporan/realisasi': typeof LaporanRealisasiRoute
   '/masuk/edit-surat': typeof MasukEditSuratRoute
   '/masuk/pengajuan-saya': typeof MasukPengajuanSayaRoute
   '/masuk/warga': typeof MasukWargaRoute
   '/pelayanan/e-surat': typeof PelayananESuratRoute
-  '/pelayanan/konsultasi': typeof PelayananKonsultasiRoute
+  '/pelayanan/lacak': typeof PelayananLacakRoute
   '/pelayanan/monitoring': typeof PelayananMonitoringRoute
   '/pelayanan/penduduk': typeof PelayananPendudukRoute
   '/pelayanan/pengaduan': typeof PelayananPengaduanRoute
+  '/pelayanan/surat-terbit': typeof PelayananSuratTerbitRoute
   '/profil/bpd': typeof ProfilBpdRoute
   '/profil/desa': typeof ProfilDesaRoute
   '/profil/karangtaruna': typeof ProfilKarangtarunaRoute
@@ -341,25 +377,29 @@ export interface FileRouteTypes {
     | '/admin'
     | '/login'
     | '/verifikasi'
+    | '/admin/laporan-rw'
+    | '/admin/monitoring-surat'
     | '/informasi/agenda'
     | '/informasi/berita'
     | '/informasi/galeri'
     | '/informasi/idm'
     | '/informasi/pengumuman'
+    | '/informasi/statistik'
     | '/lainnya/komoditas'
     | '/lainnya/monografi'
     | '/lainnya/peta'
+    | '/lainnya/potensi-desa'
     | '/lainnya/produk-hukum'
     | '/laporan/apbdes'
-    | '/laporan/realisasi'
     | '/masuk/edit-surat'
     | '/masuk/pengajuan-saya'
     | '/masuk/warga'
     | '/pelayanan/e-surat'
-    | '/pelayanan/konsultasi'
+    | '/pelayanan/lacak'
     | '/pelayanan/monitoring'
     | '/pelayanan/penduduk'
     | '/pelayanan/pengaduan'
+    | '/pelayanan/surat-terbit'
     | '/profil/bpd'
     | '/profil/desa'
     | '/profil/karangtaruna'
@@ -378,25 +418,29 @@ export interface FileRouteTypes {
     | '/admin'
     | '/login'
     | '/verifikasi'
+    | '/admin/laporan-rw'
+    | '/admin/monitoring-surat'
     | '/informasi/agenda'
     | '/informasi/berita'
     | '/informasi/galeri'
     | '/informasi/idm'
     | '/informasi/pengumuman'
+    | '/informasi/statistik'
     | '/lainnya/komoditas'
     | '/lainnya/monografi'
     | '/lainnya/peta'
+    | '/lainnya/potensi-desa'
     | '/lainnya/produk-hukum'
     | '/laporan/apbdes'
-    | '/laporan/realisasi'
     | '/masuk/edit-surat'
     | '/masuk/pengajuan-saya'
     | '/masuk/warga'
     | '/pelayanan/e-surat'
-    | '/pelayanan/konsultasi'
+    | '/pelayanan/lacak'
     | '/pelayanan/monitoring'
     | '/pelayanan/penduduk'
     | '/pelayanan/pengaduan'
+    | '/pelayanan/surat-terbit'
     | '/profil/bpd'
     | '/profil/desa'
     | '/profil/karangtaruna'
@@ -415,25 +459,29 @@ export interface FileRouteTypes {
     | '/admin'
     | '/login'
     | '/verifikasi'
+    | '/admin/laporan-rw'
+    | '/admin/monitoring-surat'
     | '/informasi/agenda'
     | '/informasi/berita'
     | '/informasi/galeri'
     | '/informasi/idm'
     | '/informasi/pengumuman'
+    | '/informasi/statistik'
     | '/lainnya/komoditas'
     | '/lainnya/monografi'
     | '/lainnya/peta'
+    | '/lainnya/potensi-desa'
     | '/lainnya/produk-hukum'
     | '/laporan/apbdes'
-    | '/laporan/realisasi'
     | '/masuk/edit-surat'
     | '/masuk/pengajuan-saya'
     | '/masuk/warga'
     | '/pelayanan/e-surat'
-    | '/pelayanan/konsultasi'
+    | '/pelayanan/lacak'
     | '/pelayanan/monitoring'
     | '/pelayanan/penduduk'
     | '/pelayanan/pengaduan'
+    | '/pelayanan/surat-terbit'
     | '/profil/bpd'
     | '/profil/desa'
     | '/profil/karangtaruna'
@@ -450,7 +498,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   LoginRoute: typeof LoginRoute
   VerifikasiRoute: typeof VerifikasiRouteWithChildren
   InformasiAgendaRoute: typeof InformasiAgendaRoute
@@ -458,20 +506,22 @@ export interface RootRouteChildren {
   InformasiGaleriRoute: typeof InformasiGaleriRoute
   InformasiIdmRoute: typeof InformasiIdmRoute
   InformasiPengumumanRoute: typeof InformasiPengumumanRoute
+  InformasiStatistikRoute: typeof InformasiStatistikRoute
   LainnyaKomoditasRoute: typeof LainnyaKomoditasRoute
   LainnyaMonografiRoute: typeof LainnyaMonografiRoute
   LainnyaPetaRoute: typeof LainnyaPetaRoute
+  LainnyaPotensiDesaRoute: typeof LainnyaPotensiDesaRoute
   LainnyaProdukHukumRoute: typeof LainnyaProdukHukumRoute
   LaporanApbdesRoute: typeof LaporanApbdesRoute
-  LaporanRealisasiRoute: typeof LaporanRealisasiRoute
   MasukEditSuratRoute: typeof MasukEditSuratRoute
   MasukPengajuanSayaRoute: typeof MasukPengajuanSayaRoute
   MasukWargaRoute: typeof MasukWargaRoute
   PelayananESuratRoute: typeof PelayananESuratRoute
-  PelayananKonsultasiRoute: typeof PelayananKonsultasiRoute
+  PelayananLacakRoute: typeof PelayananLacakRoute
   PelayananMonitoringRoute: typeof PelayananMonitoringRoute
   PelayananPendudukRoute: typeof PelayananPendudukRoute
   PelayananPengaduanRoute: typeof PelayananPengaduanRoute
+  PelayananSuratTerbitRoute: typeof PelayananSuratTerbitRoute
   ProfilBpdRoute: typeof ProfilBpdRoute
   ProfilDesaRoute: typeof ProfilDesaRoute
   ProfilKarangtarunaRoute: typeof ProfilKarangtarunaRoute
@@ -590,6 +640,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfilBpdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pelayanan/surat-terbit': {
+      id: '/pelayanan/surat-terbit'
+      path: '/pelayanan/surat-terbit'
+      fullPath: '/pelayanan/surat-terbit'
+      preLoaderRoute: typeof PelayananSuratTerbitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pelayanan/pengaduan': {
       id: '/pelayanan/pengaduan'
       path: '/pelayanan/pengaduan'
@@ -611,11 +668,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PelayananMonitoringRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pelayanan/konsultasi': {
-      id: '/pelayanan/konsultasi'
-      path: '/pelayanan/konsultasi'
-      fullPath: '/pelayanan/konsultasi'
-      preLoaderRoute: typeof PelayananKonsultasiRouteImport
+    '/pelayanan/lacak': {
+      id: '/pelayanan/lacak'
+      path: '/pelayanan/lacak'
+      fullPath: '/pelayanan/lacak'
+      preLoaderRoute: typeof PelayananLacakRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pelayanan/e-surat': {
@@ -646,13 +703,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MasukEditSuratRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/laporan/realisasi': {
-      id: '/laporan/realisasi'
-      path: '/laporan/realisasi'
-      fullPath: '/laporan/realisasi'
-      preLoaderRoute: typeof LaporanRealisasiRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/laporan/apbdes': {
       id: '/laporan/apbdes'
       path: '/laporan/apbdes'
@@ -665,6 +715,13 @@ declare module '@tanstack/react-router' {
       path: '/lainnya/produk-hukum'
       fullPath: '/lainnya/produk-hukum'
       preLoaderRoute: typeof LainnyaProdukHukumRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lainnya/potensi-desa': {
+      id: '/lainnya/potensi-desa'
+      path: '/lainnya/potensi-desa'
+      fullPath: '/lainnya/potensi-desa'
+      preLoaderRoute: typeof LainnyaPotensiDesaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lainnya/peta': {
@@ -686,6 +743,13 @@ declare module '@tanstack/react-router' {
       path: '/lainnya/komoditas'
       fullPath: '/lainnya/komoditas'
       preLoaderRoute: typeof LainnyaKomoditasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/informasi/statistik': {
+      id: '/informasi/statistik'
+      path: '/informasi/statistik'
+      fullPath: '/informasi/statistik'
+      preLoaderRoute: typeof InformasiStatistikRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/informasi/pengumuman': {
@@ -723,6 +787,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InformasiAgendaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/monitoring-surat': {
+      id: '/admin/monitoring-surat'
+      path: '/monitoring-surat'
+      fullPath: '/admin/monitoring-surat'
+      preLoaderRoute: typeof AdminMonitoringSuratRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/laporan-rw': {
+      id: '/admin/laporan-rw'
+      path: '/laporan-rw'
+      fullPath: '/admin/laporan-rw'
+      preLoaderRoute: typeof AdminLaporanRwRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/informasi/berita/$slug': {
       id: '/informasi/berita/$slug'
       path: '/$slug'
@@ -732,6 +810,18 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AdminRouteChildren {
+  AdminLaporanRwRoute: typeof AdminLaporanRwRoute
+  AdminMonitoringSuratRoute: typeof AdminMonitoringSuratRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminLaporanRwRoute: AdminLaporanRwRoute,
+  AdminMonitoringSuratRoute: AdminMonitoringSuratRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface VerifikasiRouteChildren {
   VerifikasiNoRoute: typeof VerifikasiNoRoute
@@ -760,7 +850,7 @@ const InformasiBeritaRouteWithChildren = InformasiBeritaRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   LoginRoute: LoginRoute,
   VerifikasiRoute: VerifikasiRouteWithChildren,
   InformasiAgendaRoute: InformasiAgendaRoute,
@@ -768,20 +858,22 @@ const rootRouteChildren: RootRouteChildren = {
   InformasiGaleriRoute: InformasiGaleriRoute,
   InformasiIdmRoute: InformasiIdmRoute,
   InformasiPengumumanRoute: InformasiPengumumanRoute,
+  InformasiStatistikRoute: InformasiStatistikRoute,
   LainnyaKomoditasRoute: LainnyaKomoditasRoute,
   LainnyaMonografiRoute: LainnyaMonografiRoute,
   LainnyaPetaRoute: LainnyaPetaRoute,
+  LainnyaPotensiDesaRoute: LainnyaPotensiDesaRoute,
   LainnyaProdukHukumRoute: LainnyaProdukHukumRoute,
   LaporanApbdesRoute: LaporanApbdesRoute,
-  LaporanRealisasiRoute: LaporanRealisasiRoute,
   MasukEditSuratRoute: MasukEditSuratRoute,
   MasukPengajuanSayaRoute: MasukPengajuanSayaRoute,
   MasukWargaRoute: MasukWargaRoute,
   PelayananESuratRoute: PelayananESuratRoute,
-  PelayananKonsultasiRoute: PelayananKonsultasiRoute,
+  PelayananLacakRoute: PelayananLacakRoute,
   PelayananMonitoringRoute: PelayananMonitoringRoute,
   PelayananPendudukRoute: PelayananPendudukRoute,
   PelayananPengaduanRoute: PelayananPengaduanRoute,
+  PelayananSuratTerbitRoute: PelayananSuratTerbitRoute,
   ProfilBpdRoute: ProfilBpdRoute,
   ProfilDesaRoute: ProfilDesaRoute,
   ProfilKarangtarunaRoute: ProfilKarangtarunaRoute,

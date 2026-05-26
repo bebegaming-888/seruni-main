@@ -28,8 +28,16 @@ export const Route = createFileRoute("/informasi/agenda")({
 const KATEGORI_CONFIG: Record<string, { color: string; bg: string; icon: string }> = {
   Musyawarah: { color: "text-primary", bg: "bg-primary/10 border-primary/20", icon: "🤝" },
   // Brand palette: E37222 | 078898 | 66B9BF | EEAA78
-  Kesehatan: { color: "text-[#E37222]", bg: "bg-[#E37222]/10 border-[#E37222]/20", icon: "💊" },
-  Budaya: { color: "text-[#078898]", bg: "bg-[#078898]/10 border-[#078898]/20", icon: "🎭" },
+  Kesehatan: {
+    color: "text-[hsl(27,79%,52%)]",
+    bg: "bg-[hsl(27,79%,52%_/_0.1)] border-[hsl(27,79%,52%_/_0.2)]",
+    icon: "💊",
+  },
+  Budaya: {
+    color: "text-[hsl(190,75%,36%)]",
+    bg: "bg-[hsl(190,75%,36%_/_0.1)] border-[hsl(190,75%,36%_/_0.2)]",
+    icon: "🎭",
+  },
 };
 
 const MONTHS = [

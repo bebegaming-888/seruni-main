@@ -142,7 +142,7 @@ export function IDMPage() {
         {usingMock && (
           <section className="px-4 mb-6 -mt-4">
             <div className="max-w-4xl mx-auto">
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#EEAA78]/20 border border-[#EEAA78]/30 px-3 py-1 font-ui text-xs font-semibold text-[#1a1918]">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[hsl(27,55%,71%_/_0.2)] border border-[hsl(27,55%,71%_/_0.3)] px-3 py-1 font-ui text-xs font-semibold text-[hsl(30,5%,10%)]">
                 <span>⚠️</span>
                 Data contoh — belum ada data IDM di database. Hubungi admin untuk upload data
                 semester berjalan.

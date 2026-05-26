@@ -1,0 +1,129 @@
+/**
+ * LetterRenderer — Layout-Based Blanko Surat (OpenSID Standard)
+ *
+ * REFACTORED (Mei 2026): Uses layout-based rendering from letter-renderer.ts.
+ * Now reads from `letter_layouts` database table — no hardcoded layout.
+ * Falls back to default RenderedLetter for backward compat.
+ */
+import React, { useMemo } from "react";
+import type { RenderedLetter } from "@/lib/letter-engine";
+import { getSettings } from "@/lib/settings-store";
+import { renderLetterFromLayout, type LetterLayout } from "@/lib/letter-renderer";
+import { LetterHeader } from "./LetterHeader";
+import { LetterTitle } from "./LetterTitle";
+import { LetterSigner } from "./LetterSigner";
+import { LetterSubject } from "./LetterSubject";
+import { LetterBody } from "./LetterBody";
+import { LetterSignature } from "./LetterSignature";
+
+const BRAND_WHITE = "#ffffff";
+const BRAND_BORDER = "#D5D5D5";
+const BRAND_TEXT = "#1a1918";
+
+type Props = {
+  /** Legacy RenderedLetter object (backward compat) */
+  letter?: RenderedLetter;
+  /** Layout-driven rendering (new path) */
+  layout?: LetterLayout;
+  context?: Parameters<typeof renderLetterFromLayout>[1];
+  namaPemohon?: string;
+  primaryColor?: string;
+  isPrintMode?: boolean;
+  className?: string;
+};
+
+export function LetterRenderer({
+  letter,
+  namaPemohon,
+  primaryColor: propColor,
+  isPrintMode = false,
+  className = "",
+}: Props) {
+  const settings = getSettings();
+  const primaryColor = propColor ?? settings.branding.primary_color ?? "#1a5276";
+  const bodyFont = settings.pdfLayout?.body_font || "Times New Roman, Times, serif";
+  const bodyFontSize = settings.pdfLayout?.body_font_size || 12;
+
+  return (
+    <div
+      id="letter-renderer"
+      className={`letter-renderer ${className}`}
+      style={{
+        width: isPrintMode ? "100%" : 794,
+        minHeight: isPrintMode ? "auto" : 1122,
+        padding: "40px 56px 48px",
+        background: BRAND_WHITE,
+        color: BRAND_TEXT,
+        fontFamily: bodyFont,
+        fontSize: bodyFontSize,
+        lineHeight: 1.65,
+        boxSizing: "border-box",
+        ...(isPrintMode
+          ? {}
+          : {
+              boxShadow: "0 4px 32px rgba(0,0,0,0.14)",
+              border: `1px solid ${BRAND_BORDER}`,
+            }),
+      }}
+    >
+      {/* ── 1. KOP SURAT ───────────────────────────── */}
+      <LetterHeader header={letter.header} primaryColor={primaryColor} />
+
+      {/* ── 2-3. JUDUL + NOMOR ─────────────────────── */}
+      <LetterTitle title={letter.title} />
+
+      {/* ── 4-5. PEMBUKA + PEJABAT ─────────────────── */}
+      <LetterSigner signer={letter.signer} />
+
+      {/* ── Separator tipis ────────────────────────── */}
+      <div
+        style={{
+          borderBottom: `0.75px solid ${BRAND_BORDER}`,
+          margin: "8px 0 6px",
+        }}
+      />
+
+      {/* ── 6. "Menerangkan bahwa :" ────────────────── */}
+      <p
+        style={{
+          fontFamily: bodyFont,
+          fontSize: bodyFontSize,
+          margin: "4px 0 2px",
+          fontWeight: "normal",
+        }}
+      >
+        Menerangkan bahwa :
+      </p>
+
+      {/* ── 7. IDENTITAS PEMOHON ────────────────────── */}
+      <LetterSubject subject={letter.subject} />
+
+      {/* ── Separator ──────────────────────────────── */}
+      <div
+        style={{
+          borderBottom: `0.75px solid ${BRAND_BORDER}`,
+          margin: "6px 0 10px",
+        }}
+      />
+
+      {/* ── 8. ISI SURAT (DNA CLAUSES) ─────────────── */}
+      <LetterBody body={letter.body} />
+
+      {/* ── 9. PENUTUP ─────────────────────────────── */}
+      <p
+        style={{
+          fontFamily: bodyFont,
+          fontSize: bodyFontSize,
+          margin: "12px 0 0",
+          textAlign: "justify",
+          lineHeight: 1.7,
+        }}
+      >
+        {letter.closing}
+      </p>
+
+      {/* ── 10. BLOK TANDA TANGAN + QR ─────────────── */}
+      <LetterSignature signature={letter.signature} namaPemohon={namaPemohon} />
+    </div>
+  );
+}

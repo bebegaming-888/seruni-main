@@ -1,0 +1,62 @@
+[
+  {
+    "bugId": "BUG-1",
+    "response": "ACCEPT",
+    "analysisSummary": "Confirmed: sb.storage.from().upload() returns { data, error } object. The code only destructures { error }, so 'data' on line 175 is undefined. data.path will always be undefined even on success. TypeError on accessing data?.path — confirmed real bug.",
+    "counterEvidence": "server/api/submit-surat.js:165-180 — destructures { error } only, not { data, error }"
+  },
+  {
+    "bugId": "BUG-2",
+    "response": "DISPROVE",
+    "analysisSummary": "Rate limit applies per-IP (not per-NIK). Attacker cannot enumerate many NIKs rapidly due to IP-based 5/min limit. Different response for valid vs invalid format is informational only — no practical enumeration path without many IPs. The 'timing attack' is theoretical (same code path for both), not exploitable at scale.",
+    "counterEvidence": "Rate limit is IP-based (5 per minute per IP). No practical enumeration without multiple IPs."
+  },
+  {
+    "bugId": "BUG-3",
+    "response": "MANUAL_REVIEW",
+    "analysisSummary": "NIK is 16-digit string. Supabase warga table uses nik as primary key (character varying, not integer per CLAUDE.md). So nik is stored as string, not integer, and String(nik) is a no-op. However, the format issue may arise if client sends leading-zero NIK and Supabase casts it. Need to verify warga table schema to determine if numeric storage is possible. Not confirmed from code alone.",
+    "counterEvidence": "CLAUDE.md: warga table primary key is 'nik' (16 digit) — stored as string. No evidence of integer storage from server code."
+  },
+  {
+    "bugId": "BUG-4",
+    "response": "ACCEPT",
+    "analysisSummary": "incrementRateLimit() silently swallows all errors with only a console.warn. If the RPC fails (network/DB), the rate limit counter is never incremented. User can submit unlimited surat requests. This is a real bypass.",
+    "counterEvidence": "server/api/submit-surat.js:209-219 — catch block logs only, no re-throw, no alternative enforcement"
+  },
+  {
+    "bugId": "BUG-5",
+    "response": "DISPROVE",
+    "analysisSummary": "The behavior is intentional per design comment on line 165: 'Still return success — OTP is generated, Fonnte may be delayed'. The function sendFonnte handles Fonnte errors internally. The return ok/success is for the OTP generation step, not Fonnte delivery. Fonnte API returns success details which are logged but the endpoint returns success. This is a deliberate design choice for resilience, not a bug.",
+    "counterEvidence": "server/api/request-otp.js:165 comment: 'Still return success — OTP is generated, Fonnte may be delayed' — intentional resilience design"
+  },
+  {
+    "bugId": "BUG-6",
+    "response": "ACCEPT",
+    "analysisSummary": "BigInt(Math.round(Number(amount))) — Number() can lose precision for large integers before BigInt() conversion. While village finance amounts are unlikely to exceed MAX_SAFE_INTEGER, the code pattern is incorrect and could cause silent data corruption if amounts grow. Real bug but low likelihood.",
+    "counterEvidence": "server/api/keuangan/entries.js:123 — Number() conversion before BigInt() can lose precision"
+  },
+  {
+    "bugId": "BUG-7",
+    "response": "ACCEPT",
+    "analysisSummary": "verifyAdmin checks session validity but not role. All authenticated users (including Verifikator role) can read all wilayah data. Per CLAUDE.md, Verifikator is one of the roles. Level of access (read-only) may be intentional, but exposing administrative area data to all authenticated users is a data disclosure concern.",
+    "counterEvidence": "server/api/wilayah.js:20 — verifyAdmin only, no role restriction. server/middleware/auth.js:283 checkRole is available but not used."
+  },
+  {
+    "bugId": "BUG-8",
+    "response": "ACCEPT",
+    "analysisSummary": "audit_log insert on line 227-232 has no error handling. If insert fails, admin status update succeeds but audit trail is lost. This is a real compliance issue (UU PDP requires audit trail for all admin actions).",
+    "counterEvidence": "server/api/pengaduan/admin.js:227-232 — no try/catch around audit_log insert"
+  },
+  {
+    "bugId": "BUG-9",
+    "response": "ACCEPT",
+    "analysisSummary": "Production startup check requires ALLOWED_ORIGIN to be null/undefined to exit. An empty string '' passes the check. Then cors({ origin: '' || undefined }) → origin: undefined → wildcard CORS. Any origin can make authenticated requests in production if ALLOWED_ORIGIN is set to empty string. This is a real security gap in the startup validation logic.",
+    "counterEvidence": "server/index.js:48-54 checks !ALLOWED_ORIGIN, but empty string is truthy so check passes. Line 126: origin: ALLOWED_ORIGIN || undefined → empty string || undefined = undefined → wildcard CORS."
+  },
+  {
+    "bugId": "BUG-10",
+    "response": "MANUAL_REVIEW",
+    "analysisSummary": "The comment says 'Inventaris Desa (HMAC session required for write, public for read)'. This is an intentional design decision — asset inventory is public information. The question is whether acquisition_value and responsible fields should be public. Without explicit documentation of what should be public, this requires manual review of business requirements. Intentionally public per code comment.",
+    "counterEvidence": "server/index.js:221 comment: '(HMAC session required for write, public for read)' — public read is documented design"
+  }
+]

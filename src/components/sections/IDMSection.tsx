@@ -1,6 +1,7 @@
 import { SectionTitle } from "@/components/site/SectionTitle";
 import { Link } from "@/components/Link";
 import { ArrowUpRight, TrendingUp } from "lucide-react";
+import { TextReveal } from "@/components/ui/TextReveal";
 
 const score = 0.7842;
 const sub = [
@@ -17,12 +18,15 @@ export function IDMSection() {
   const offset = c - score * c;
 
   return (
-    <section id="idm" className="py-20 sm:py-28 px-4 sm:px-8 bg-cream">
-      <div className="mx-auto max-w-7xl grid lg:grid-cols-2 gap-12 items-center">
+    <section
+      id="idm"
+      className="min-h-[100dvh] flex flex-col justify-center py-12 px-4 sm:px-8 bg-cream overflow-hidden"
+    >
+      <div className="mx-auto max-w-7xl w-full grid lg:grid-cols-2 gap-8 items-center">
         <div>
           <p className="eyebrow text-primary mb-3">Indeks Desa Membangun</p>
           <SectionTitle first="Skor" second="Maju" className="text-ink mb-5" />
-          <p className="font-body text-muted-foreground mb-8 max-w-md">
+          <p className="font-body text-muted-foreground mb-5 max-w-md">
             Indeks Desa Membangun mengukur perkembangan desa dari sisi sosial, ekonomi, dan
             lingkungan. Kami terus naik 5 tahun berturut-turut.
           </p>
@@ -47,10 +51,10 @@ export function IDMSection() {
 
           <Link
             to="/informasi/idm"
-            className="btn-pill bg-ink text-background hover:bg-primary mt-8 inline-flex group"
+            className="btn-pill bg-ink text-background hover:bg-primary mt-5 inline-flex group"
           >
-            Lihat Detail IDM
-            <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            <TextReveal mode="hover">Lihat Detail IDM</TextReveal>
+            <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 inline ml-1" />
           </Link>
         </div>
 

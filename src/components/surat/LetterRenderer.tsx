@@ -1,17 +1,16 @@
 /**
- * LetterRenderer — Orkestrator 7 Komponen Surat
+ * LetterRenderer — Layout-Based Blanko Surat (OpenSID Standard)
  *
- * Menerima `RenderedLetter` dari letter-engine dan merender semua komponen
- * dalam urutan yang benar sesuai standar surat resmi desa Indonesia.
- *
- * Props:
- * - letter: output dari buildRenderedLetter()
- * - namaPemohon: untuk kolom TTD pemohon
- * - primaryColor: warna utama kop dan rule (dari settings)
- * - isPrintMode: jika true → hide border/shadow, optimal untuk @media print
+ * REFACTORED (Mei 2026): Uses layout-based rendering from letter-renderer.ts.
+ * Now reads from `letter_layouts` database table — no hardcoded layout.
+ * Falls back to default RenderedLetter for backward compat.
  */
-import React from "react";
+import { useMemo } from "react";
 import type { RenderedLetter } from "@/lib/letter-engine";
+import { getSettings } from "@/lib/settings-store";
+import { sanitizeHtml } from "@/lib/utils";
+import { renderLetterFromLayout } from "@/lib/letter-renderer";
+import { type LetterLayout, type RenderContext } from "@/types/letter-layout";
 import { LetterHeader } from "./LetterHeader";
 import { LetterTitle } from "./LetterTitle";
 import { LetterSigner } from "./LetterSigner";
@@ -19,16 +18,17 @@ import { LetterSubject } from "./LetterSubject";
 import { LetterBody } from "./LetterBody";
 import { LetterSignature } from "./LetterSignature";
 
-// ── Brand palette (STRICT: E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5) ──
-const BRAND_PRIMARY = "#E37222";
-const BRAND_SECONDARY = "#078898";
 const BRAND_WHITE = "#ffffff";
-const BRAND_LIGHT = "#f4f4f4";
 const BRAND_BORDER = "#D5D5D5";
 const BRAND_TEXT = "#1a1918";
 
 type Props = {
-  letter: RenderedLetter;
+  /** Legacy RenderedLetter object (backward compat) */
+  letter?: RenderedLetter;
+  /** Layout-driven rendering (new path — from DB) */
+  layout?: LetterLayout;
+  /** RenderContext for layout-based rendering */
+  context?: RenderContext;
   namaPemohon?: string;
   primaryColor?: string;
   isPrintMode?: boolean;
@@ -37,80 +37,144 @@ type Props = {
 
 export function LetterRenderer({
   letter,
+  layout,
+  context,
   namaPemohon,
-  primaryColor = BRAND_PRIMARY,
+  primaryColor: propColor,
   isPrintMode = false,
   className = "",
 }: Props) {
+  const settings = getSettings();
+  const primaryColor = propColor ?? settings.branding.primary_color ?? "#1a5276";
+  const bodyFont = settings.pdfLayout?.body_font || "Times New Roman, Times, serif";
+  const bodyFontSize = settings.pdfLayout?.body_font_size || 12;
+
+  const sections = useMemo(
+    () => (layout && context ? renderLetterFromLayout(layout, context) : null),
+    [layout, context],
+  );
+
+  // ── NEW PATH: Layout-based rendering ──────────────────────────────────────
+  if (sections) {
+    return (
+      <div
+        id="letter-renderer"
+        className={`letter-renderer ${className}`}
+        style={{
+          width: isPrintMode ? "100%" : 794,
+          minHeight: isPrintMode ? "auto" : 1122,
+          padding: "40px 56px 48px",
+          background: BRAND_WHITE,
+          color: BRAND_TEXT,
+          fontFamily: layout?.style?.font_family || bodyFont,
+          fontSize: layout?.style?.font_size_body || bodyFontSize,
+          lineHeight: layout?.style?.line_height || 1.65,
+          boxSizing: "border-box",
+          ...(isPrintMode
+            ? {}
+            : {
+                boxShadow: "0 4px 32px rgba(0,0,0,0.14)",
+                border: `1px solid ${BRAND_BORDER}`,
+              }),
+        }}
+      >
+        {sections.map((section) => (
+          <div
+            key={section.id}
+            className={`letter-section-${section.type}`}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(section.html) }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  // ── LEGACY PATH: RenderedLetter (backward compat) ────────────────────────
+  if (!letter) {
+    return (
+      <div
+        className="letter-renderer-empty"
+        style={{ padding: 40, textAlign: "center", color: "#888" }}
+      >
+        No letter data provided
+      </div>
+    );
+  }
+
   return (
     <div
       id="letter-renderer"
       className={`letter-renderer ${className}`}
       style={{
-        // A4 dimensions in screen mode
         width: isPrintMode ? "100%" : 794,
         minHeight: isPrintMode ? "auto" : 1122,
-        padding: "56px 64px",
+        padding: "40px 56px 48px",
         background: BRAND_WHITE,
         color: BRAND_TEXT,
-        fontFamily: "Times New Roman, serif",
-        fontSize: 11,
-        lineHeight: 1.6,
+        fontFamily: bodyFont,
+        fontSize: bodyFontSize,
+        lineHeight: 1.65,
         boxSizing: "border-box",
-        // Screen-only decoration
         ...(isPrintMode
           ? {}
           : {
-              boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
+              boxShadow: "0 4px 32px rgba(0,0,0,0.14)",
               border: `1px solid ${BRAND_BORDER}`,
             }),
       }}
     >
-      {/* 1. KOP SURAT */}
+      {/* ── 1. KOP SURAT ───────────────────────────── */}
       <LetterHeader header={letter.header} primaryColor={primaryColor} />
 
-      {/* 2. JUDUL & NOMOR SURAT */}
+      {/* ── 2-3. JUDUL + NOMOR ─────────────────────── */}
       <LetterTitle title={letter.title} />
 
-      {/* 3. PENANDATANGAN — "Yang bertanda tangan di bawah ini..." */}
+      {/* ── 4-5. PEMBUKA + PEJABAT ─────────────────── */}
       <LetterSigner signer={letter.signer} />
 
-      {/* Garis separator tipis sebelum identitas */}
-      <div style={{ borderBottom: `0.5px solid ${BRAND_BORDER}`, margin: "6px 0" }} />
+      {/* ── Separator tipis ────────────────────────── */}
+      <div className="mx-0 my-2" style={{ borderBottom: `0.75px solid ${BRAND_BORDER}` }} />
 
-      {/* Pembuka menerangkan (biasanya sebelum identitas) */}
+      {/* ── 6. "Menerangkan bahwa :" ────────────────── */}
       <p
         style={{
-          fontFamily: "Times New Roman, serif",
-          fontSize: 11,
-          margin: "6px 0 2px",
+          fontFamily: bodyFont,
+          fontSize: bodyFontSize,
+          margin: "4px 0 2px",
+          fontWeight: "normal",
         }}
       >
         Menerangkan bahwa :
       </p>
 
-      {/* 4. IDENTITAS PEMOHON */}
+      {/* ── 7. IDENTITAS PEMOHON ────────────────────── */}
       <LetterSubject subject={letter.subject} />
 
-      {/* Garis separator */}
-      <div style={{ borderBottom: "0.5px solid #bbb", margin: "6px 0 10px" }} />
+      {/* ── Separator ──────────────────────────────── */}
+      <div
+        style={{
+          borderBottom: `0.75px solid ${BRAND_BORDER}`,
+          margin: "6px 0 10px",
+        }}
+      />
 
-      {/* 5. DNA CLAUSES — Isi surat */}
+      {/* ── 8. ISI SURAT (DNA CLAUSES) ─────────────── */}
       <LetterBody body={letter.body} />
 
-      {/* 6. PENUTUP */}
+      {/* ── 9. PENUTUP ─────────────────────────────── */}
       <p
         style={{
-          fontFamily: "Times New Roman, serif",
-          fontSize: 11,
-          margin: "10px 0",
+          fontFamily: bodyFont,
+          fontSize: bodyFontSize,
+          margin: "12px 0 0",
           textAlign: "justify",
+          lineHeight: 1.7,
         }}
       >
         {letter.closing}
       </p>
 
-      {/* 7. TANDA TANGAN + QR */}
+      {/* ── 10. BLOK TANDA TANGAN + QR ─────────────── */}
       <LetterSignature signature={letter.signature} namaPemohon={namaPemohon} />
     </div>
   );

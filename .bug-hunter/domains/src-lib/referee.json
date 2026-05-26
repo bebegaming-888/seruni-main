@@ -1,0 +1,52 @@
+[
+  {
+    "bugId": "BUG-11",
+    "verdict": "NOT_A_BUG",
+    "trueSeverity": "N/A",
+    "confidenceScore": 90,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Confirmed by Skeptic: VITE_DEV_LOGIN_ENABLED alone cannot bypass in production. Vite's import.meta.env.DEV is false in production builds regardless of VITE_DEV_LOGIN_ENABLED. The security boundary is enforced by Vite's own build system. False positive.",
+    "suggestedFix": "N/A"
+  },
+  {
+    "bugId": "BUG-12",
+    "verdict": "NOT_A_BUG",
+    "trueSeverity": "N/A",
+    "confidenceScore": 92,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Dev mode is intentionally permissive. Production enforces signed sessions. Server-side verification is the security boundary, not client-side. Not a bug.",
+    "suggestedFix": "N/A"
+  },
+  {
+    "bugId": "BUG-13",
+    "verdict": "NOT_A_BUG",
+    "trueSeverity": "N/A",
+    "confidenceScore": 88,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Confirmed by Skeptic: Both VITE_DEV_OTP_BYPASS and hostname check must be true. Vite's DEV flag and hostname check together prevent production exploitation. The dual-gate design is sound. False positive.",
+    "suggestedFix": "N/A"
+  },
+  {
+    "bugId": "BUG-14",
+    "verdict": "REAL_BUG",
+    "trueSeverity": "Low",
+    "confidenceScore": 75,
+    "confidenceLabel": "medium",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Confirmed: first sync failure causes empty cache. Fixed admin still works (from env var). Impact is that additional admin users cannot login after sync failure. Real bug but low severity — graceful degradation means app is not fully broken.",
+    "suggestedFix": "Keep existing cache on sync failure: catch (e) { console.error(...); if (_usersCache === null) _usersCache = []; } — only sets empty if no cache exists. Current code already does this (line 165). The actual issue is lack of retry. Consider adding retry mechanism."
+  },
+  {
+    "bugId": "BUG-15",
+    "verdict": "NOT_A_BUG",
+    "trueSeverity": "N/A",
+    "confidenceScore": 90,
+    "confidenceLabel": "high",
+    "verificationMode": "INDEPENDENTLY_VERIFIED",
+    "analysisSummary": "Skeptic is correct. Server-side rate limit is authoritative. Client-side rate limit is UX only. The real defense (3 OTP per NIK per 15 min via RPC) cannot be bypassed client-side. Not a bug.",
+    "suggestedFix": "N/A"
+  }
+]

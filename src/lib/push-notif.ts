@@ -6,7 +6,7 @@
  *
  * Env vars needed:
  *   VITE_VAPID_PUBLIC_KEY — VAPID public key (browser-safe)
- *   (VAPID private key → Netlify env vars → Netlify Function /api/push/send)
+ *   (VAPID private key → server env vars → local API /api/push/send)
  *
  * Generate VAPID keys:
  *   npx web-push generate-vapid-keys

@@ -15,6 +15,8 @@ import { autofillFromNik as _wargaAutofill } from "@/lib/warga-autofill";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { logAudit } from "@/lib/settings-store";
 import { isStoreLocked } from "@/lib/settings-lock";
+import { getMediaUrl } from "@/lib/media-upload";
+import { broadcastPerangkatChange } from "@/lib/idb-sync";
 
 // ── Types: Struktur (Tree Jabatan) ─────────────────────────────────────────
 
@@ -269,10 +271,12 @@ export async function addStruktur(
       created_at: new Date().toISOString(),
     };
     await idbPutDynamic(STRUKTUR_KEY, tempItem);
+    broadcastPerangkatChange();
     return { ok: true, message: "Jabatan ditambahkan (offline)" };
   }
 
   await idbPutDynamic(STRUKTUR_KEY, inserted as PerangkatStruktur);
+  broadcastPerangkatChange();
   logAudit("add_struktur", data.nama_jabatan, `kategori: ${data.kategori}`);
   return {
     ok: true,
@@ -298,6 +302,7 @@ export async function updateStruktur(
     }
   }
   await idbPutDynamic(STRUKTUR_KEY, { id, ...data } as PerangkatStruktur);
+  broadcastPerangkatChange();
   const s = getStrukturById(id);
   if (s) logAudit("update_struktur", s.nama_jabatan, `level ${s.level_hierarchy}`);
   return { ok: true, message: "Jabatan diperbarui" };
@@ -316,6 +321,7 @@ export async function deleteStruktur(id: number): Promise<{ ok: boolean; message
     STRUKTUR_KEY,
     all.filter((s) => s.id !== id),
   );
+  broadcastPerangkatChange();
   const s = all.find((x) => x.id === id);
   if (s) logAudit("delete_struktur", s.nama_jabatan, "");
   return { ok: true, message: "Jabatan dihapus" };
@@ -371,6 +377,7 @@ export async function addPerangkat(
         const idx = _perangkatCache!.findIndex((p) => p.struktur_id === data.struktur_id);
         if (idx >= 0) _perangkatCache![idx] = inserted as PerangkatPerson;
         await idbReplaceAllDynamic(PERANGKAT_KEY, _perangkatCache!);
+        broadcastPerangkatChange();
         logAudit("add_perangkat", inserted.nama as string, strukt?.nama_jabatan ?? "");
         return {
           ok: true,
@@ -392,6 +399,7 @@ export async function updatePerangkat(
   const updated = listPerangkat().map((p) => (p.id === id ? { ...p, ...data } : p));
   _perangkatCache = updated;
   await idbReplaceAllDynamic(PERANGKAT_KEY, updated);
+  broadcastPerangkatChange();
 
   if (isSupabaseConfigured) {
     const sb = getSupabase();
@@ -402,7 +410,6 @@ export async function updatePerangkat(
         .eq("id", id);
       if (error) {
         console.warn("[perangkat-store] Update error:", error.message);
-        return { ok: true, message: "Diperbarui secara lokal (sync cloud gagal)" };
       }
     }
   }
@@ -422,6 +429,7 @@ export async function deletePerangkat(id: number): Promise<{ ok: boolean; messag
   const updated = listPerangkat().filter((p) => p.id !== id);
   _perangkatCache = updated;
   await idbReplaceAllDynamic(PERANGKAT_KEY, updated);
+  broadcastPerangkatChange();
 
   if (isSupabaseConfigured) {
     const sb = getSupabase();

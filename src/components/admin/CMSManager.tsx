@@ -7,6 +7,7 @@ import {
   useKomoditasStore,
   useGaleriStore,
   useApbdesStore,
+  useDestinasiStore,
   usePageContentStore,
   useKwtStore,
   useProdukHukumStore,
@@ -20,6 +21,7 @@ import {
   type KomoditasItem,
   type GaleriItem,
   type ApbdesItem,
+  type DestinasiItem,
   ArticleSchema,
   PengumumanSchema,
   AgendaSchema,
@@ -59,7 +61,7 @@ import {
   Store,
   MessageSquare,
   Users,
-  Settings,
+  Compass,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatRupiah } from "@/data/apbdes";
@@ -72,6 +74,7 @@ export function CMSManager() {
     | "pengumuman"
     | "komoditas"
     | "galeri"
+    | "destinasi"
     | "apbdes"
     | "page_content"
     | "kwt"
@@ -79,7 +82,7 @@ export function CMSManager() {
     | "realisasi"
     | "bumdes"
     | "pengaduan_kategori"
-    | "koperasi"
+    | "koprasi"
   >("berita");
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -95,6 +98,7 @@ export function CMSManager() {
     pengumuman: usePengumumanStore(),
     komoditas: useKomoditasStore(),
     galeri: useGaleriStore(),
+    destinasi: useDestinasiStore(),
     apbdes: useApbdesStore(),
     page_content: usePageContentStore(),
     kwt: useKwtStore(),
@@ -140,7 +144,14 @@ export function CMSManager() {
   };
 
   // Typed union for dynamic CMS items
-  type CmsItem = Article | AgendaItem | PengumumanItem | KomoditasItem | GaleriItem | ApbdesItem;
+  type CmsItem =
+    | Article
+    | AgendaItem
+    | PengumumanItem
+    | KomoditasItem
+    | GaleriItem
+    | ApbdesItem
+    | DestinasiItem;
   type CmsItemRecord = {
     id: string;
     [key: string]: unknown;
@@ -161,6 +172,7 @@ export function CMSManager() {
           { id: "pengumuman", label: "Pengumuman", icon: Megaphone },
           { id: "komoditas", label: "Harga Komoditas", icon: TrendingUp },
           { id: "galeri", label: "Galeri", icon: ImageIcon },
+          { id: "destinasi", label: "Destinasi", icon: Compass },
           { id: "apbdes", label: "APBDes", icon: Wallet },
           { id: "page_content", label: "Konten Halaman", icon: BookOpen },
           { id: "kwt", label: "KWT", icon: Heart },
@@ -168,7 +180,7 @@ export function CMSManager() {
           { id: "realisasi", label: "Realisasi APBDes", icon: TrendingUp },
           { id: "bumdes", label: "BUMDes", icon: Store },
           { id: "pengaduan_kategori", label: "Kategori Pengaduan", icon: MessageSquare },
-          { id: "koperasi", label: "Kopi", icon: Users },
+          { id: "koprasi", label: "Kopi", icon: Users },
         ].map((t) => (
           <button
             key={t.id}
@@ -204,7 +216,7 @@ export function CMSManager() {
             setIsAdding(true);
             setEditingId(null);
           }}
-          className="rounded-full bg-primary hover:bg-primary-hover text-primary-foreground"
+          className="rounded-full bg-primary hover:bg-primary text-primary-foreground"
         >
           <Plus className="h-4 w-4 mr-2" />
           Tambah {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
@@ -319,6 +331,7 @@ function CMSForm({
     pengumuman: usePengumumanStore(),
     komoditas: useKomoditasStore(),
     galeri: useGaleriStore(),
+    destinasi: useDestinasiStore(),
     apbdes: useApbdesStore(),
     page_content: usePageContentStore(),
     kwt: useKwtStore(),
@@ -326,7 +339,7 @@ function CMSForm({
     realisasi: useRealisasiStore(),
     bumdes: useBumdesStore(),
     pengaduan_kategori: usePengaduanKategoriStore(),
-    kopi: useKoprasiStore(),
+    koprasi: useKoprasiStore(),
   };
   const store = (stores as Record<string, (typeof stores)[keyof typeof stores]>)[type];
   const existing = editingId ? store.items.find((i) => i.id === editingId) : null;
@@ -469,14 +482,17 @@ function CMSForm({
         <h3 className="font-display text-lg font-bold">
           {editingId ? "Edit" : "Tambah"} {type.charAt(0).toUpperCase() + type.slice(1)}
         </h3>
-        <button type="button" onClick={onClose} className="p-2 hover:bg-muted rounded-full">
+        <button type="button" onClick={onClose} className="p-2 hover:bg-muted rounded-full" aria-label="Tutup dialog">
           <X className="h-5 w-5" />
         </button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {/* Fields based on type */}
-        {(type === "berita" || type === "pengumuman" || type === "agenda") && (
+        {(type === "berita" ||
+          type === "pengumuman" ||
+          type === "agenda" ||
+          type === "destinasi") && (
           <div className="sm:col-span-2 space-y-2">
             <Label>Judul</Label>
             <Input
@@ -485,6 +501,90 @@ function CMSForm({
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             />
           </div>
+        )}
+
+        {type === "destinasi" && (
+          <>
+            <div className="sm:col-span-2 space-y-2">
+              <Label>Deskripsi</Label>
+              <Textarea
+                required
+                value={formData.desc}
+                onChange={(e) => setFormData({ ...formData, desc: e.target.value })}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Kategori</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(v) => setFormData({ ...formData, category: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Alam", "Budaya", "Kuliner", "Edukasi", "Lainnya"].map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>URL Gambar</Label>
+              <Input
+                required
+                value={formData.image_url}
+                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                placeholder="https://..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Lokasi</Label>
+              <Input
+                value={formData.lokasi}
+                onChange={(e) => setFormData({ ...formData, lokasi: e.target.value })}
+                placeholder="Dusun Mandar"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Harga Tiket</Label>
+              <Input
+                value={formData.harga_tiket}
+                onChange={(e) => setFormData({ ...formData, harga_tiket: e.target.value })}
+                placeholder="Rp 10.000"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Jam Buka</Label>
+              <Input
+                value={formData.jam_buka}
+                onChange={(e) => setFormData({ ...formData, jam_buka: e.target.value })}
+                placeholder="08:00 - 17:00 WITA"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Rating (0-5)</Label>
+              <Input
+                type="number"
+                step="0.1"
+                min="0"
+                max="5"
+                value={formData.rating || 0}
+                onChange={(e) => setFormData({ ...formData, rating: Number(e.target.value) })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Jumlah Ulasan</Label>
+              <Input
+                type="number"
+                value={formData.reviews || 0}
+                onChange={(e) => setFormData({ ...formData, reviews: Number(e.target.value) })}
+              />
+            </div>
+          </>
         )}
 
         {type === "komoditas" && (
@@ -714,7 +814,7 @@ function CMSForm({
                   <div className="relative aspect-[16/9] bg-muted/30">
                     <img
                       src={formData.cover_image}
-                      alt="Cover preview"
+                      alt={formData.title || "Gambar Cover Artikel"}
                       className="w-full h-full object-cover"
                       onError={() => setFormData((f) => ({ ...f, cover_image: "" }))}
                     />
@@ -771,12 +871,15 @@ function CMSForm({
                 value={formData.content ?? ""}
                 onChange={(v) => {
                   const updated = { ...formData, content: v };
-                  // Auto-calculate read time: ~200 words/min
-                  const wordCount = v
-                    .replace(/<[^>]*>/g, "")
-                    .split(/\s+/)
-                    .filter(Boolean).length;
-                  updated.read_time = Math.max(1, Math.ceil(wordCount / 200));
+                  // Auto-calculate read time: ~200 words/min (only for berita)
+                  if (type === "berita") {
+                    const wordCount = v
+                      .replace(/<[^>]*>/g, "")
+                      .split(/\s+/)
+                      .filter(Boolean).length;
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    (updated as any).read_time = Math.max(1, Math.ceil(wordCount / 200));
+                  }
                   setFormData(updated);
                 }}
                 placeholder="Ketik konten berita di sini..."
@@ -923,7 +1026,7 @@ function CMSForm({
               <div className="relative rounded-xl overflow-hidden border border-border w-full max-w-xs">
                 <img
                   src={previewSrc}
-                  alt="Preview"
+                  alt="Gambar Artikel"
                   className="h-36 w-full object-cover"
                   onError={() => setImgError(true)}
                 />

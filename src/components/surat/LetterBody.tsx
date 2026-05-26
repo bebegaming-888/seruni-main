@@ -5,19 +5,20 @@
  * Klause bertipe kisi (multi-baris dengan \n) dirender sebagai blok indent.
  */
 import React from "react";
+import { getSettings } from "@/lib/settings-store";
 
-type Props = {
-  body: string[];
-};
+export function LetterBody({ body }: { body: string[] }) {
+  const settings = getSettings();
+  const bodyFont = settings.pdfLayout?.body_font || "Times New Roman, Times, serif";
+  const bodyFontSize = settings.pdfLayout?.body_font_size || 12;
 
-export function LetterBody({ body }: Props) {
   return (
     <div
       style={{
-        fontFamily: "Times New Roman, serif",
-        fontSize: 11,
-        lineHeight: 1.8,
-        margin: "10px 0",
+        fontFamily: bodyFont,
+        fontSize: bodyFontSize,
+        lineHeight: 1.7,
+        margin: "12px 0",
         textAlign: "justify",
       }}
     >
@@ -28,11 +29,12 @@ export function LetterBody({ body }: Props) {
             <div
               key={i}
               style={{
-                marginLeft: 24,
-                marginBottom: 6,
-                fontFamily: "monospace",
-                fontSize: 10,
+                marginLeft: 40,
+                marginBottom: 8,
+                fontFamily: bodyFont,
+                fontSize: bodyFontSize,
                 whiteSpace: "pre-wrap",
+                lineHeight: 1.6,
               }}
             >
               {clause}
@@ -41,7 +43,10 @@ export function LetterBody({ body }: Props) {
         }
         // Klausa biasa → paragraf
         return (
-          <p key={i} style={{ margin: "0 0 6px", textIndent: clause.startsWith("Dengan") ? 0 : 0 }}>
+          <p
+            key={i}
+            style={{ margin: "0 0 8px", textIndent: clause.startsWith("Dengan") ? 0 : 32 }}
+          >
             {clause}
           </p>
         );

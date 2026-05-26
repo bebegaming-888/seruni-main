@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Loader2,
   X,
@@ -28,9 +28,10 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { SignerSelectionModal } from "@/components/admin/SignerSelectionModal";
 
 /** Standard alasan penolakan yang bisa diceklis */
-const REJECTION_REASONS = [
+const HARDCODED_REJECTION_REASONS = [
   "Data identitas tidak sesuai (nama, NIK, alamat, tempat/tanggal lahir)",
   "Dokumen pendukung tidak lengkap, tidak jelas, atau tidak terbaca",
   "Field formulir/DNA tidak terisi dengan benar",
@@ -38,6 +39,63 @@ const REJECTION_REASONS = [
   "Permohonan tidak memenuhi persyaratan jenis surat yang dipilih",
   "NIK tidak ditemukan dalam database penduduk",
 ];
+
+/** Lazy-loaded dynamic data — fetched once on first use */
+type SignerItem = { id: string; role: string; title: string; name: string; nip?: string };
+type ReasonItem = { id: string; code: string; reason: string; category?: string };
+
+let _cachedSigners: SignerItem[] | null = null;
+let _cachedRejectionReasons: ReasonItem[] | null = null;
+let _fetchPromiseSigners: Promise<SignerItem[] | null> | null = null;
+let _fetchPromiseReasons: Promise<ReasonItem[] | null> | null = null;
+
+async function fetchSigners(): Promise<SignerItem[] | null> {
+  if (_cachedSigners) return _cachedSigners;
+  if (_fetchPromiseSigners) return _fetchPromiseSigners;
+  _fetchPromiseSigners = (async () => {
+    try {
+      const res = await fetch("/api/list-signers");
+      if (res.ok) {
+        const data = await res.json();
+        _cachedSigners = data.signers ?? data.data ?? [];
+      } else {
+        _cachedSigners = [];
+      }
+    } catch {
+      _cachedSigners = [];
+    }
+    return _cachedSigners;
+  })();
+  return _fetchPromiseSigners;
+}
+
+async function fetchRejectionReasons(): Promise<ReasonItem[] | null> {
+  if (_cachedRejectionReasons) return _cachedRejectionReasons;
+  if (_fetchPromiseReasons) return _fetchPromiseReasons;
+  _fetchPromiseReasons = (async () => {
+    try {
+      const res = await fetch("/api/list-rejection-reasons");
+      if (res.ok) {
+        const data = await res.json();
+        _cachedRejectionReasons = data.reasons ?? data.data ?? [];
+      } else {
+        _cachedRejectionReasons = [];
+      }
+    } catch {
+      _cachedRejectionReasons = [];
+    }
+    return _cachedRejectionReasons;
+  })();
+  return _fetchPromiseReasons;
+}
+
+/** Invalidate caches — call after admin updates signers/rejection reasons */
+export function invalidateSignerAndReasonCache() {
+  _cachedSigners = null;
+  _cachedRejectionReasons = null;
+  _fetchPromiseSigners = null;
+  _fetchPromiseReasons = null;
+}
 
 export type SuratPreviewPanelActions = {
   onVerify?: (r: SuratRecord) => void;
@@ -88,12 +146,13 @@ function isSelfie(att: SuratRecord["attachments"][number]): boolean {
 function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <button
         className="absolute top-4 right-4 text-white hover:text-gray-300 transition"
         onClick={onClose}
+        aria-label="Tutup gambar"
       >
         <X className="h-8 w-8" />
       </button>
@@ -201,7 +260,7 @@ function AttachmentsSection({ attachments }: { attachments: SuratRecord["attachm
                         <button
                           className="shrink-0 p-1 rounded hover:bg-muted transition"
                           onClick={() => setLightboxSrc(att.data_url!)}
-                          title="Lihat gambar"
+                          aria-label="Lihat gambar"
                         >
                           <Image className="h-4 w-4 text-info" />
                         </button>
@@ -234,11 +293,21 @@ export function RejectionModal({
 }) {
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [lainnya, setLainnya] = useState("");
+  const [reasons, setReasons] = useState<string[]>(HARDCODED_REJECTION_REASONS);
+
+  // Fetch dynamic rejection reasons when modal opens
+  useEffect(() => {
+    if (open) {
+      fetchRejectionReasons().then((r) => {
+        if (r && r.length > 0) setReasons(r.map((x) => x.reason));
+      });
+    }
+  }, [open]);
 
   const toggle = (i: number) => setChecked((c) => ({ ...c, [i]: !c[i] }));
 
   const alasanList = [
-    ...REJECTION_REASONS.map((r, i) => (checked[i] ? r : null)).filter(Boolean),
+    ...reasons.map((r, i) => (checked[i] ? r : null)).filter(Boolean),
     lainnya.trim() || null,
   ].filter(Boolean) as string[];
 
@@ -279,7 +348,7 @@ export function RejectionModal({
         <div className="space-y-3 py-2">
           <p className="text-sm font-medium text-foreground">Pilih alasan penolakan:</p>
           <div className="space-y-2.5">
-            {REJECTION_REASONS.map((reason, i) => (
+            {reasons.map((reason, i) => (
               <div key={i} className="flex items-start gap-2.5">
                 <Checkbox
                   id={`reject-reason-${i}`}
@@ -428,10 +497,10 @@ export function SuratPreviewPanel({
   return (
     <div className="space-y-3">
       {/* ── Blanko Surat PDF Preview ── */}
-      <div className="w-full overflow-auto bg-[#f0f0f0] rounded-lg border border-border flex justify-center p-3 max-h-[480px]">
+      <div className="w-full overflow-auto bg-muted rounded-lg border border-border flex justify-center p-3 max-h-[calc(100vh-200px)]">
         <div
-          className="origin-top bg-white shadow-xl"
-          style={{ transform: "scale(0.68)", transformOrigin: "top center", marginBottom: "-32%" }}
+          className="origin-top scale-[0.68] bg-white shadow-xl"
+          style={{ transformOrigin: "top center", marginBottom: "-32%" }}
         >
           <LetterPrintWrapper
             letter={letter}
@@ -467,7 +536,7 @@ export function SuratPreviewPanel({
           {onLanjut && preview.status === "Diverifikasi" && (
             <Button
               size="sm"
-              className="bg-primary hover:bg-primary-hover text-primary-foreground flex-1"
+              className="bg-primary hover:bg-primary text-primary-foreground flex-1"
               onClick={() => onLanjut(preview)}
             >
               <ChevronUp className="h-4 w-4 mr-1" /> Lanjut Approval
@@ -506,47 +575,20 @@ export function SuratPreviewPanel({
         onConfirm={handleReject}
       />
 
-      {/* ── Signer Selection Modal ── */}
-      {pendingRecord && (
-        <Dialog open={signerModalOpen} onOpenChange={(v) => { if (!v) { setSignerModalOpen(false); setPendingRecord(null); } }}>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-success" /> Pilih Penandatangan
-              </DialogTitle>
-              <DialogDescription>
-                {pendingRecord.nama_surat} — {pendingRecord.pemohon}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 py-2">
-              <p className="text-sm font-medium text-foreground">
-                Siapa yang menandatangani surat ini?
-              </p>
-              <div className="space-y-2">
-                <button
-                  onClick={() => { onApprove?.(pendingRecord, "Kepala Desa"); setSignerModalOpen(false); setPendingRecord(null); }}
-                  className="w-full text-left rounded-xl border-2 border-border hover:border-primary/40 hover:bg-primary/5 p-4 transition"
-                >
-                  <p className="font-semibold text-foreground">H. Sumardi, S.Sos.</p>
-                  <p className="text-sm text-muted-foreground">Kepala Desa Seruni Mumbul</p>
-                </button>
-                <button
-                  onClick={() => { onApprove?.(pendingRecord, "Sekretaris Desa"); setSignerModalOpen(false); setPendingRecord(null); }}
-                  className="w-full text-left rounded-xl border-2 border-border hover:border-primary/40 hover:bg-primary/5 p-4 transition"
-                >
-                  <p className="font-semibold text-foreground">Sekretaris Desa</p>
-                  <p className="text-sm text-muted-foreground">Sekretaris Desa Seruni Mumbul</p>
-                </button>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setSignerModalOpen(false); setPendingRecord(null); }}>
-                Batal
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* ── Dynamic Signer Selection Modal ── */}
+      <SignerSelectionModal
+        open={signerModalOpen}
+        record={pendingRecord}
+        onClose={() => {
+          setSignerModalOpen(false);
+          setPendingRecord(null);
+        }}
+        onSelect={(rec, signerTitle) => {
+          onApprove?.(rec, signerTitle);
+          setSignerModalOpen(false);
+          setPendingRecord(null);
+        }}
+      />
     </div>
   );
 }

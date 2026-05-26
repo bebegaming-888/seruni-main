@@ -1,10 +1,10 @@
 // Penduduk Store — IndexedDB storage (kapasitas >10.000 record)
 // In-memory cache untuk read sinkron; IndexedDB untuk persistensi async.
 
-import { type Penduduk } from "@/data/penduduk";
+import { type Penduduk, syncOpenSidProperties } from "@/data/penduduk";
 import { processSmartImport, type SmartImportResult } from "@/lib/smart-import";
 export type { SmartImportResult } from "@/lib/smart-import";
-import { idbGetAll, idbPut, idbDelete, idbReplaceAll } from "@/lib/idb-store";
+import { idbGetAll, idbPut, idbDelete, idbReplaceAll, idbPutMany } from "@/lib/idb-store";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { logAudit } from "./settings-store";
 import { getVillage } from "./village-dynamic";
@@ -23,12 +23,13 @@ let _isActive = false;
 // ── IndexedDB via central engine ─────────────────────────────────────────────
 const dbGetAll = () => idbGetAll<Penduduk>("penduduk");
 const dbPutOne = (p: Penduduk) => idbPut("penduduk", p);
+const dbPutMany = (data: Penduduk[]) => idbPutMany("penduduk", data);
 const dbDeleteOne = (nik: string) => idbDelete("penduduk", nik);
 const dbReplaceAll = (data: Penduduk[]) => idbReplaceAll("penduduk", data);
 
 // ── Helper internal ───────────────────────────────────────────────────────────
-function setActive(data: Penduduk[]) {
-  _mem = data;
+function setActive(data: Penduduk[] | ((prev: Penduduk[]) => Penduduk[])) {
+  _mem = typeof data === "function" ? data(_mem ?? []) : data;
   _isActive = true;
   try {
     localStorage.setItem(STATE_KEY, "active");
@@ -225,6 +226,7 @@ export async function savePendudukBatch(
   const next: Penduduk[] = [...existing];
 
   for (const item of items) {
+    syncOpenSidProperties(item);
     const existingIdx = next.findIndex((p) => p.nik === item.nik);
     if (existingIdx >= 0) {
       next[existingIdx] = { ...next[existingIdx], ...item };
@@ -272,36 +274,31 @@ export function isUsingMock(): boolean {
   return false;
 }
 
-export function getPendudukByNik(nik: string): Penduduk | null {
+export async function getPendudukByNik(nik: string): Promise<Penduduk | null> {
   const trimmed = nik.trim();
   const list = listPenduduk();
-  // Fallback: jika listPenduduk() kosong tapi store aktif,
-  // langsung query Supabase (kasus race condition di mana _mem=null tapi data ada di DB)
-  if (list.length === 0 && _isActive && isSupabaseConfigured) {
-    // Sync query — hanya untuk cek NIK, tidak mengupdate cache
-    // Ini menangani kasus di mana init belum selesai tapi user sudah coba lookup
+  const found = list.find((p) => p.nik === trimmed);
+  if (found) return found;
+
+  // Not in local cache — fetch from Supabase and hydrate store if found.
+  // Removed fire-and-forget .then() that could mutate _mem out-of-band.
+  if (_isActive && isSupabaseConfigured) {
     const sb = getSupabase();
     if (sb) {
-      // Fire-and-forget — jangan block UI
-      sb.from("warga")
-        .select("*")
-        .eq("nik", trimmed)
-        .maybeSingle()
-        .then(({ data, error }) => {
-          if (!error && data) {
-            // Data ditemukan di cloud — update cache
-            const warga = data as Penduduk;
-            const existing = listPenduduk();
-            if (!existing.some((p) => p.nik === trimmed)) {
-              setActive([warga, ...existing]);
-              dbPutOne(warga).catch(() => {});
-            }
-          }
+      const { data, error } = await sb.from("warga").select("*").eq("nik", trimmed).maybeSingle();
+      if (!error && data) {
+        const warga = data as Penduduk;
+        // Safely inject into store (functional update prevents overwrite)
+        setActive((prev) => {
+          if (prev.some((p) => p.nik === warga.nik)) return prev;
+          return [warga, ...prev];
         });
+        await dbPutOne(warga);
+        return warga;
+      }
     }
-    return null; // belum ada di cache — tunggu async fetch
   }
-  return list.find((p) => p.nik === trimmed) ?? null;
+  return null;
 }
 
 // ── Create ────────────────────────────────────────────────────────────────────
@@ -312,33 +309,29 @@ export async function addPenduduk(
   if (!/^\d{16}$/.test(p.nik)) return { ok: false, message: "NIK harus 16 digit angka" };
   const base = baseData();
   if (base.some((x) => x.nik === p.nik)) return { ok: false, message: "NIK sudah terdaftar" };
-  setActive([p, ...base]);
-  let idbOk = true;
-  await dbPutOne(p).catch((e) => {
-    console.error("[penduduk-store] IndexedDB write error:", e);
-    idbOk = false;
-  });
 
-  // ── Supabase Sync (await agar error tertangkap) ──
-  let synced = false;
+  syncOpenSidProperties(p);
+
+  // ── FIX #3: Try Supabase FIRST; only update local state on success ─────────
+  // Rollback is automatic — if Supabase fails we simply return an error
+  // without touching _mem or IndexedDB.
   if (isSupabaseConfigured) {
     const sb = getSupabase();
     if (sb) {
       const { error } = await sb.from("warga").insert(p);
       if (error) {
         console.error("[penduduk-store] Supabase insert error:", error.message);
-        return {
-          ok: true,
-          message: "Data disimpan (sync cloud gagal)",
-          synced: false,
-          idbSynced: idbOk,
-        };
+        return { ok: false, message: `Gagal menyimpan: ${error.message}`, synced: false };
       }
-      synced = true;
     }
   }
+
+  setActive([p, ...base]); // update local only after cloud succeeds
+  await dbPutOne(p).catch((e) => {
+    console.error("[penduduk-store] IndexedDB write error:", e);
+  });
   logAudit(actor, "penduduk.add", `Tambah penduduk: ${p.nama} (${p.nik})`);
-  return { ok: true, message: "Data berhasil ditambahkan", synced, idbSynced: idbOk };
+  return { ok: true, message: "Data berhasil ditambahkan", synced: true, idbSynced: true };
 }
 
 // ── Update ────────────────────────────────────────────────────────────────────
@@ -349,34 +342,33 @@ export async function updatePenduduk(
   const base = baseData();
   const idx = base.findIndex((x) => x.nik === p.nik);
   if (idx < 0) return { ok: false, message: "NIK tidak ditemukan" };
-  const next = [...base];
-  next[idx] = p;
-  setActive(next);
-  let idbOk = true;
-  await dbPutOne(p).catch((e) => {
-    console.error("[penduduk-store] IndexedDB write error:", e);
-    idbOk = false;
-  });
 
-  let synced = false;
+  syncOpenSidProperties(p);
+
+  // ── FIX #4: Try Supabase FIRST via upsert (optimistic, no stale-write) ───
+  // Using upsert instead of update avoids races where another client modified
+  // the record since we last read it. The onConflict: "nik" clause handles both
+  // cases: existing record updated, or new record inserted.
   if (isSupabaseConfigured) {
     const sb = getSupabase();
     if (sb) {
-      const { error } = await sb.from("warga").update(p).eq("nik", p.nik);
+      const { error } = await sb.from("warga").upsert(p, { onConflict: "nik" });
       if (error) {
-        console.error("[penduduk-store] Supabase update error:", error.message);
-        return {
-          ok: true,
-          message: "Data diperbarui (sync cloud gagal)",
-          synced: false,
-          idbSynced: idbOk,
-        };
+        console.error("[penduduk-store] Supabase upsert error:", error.message);
+        return { ok: false, message: `Gagal memperbarui: ${error.message}`, synced: false };
       }
-      synced = true;
     }
   }
+
+  // Update local state only after cloud succeeds
+  const next = [...base];
+  next[idx] = p;
+  setActive(next);
+  await dbPutOne(p).catch((e) => {
+    console.error("[penduduk-store] IndexedDB write error:", e);
+  });
   logAudit(actor, "penduduk.update", `Update penduduk: ${p.nama} (${p.nik})`);
-  return { ok: true, message: "Data berhasil diperbarui", synced, idbSynced: idbOk };
+  return { ok: true, message: "Data berhasil diperbarui", synced: true, idbSynced: true };
 }
 
 // ── Delete ────────────────────────────────────────────────────────────────────
@@ -430,41 +422,59 @@ export async function importPenduduk(
   const existing = listPenduduk();
   const existingMap = new Map(existing.map((p) => [p.nik, p]));
   const { map, result } = processSmartImport(rawRows, existingMap);
-  const allData = Array.from(map.values());
-  setActive(allData); // update UI langsung (sync)
-  await dbReplaceAll(allData); // simpan ke IndexedDB
+  const imported = Array.from(map.values());
+
+  // ── FIX #1: Preserve orphaned records NOT in the import ──────────────────
+  // dbReplaceAll(allData) would wipe ALL existing records not in the import.
+  // Instead: fetch existing IDB records, keep those whose NIK is not in the
+  // import, then save everything using idbPutMany (individual upserts).
+  const existingFromIdb = await dbGetAll();
+  const importedNikSet = new Set(imported.map((p) => p.nik));
+  const orphanedFromIdb = existingFromIdb.filter((p) => !importedNikSet.has(p.nik));
+  const mergedAll = [...imported, ...orphanedFromIdb];
+
+  mergedAll.forEach(syncOpenSidProperties);
+
+  setActive(mergedAll); // update UI immediately (sync)
+  await dbPutMany(mergedAll); // individual upserts — no data loss
 
   // ── Supabase Upsert (blocking — harus selesai sebelum return) ──
+  let syncOk = false;
+  let syncMessage = "Data tersimpan secara lokal";
   if (isSupabaseConfigured) {
     const sb = getSupabase();
     if (sb) {
       try {
-        const { data, error, status } = await sb
-          .from("warga")
-          .upsert(allData, { onConflict: "nik" });
+        const { error, status } = await sb.from("warga").upsert(mergedAll, { onConflict: "nik" });
 
         if (error) {
+          syncMessage = `Cloud sync gagal: ${error.message}`;
           console.error(`[penduduk-store] Supabase upsert error [${status}]:`, error.message);
           // Supabase error — data tetap aman di IndexedDB
           // Catat detail untuk debugging
           const detail = {
-            count: allData.length,
-            firstNik: allData[0]?.nik,
-            columns: Object.keys(allData[0] ?? {}),
+            count: mergedAll.length,
+            firstNik: mergedAll[0]?.nik,
+            columns: Object.keys(mergedAll[0] ?? {}),
             errorMsg: error.message,
           };
           console.error("[penduduk-store] Upsert detail:", JSON.stringify(detail, null, 2));
         } else {
-          console.info(`[penduduk-store] Upsert OK: ${allData.length} records synced to Supabase`);
+          syncOk = true;
+          syncMessage = `${mergedAll.length} data berhasil disinkronkan ke cloud`;
+          console.info(
+            `[penduduk-store] Upsert OK: ${mergedAll.length} records synced to Supabase`,
+          );
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        syncMessage = `Cloud sync gagal: ${msg}`;
         console.error("[penduduk-store] Supabase upsert exception:", msg);
       }
     }
   }
-  logAudit(actor, "penduduk.import", `Import massal ${allData.length} data penduduk`);
-  return result;
+  logAudit(actor, "penduduk.import", `Import massal ${mergedAll.length} data penduduk`);
+  return { ...result, syncOk, syncMessage };
 }
 
 // ── Export CSV ────────────────────────────────────────────────────────────────
@@ -476,20 +486,31 @@ const CSV_HEADERS = [
   "desa",
   "dusun",
   "rt",
+  "rw",
+  "alamat",
+  "id_cluster",
   "nama",
   "jenis_kelamin",
   "status_dalam_kk",
+  "hubungan_keluarga_id",
   "no_kk",
   "nik",
   "status_perkawinan",
   "tempat_lahir",
   "tanggal_lahir",
   "pendidikan",
+  "pendidikan_kk_id",
   "pekerjaan",
+  "pekerjaan_id",
   "pendapatan_bulan",
   "kewarganegaraan",
+  "warga_negara_id",
   "agama",
+  "agama_id",
   "suku",
+  "status_dasar",
+  "ktp_el",
+  "status_rekam",
   "kepemilikan_rumah",
   "luas_rumah",
   "jumlah_lantai",
@@ -508,18 +529,22 @@ const CSV_HEADERS = [
   "bpjs_ketenagakerjaan",
   "kepemilikan_aset",
   "kondisi_fisik",
+  "cacat_id",
+  "sakit_menahun_id",
+  "cara_kb_id",
   "nama_ibu",
   "nama_bapak",
   "golongan_darah",
-  // opsional
-  "rw",
+  "golongan_darah_id",
   "no_hp",
-  "alamat",
+  "email",
+  "telegram",
 ];
 
 function toCSVRow(row: Record<string, string>): string {
   return CSV_HEADERS.map((h) => {
-    const v = row[h] ?? "";
+    // FIX #6: normalize all whitespace including newlines before quoting
+    const v = (row[h] ?? "").replace(/\r?\n/g, " ").replace(/\r/g, " ");
     return v.includes(",") || v.includes('"') || v.includes("\n")
       ? `"${v.replace(/"/g, '""')}"`
       : v;
@@ -606,6 +631,16 @@ export function kelompokUmurLabel(tanggalLahir: string): string {
   if (u <= 14) return "Anak (0-14)";
   if (u <= 64) return "Produktif (15-64)";
   return "Lansia (65+)";
+}
+
+/**
+ * Mask NIK untuk tampilan — tampilkan 4 digit awal + 4 digit akhir.
+ * Format: 3273****1234
+ * Dasar hukum: UU No. 27/2022 Pasal 5 tentang PDP
+ */
+export function maskNik(nik: string): string {
+  if (!nik || nik.length !== 16) return nik;
+  return `${nik.slice(0, 4)}****${nik.slice(-4)}`;
 }
 
 export function maskNama(nama: string): string {

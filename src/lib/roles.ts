@@ -13,6 +13,8 @@ export type ActionKey =
   | "template.approve"
   | "template.reject"
   | "template.send"
+  | "verify_surat"
+  | "approve_surat"
   | "surat.verify"
   | "surat.toApproval"
   | "surat.approve"
@@ -20,6 +22,17 @@ export type ActionKey =
   | "surat.send"
   | "surat.archive"
   | "settings.manage";
+
+/** Canonical list of surat statuses — use instead of raw string literals. */
+export const SURAT_STATUS = [
+  "Menunggu Verifikasi",
+  "Diverifikasi",
+  "Menunggu Approval",
+  "Disetujui",
+  "Ditolak",
+] as const;
+
+export type SuratStatusKey = (typeof SURAT_STATUS)[number];
 
 const MATRIX: Record<AdminRole, Set<ActionKey>> = {
   "Super Admin": new Set<ActionKey>([
@@ -32,6 +45,8 @@ const MATRIX: Record<AdminRole, Set<ActionKey>> = {
     "template.approve",
     "template.reject",
     "template.send",
+    "verify_surat",
+    "approve_surat",
     "surat.verify",
     "surat.toApproval",
     "surat.approve",
@@ -47,10 +62,14 @@ const MATRIX: Record<AdminRole, Set<ActionKey>> = {
     "template.delete",
     "template.submitVerify",
     "template.send",
+    "verify_surat",
+    "surat.verify",
+    "surat.toApproval",
     "surat.send",
   ]),
   Verifikator: new Set<ActionKey>([
     "template.view",
+    "verify_surat",
     "template.verify",
     "template.reject",
     "surat.verify",
@@ -59,6 +78,7 @@ const MATRIX: Record<AdminRole, Set<ActionKey>> = {
   ]),
   "Kepala Desa": new Set<ActionKey>([
     "template.view",
+    "approve_surat",
     "template.approve",
     "template.reject",
     "surat.approve",
@@ -66,6 +86,7 @@ const MATRIX: Record<AdminRole, Set<ActionKey>> = {
   ]),
   "Sekretaris Desa": new Set<ActionKey>([
     "template.view",
+    "approve_surat",
     "template.approve",
     "template.reject",
     "surat.approve",

@@ -514,7 +514,7 @@ function TabMarquee({
                       className={cn(
                         "h-9 w-9 shrink-0 rounded-lg border flex items-center justify-center transition-colors",
                         line.enabled
-                          ? "bg-[#078898]/10 border-[#078898]/30 text-[#078898]"
+                          ? "bg-[hsl(190,75%,36%_/_0.1)] border-[hsl(190,75%,36%_/_0.3)] text-[hsl(190,75%,36%)]"
                           : "bg-muted border-transparent text-muted-foreground",
                       )}
                     >

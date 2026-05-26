@@ -13,8 +13,28 @@ import type { SuratRecord, SuratStatus } from "./esurat-store";
 import { idbDelete, idbGetAll, idbPut, idbReplaceAll } from "@/lib/idb-store";
 import { isStoreLocked } from "@/lib/settings-lock";
 import { notifySyncListeners } from "./idb-sync";
+import { invalidateStatsCache } from "@/lib/esurat-store";
 import type { SuratTemplate } from "./template-store";
+import { getSession } from "./auth";
+import { generateId } from "@/lib/utils";
 import { z } from "zod";
+
+/**
+ * Utility to safely parse JSON arrays.
+ * Handles cases where data is double-stringified or already parsed.
+ */
+function safeParseJsonArray<T>(val: unknown, fallback: T[] = []): T[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -50,6 +70,10 @@ let _archive: SuratRecord[] | null = null;
 export async function initEsuratStore(): Promise<void> {
   if (typeof window === "undefined") return;
   if (_records !== null) return; // Prevent double init
+
+  // Always initialize to empty arrays to prevent null reference errors
+  _records = [];
+  _archive = [];
 
   // ── Data Guard: Jika store terkunci, prioritaskan IDB ──
   if (isStoreLocked("esurat")) {
@@ -101,6 +125,10 @@ export async function initEsuratStore(): Promise<void> {
           console.warn("[esurat] Supabase background sync failed:", err);
         });
       }
+
+      // ── 4. Subscribe ke Supabase Realtime (cross-device/tab sync) ──
+      // Digunakan untuk auto-refresh ketika ada perubahan dari device/tab lain
+      subscribeToRealtimeChanges();
     }
   } catch (e) {
     console.warn("[esurat] initEsuratStore gagal:", e);
@@ -217,15 +245,33 @@ async function uploadAttachment(file: {
       byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
     const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray]);
 
-    const fileExt = file.name.split(".").pop() ?? "bin";
+    // Detect MIME type from file extension (fallback for octet-stream)
+    const fileExt = file.name.split(".").pop()?.toLowerCase() ?? "bin";
+    const mimeMap: Record<string, string> = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      gif: "image/gif",
+      webp: "image/webp",
+      pdf: "application/pdf",
+      doc: "application/msword",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      xls: "application/vnd.ms-excel",
+      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    };
+
+    // Extract actual MIME type from data_url if present
+    const mimeMatch = file.data_url.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,/);
+    const contentType = mimeMatch ? mimeMatch[1] : (mimeMap[fileExt] ?? "application/octet-stream");
+
+    const blob = new Blob([byteArray], { type: contentType });
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = `attachments/${fileName}`;
 
     const { data, error } = await sb.storage
       .from("surat-attachments")
-      .upload(filePath, blob, { contentType: "auto" });
+      .upload(filePath, blob, { contentType });
 
     if (error) {
       const msg = `[storage] Upload failed: ${error.message}`;
@@ -284,6 +330,7 @@ function fromDbRecord(row: Record<string, unknown>): SuratRecord {
 export async function syncSaveRecord(
   record: SuratRecord,
   username = "system",
+  skipCloudSync = false,
 ): Promise<SyncResult> {
   // 1. Validate data
   const validation = SuratSchema.safeParse(record);
@@ -296,20 +343,24 @@ export async function syncSaveRecord(
   // Clone attachments array to avoid mutating the original record on partial failure
   const recordToSave = { ...record, attachments: record.attachments.map((att) => ({ ...att })) };
   if (isSupabaseConfigured && recordToSave.attachments.length > 0) {
-    let uploadFailed = false;
-    for (const att of recordToSave.attachments) {
-      if (att.data_url && !att.storage_path) {
-        const result = await uploadAttachment({ name: att.name, data_url: att.data_url });
+    // Upload all attachments concurrently (not sequential N+1)
+    const uploadPromises = recordToSave.attachments
+      .filter((att) => att.data_url && !att.storage_path)
+      .map(async (att) => {
+        const result = await uploadAttachment({ name: att.name, data_url: att.data_url! });
         if (result.ok) {
           att.storage_path = result.path;
+          return { ok: true, att };
         } else {
           console.warn(`[sync] Attachment upload failed for "${att.name}": ${result.error}`);
-          uploadFailed = true;
-          // fallback: keep data_url in IndexedDB — not lost, just not offloaded
+          return { ok: false, att };
         }
-      }
-    }
-    // Only apply uploaded storage_path values if no attachment failed
+      });
+
+    const results = await Promise.all(uploadPromises);
+    const uploadFailed = results.some((r) => !r.ok);
+
+    // Only apply uploaded storage_path values if ALL attachments succeeded
     if (!uploadFailed) {
       record.attachments = recordToSave.attachments;
     }
@@ -326,8 +377,12 @@ export async function syncSaveRecord(
   else localRecords.unshift(localRecord);
   setLocalRecords(localRecords);
 
-  if (!isSupabaseConfigured) {
-    return { ok: true, source: "localStorage", record: localRecord, cloudSynced: false };
+  // HIGH FIX: Invalidate stats cache after save mutation
+  invalidateStatsCache();
+  notifySuratChange(); // broadcast to other tabs
+
+  if (!isSupabaseConfigured || skipCloudSync) {
+    return { ok: true, source: "localStorage", record: localRecord, cloudSynced: skipCloudSync };
   }
 
   try {
@@ -341,10 +396,12 @@ export async function syncSaveRecord(
       return { ok: true, source: "localStorage", record: localRecord, cloudSynced: false };
     }
     await logAudit({ action: "surat.save", detail: `Surat ${record.no} disimpan`, username });
-    const synced = getLocalRecords().map((r) =>
-      r.no === record.no ? { ...r, cloudSynced: true as boolean } : r,
-    );
-    setLocalRecords(synced);
+    const allRecs = getLocalRecords();
+    const syncIdx = allRecs.findIndex((r) => r.no === record.no);
+    if (syncIdx >= 0) {
+      allRecs[syncIdx] = { ...allRecs[syncIdx], cloudSynced: true as boolean };
+    }
+    setLocalRecords(allRecs);
     return { ok: true, source: "supabase", record: localRecord, cloudSynced: true };
   } catch (err) {
     console.warn("[sync] Supabase error:", err);
@@ -383,6 +440,10 @@ export async function syncSetStatus(
   };
   localRecords[idx] = updated;
   setLocalRecords(localRecords);
+
+  // HIGH FIX: Invalidate stats cache after status change
+  invalidateStatsCache();
+  notifySuratChange(); // broadcast to other tabs
 
   if (!isSupabaseConfigured)
     return { ok: true, source: "localStorage", record: updated, cloudSynced: false };
@@ -513,6 +574,39 @@ export async function syncPullAllRecords(): Promise<SyncResult> {
   }
 }
 
+/**
+ * Pull archive records dari Supabase + merge dengan local archive.
+ * Called from public surat-terbit page so archive is not empty.
+ */
+export async function syncPullArchive(): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  try {
+    const sb = getSupabase();
+    if (!sb) return;
+
+    const { data, error } = await sb
+      .from("surat_requests")
+      .select("*")
+      .eq("archived", true)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      const cloudArchive = data.map(fromDbRecord);
+      // Merge: keep all local archive + all cloud archive (dedup by no)
+      const localArch = getLocalArchive();
+      const cloudNos = new Set(cloudArchive.map((r) => r.no));
+      const merged = [...localArch];
+      for (const cr of cloudArchive) {
+        if (!cloudNos.has(cr.no)) merged.push(cr);
+      }
+      setLocalArchive(merged);
+    }
+  } catch (err) {
+    console.warn("[sync] syncPullArchive failed:", err);
+  }
+}
+
 /** Pindahkan record ke arsip. */
 export async function syncArchive(no: string, username = "system"): Promise<SyncResult> {
   const localRecords = [...getLocalRecords()];
@@ -637,7 +731,9 @@ export async function healthCheck(): Promise<boolean> {
   try {
     const sb = getSupabase();
     if (!sb) return false;
-    const { error } = await sb.from("admin_users").select("id").limit(1);
+    // SECURITY FIX (migration 052): admin_users_public no longer accessible via anon key.
+    // Use app_settings instead — always accessible.
+    const { error } = await sb.from("app_settings").select("key").limit(1);
     return !error;
   } catch {
     return false;
@@ -657,19 +753,18 @@ export async function syncSaveAdminUser(user: SyncAdminUser, actor: string): Pro
     const sb = getSupabase();
     if (!sb) return true;
 
-    const { error } = await sb.from("admin_users").upsert(
-      {
-        id: user.id,
-        username: user.username,
-        password: user.password,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        fixed: !!user.fixed,
-        updated_at: new Date(),
-      },
-      { onConflict: "id" },
-    );
+    // CRITICAL: Browser uses anon key → cannot write to admin_users table directly (service_role only).
+    // Must use RPC function that runs with SECURITY DEFINER (service_role context).
+    const { error } = await sb.rpc("upsert_admin_user", {
+      p_id: user.id,
+      p_username: user.username,
+      p_password: user.password,
+      p_name: user.name,
+      p_email: user.email,
+      p_role: user.role,
+      p_fixed: !!user.fixed,
+      p_actor: actor,
+    });
 
     if (error) {
       console.warn("[sync] Save admin user failed:", error.message);
@@ -698,7 +793,9 @@ export async function syncDeleteAdminUser(
     const sb = getSupabase();
     if (!sb) return true;
 
-    const { error } = await sb.from("admin_users").delete().eq("id", id);
+    // CRITICAL: Browser uses anon key → cannot delete from admin_users table directly (service_role only).
+    // Must use RPC function that runs with SECURITY DEFINER (service_role context).
+    const { error } = await sb.rpc("delete_admin_user", { p_id: id, p_actor: actor });
     if (error) {
       console.warn("[sync] Delete admin user failed:", error.message);
       return false;
@@ -715,17 +812,46 @@ export async function syncDeleteAdminUser(
   }
 }
 
-/** Tarik semua admin users dari Supabase. */
+/** Tarik semua admin users dari Supabase via server-side proxy. */
 export async function syncPullAdminUsers(): Promise<SyncAdminUser[]> {
   if (!isSupabaseConfigured) return [];
   try {
-    const sb = getSupabase();
-    if (!sb) return [];
+    // SECURITY FIX (migration 052): Browser can no longer read admin_users_public directly (anon revoked).
+    // Route through server-side proxy at /api/admin-users which uses SUPABASE_SERVICE_ROLE_KEY.
+    // The server verifies HMAC session signature before reading from admin_users table.
+    const session = getSession();
+    if (!session) return [];
 
-    const { data, error } = await sb.from("admin_users").select("*");
-    if (error) throw error;
+    const sessionToken = JSON.stringify(session);
+    const res = await fetch("/api/admin-users", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionToken}`,
+      },
+    });
 
-    return (data || []).map((row) => ({
+    if (!res.ok) {
+      // Only warn if session exists — 401 without session is expected during initial load
+      const hasSession = !!session;
+      if (hasSession) {
+        // Logged-in but got non-OK: session expired/invalid or server error
+        let detail = res.statusText;
+        try {
+          const body = await res.clone().json();
+          detail = body.error ?? detail;
+        } catch {
+          /* ignore parse error */
+        }
+        console.warn(`[sync] /api/admin-users failed: ${res.status} ${detail}`);
+      }
+      return [];
+    }
+
+    const data = (await res.json()) as { ok: boolean; users: SyncAdminUser[] };
+    if (!data.ok || !data.users) return [];
+
+    return data.users.map((row) => ({
       id: row.id,
       username: row.username,
       password: row.password,
@@ -739,6 +865,79 @@ export async function syncPullAdminUsers(): Promise<SyncAdminUser[]> {
     console.warn("[sync] Pull admin users failed:", err);
     return [];
   }
+}
+
+// ── Realtime Subscription (Cross-Device/Tab Sync) ─────────────────────────────
+
+/** Subscribe to Supabase Realtime changes for surat_requests.
+ *  Auto-refreshes records when changes detected from other devices/tabs.
+ *  Belt-and-suspenders: also dispatch localStorage storage event. */
+
+let _realtimeChannel: ReturnType<NonNullable<ReturnType<typeof getSupabase>>["channel"]> | null =
+  null;
+
+export function subscribeToRealtimeChanges(): void {
+  if (typeof window === "undefined" || !isSupabaseConfigured) return;
+  if (_realtimeChannel) return; // Already subscribed
+
+  try {
+    const sb = getSupabase();
+    if (!sb) return;
+
+    _realtimeChannel = sb
+      .channel("surat_records_realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "surat_requests",
+        },
+        async (payload: {
+          eventType: string;
+          new?: Record<string, unknown>;
+          old?: Record<string, unknown>;
+        }) => {
+          console.info(
+            "[realtime] Surat record changed:",
+            payload.eventType,
+            (payload.new as Record<string, unknown>)?.["no"] ??
+              (payload.old as Record<string, unknown>)?.["no"],
+          );
+          // Pull latest records and invalidate stats cache
+          await syncPullAllRecords().catch((err) => {
+            console.warn("[realtime] Pull after change failed:", err);
+          });
+          invalidateStatsCache();
+          // Also dispatch storage event for tabs without realtime (belt-and-suspenders)
+          broadcastSuratChange();
+        },
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.info("[realtime] Subscribed to surat_requests changes");
+        } else if (status === "CHANNEL_ERROR") {
+          console.warn("[realtime] Channel error — will retry on next init");
+          _realtimeChannel = null;
+        }
+      });
+  } catch (err) {
+    console.warn("[realtime] Failed to subscribe:", err);
+  }
+}
+
+/** Dispatch localStorage storage event for cross-tab sync without realtime. */
+function broadcastSuratChange(): void {
+  try {
+    localStorage.setItem("__surat_changed__", String(Date.now()));
+  } catch {
+    // ignore
+  }
+}
+
+/** Broadcast that THIS tab changed surat records (call after every mutation). */
+export function notifySuratChange(): void {
+  broadcastSuratChange();
 }
 
 // ── Template Sync ─────────────────────────────────────────────────────────────
@@ -762,12 +961,14 @@ export async function syncPullTemplates(): Promise<SuratTemplate[]> {
       name: row.name,
       category: row.category,
       description: row.description || "",
-      syarat: Array.isArray(row.syarat) ? row.syarat : [],
-      fields: Array.isArray(row.fields) ? row.fields : [],
+      syarat: safeParseJsonArray(row.syarat),
+      fields: safeParseJsonArray(row.fields),
       eta: row.eta || "1 hari kerja",
       body: row.body || "",
-      dna_clauses: Array.isArray(row.dna_clauses) ? row.dna_clauses : undefined,
-      subject_fields: Array.isArray(row.subject_fields) ? row.subject_fields : undefined,
+      dna_clauses: row.dna_clauses ? safeParseJsonArray(row.dna_clauses, undefined) : undefined,
+      subject_fields: row.subject_fields
+        ? safeParseJsonArray(row.subject_fields, undefined)
+        : undefined,
       closing: row.closing || undefined,
       subject_count: row.subject_count || 1,
       status: (row.status as SuratTemplate["status"]) || "Draft",
@@ -825,6 +1026,57 @@ export async function syncSaveTemplate(t: SuratTemplate, actor = "system"): Prom
   }
 }
 
+/**
+ * Bulk upsert all templates to Supabase (single network call).
+ * Uses ON CONFLICT (id) so it is idempotent — safe to re-run.
+ */
+export async function syncPushAllTemplates(
+  templates: SuratTemplate[],
+  actor = "system",
+): Promise<boolean> {
+  if (!isSupabaseConfigured) return true;
+  if (templates.length === 0) return true;
+  try {
+    const sb = getSupabase();
+    if (!sb) return true;
+
+    const records = templates.map((t) => ({
+      id: t.id,
+      code: t.code,
+      name: t.name,
+      category: t.category,
+      description: t.description,
+      syarat: t.syarat,
+      fields: t.fields,
+      eta: t.eta,
+      body: t.body,
+      dna_clauses: t.dna_clauses,
+      subject_fields: t.subject_fields,
+      closing: t.closing,
+      subject_count: t.subject_count ?? 1,
+      status: t.status,
+      updated_at: new Date(),
+    }));
+
+    const { error } = await sb.from("surat_template").upsert(records, { onConflict: "id" });
+
+    if (error) {
+      console.warn("[sync] Bulk push templates failed:", error.message);
+      return false;
+    }
+
+    await logAudit({
+      action: "template.bulk_sync",
+      detail: `Bulk sync ${templates.length} templates to Supabase`,
+      username: actor,
+    });
+    return true;
+  } catch (err) {
+    console.warn("[sync] Bulk push templates error:", err);
+    return false;
+  }
+}
+
 /** Hapus template dari Supabase. */
 export async function syncDeleteTemplate(
   id: string,
@@ -863,6 +1115,14 @@ export function subscribeToTemplates(): () => void {
   const sb = getSupabase();
   if (!sb) return () => {};
 
+  // Prevent adding .on() to an already subscribed channel
+  const existingChannel = sb
+    .getChannels()
+    .find((c) => c.topic === "realtime:surat_template_realtime");
+  if (existingChannel) {
+    return () => {};
+  }
+
   const channel = sb
     .channel("surat_template_realtime")
     .on(
@@ -880,12 +1140,12 @@ export function subscribeToTemplates(): () => void {
             name: String(row.name ?? ""),
             category: String(row.category ?? ""),
             description: String(row.description ?? ""),
-            syarat: Array.isArray(row.syarat) ? row.syarat : [],
-            fields: Array.isArray(row.fields) ? row.fields : [],
+            syarat: safeParseJsonArray(row.syarat),
+            fields: safeParseJsonArray(row.fields),
             eta: String(row.eta ?? "1 hari kerja"),
             body: String(row.body ?? ""),
-            dna_clauses: Array.isArray(row.dna_clauses) ? row.dna_clauses : [],
-            subject_fields: Array.isArray(row.subject_fields) ? row.subject_fields : [],
+            dna_clauses: safeParseJsonArray(row.dna_clauses),
+            subject_fields: safeParseJsonArray(row.subject_fields),
             closing: String(row.closing ?? ""),
             subject_count: typeof row.subject_count === "number" ? row.subject_count : 1,
             status: (row.status as SuratTemplate["status"]) ?? "Draft",

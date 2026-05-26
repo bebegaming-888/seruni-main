@@ -8,7 +8,7 @@
  *
  * Brand palette: E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5
  */
-import React, { useRef, useCallback, useEffect, useState } from "react";
+import React, { useRef, useCallback } from "react";
 import { LetterRenderer } from "./LetterRenderer";
 import type { RenderedLetter } from "@/lib/letter-engine";
 import { getSettings } from "@/lib/settings-store";
@@ -35,17 +35,14 @@ type Props = {
 export function LetterPrintWrapper({
   letter,
   namaPemohon,
-  primaryColor = BRAND_PRIMARY,
+  primaryColor: propColor,
   nomorSurat,
   onDownloadPdf,
   isGeneratingPdf,
 }: Props) {
   const printAreaRef = useRef<HTMLDivElement>(null);
-  const [s, setS] = useState(() => getSettings());
-
-  useEffect(() => {
-    setS(getSettings());
-  }, []);
+  const s = getSettings();
+  const primaryColor = propColor ?? s.branding.primary_color;
 
   const handlePrint = useCallback(() => {
     window.print();
@@ -57,11 +54,9 @@ export function LetterPrintWrapper({
     left: "25mm",
     right: "20mm",
   };
-  const pdfFont = s.pdfLayout?.font || {
-    family: "Times New Roman, serif",
-    size: "12pt",
-    lineHeight: "1.5",
-  };
+  const pdfFontFamily = s.pdfLayout?.body_font || "Arial, sans-serif";
+  const pdfFontSize = `${s.pdfLayout?.body_font_size || 11}pt`;
+  const pdfLineHeight = s.pdfLayout?.font?.lineHeight || "1.5";
 
   return (
     <>
@@ -86,9 +81,9 @@ export function LetterPrintWrapper({
             padding: 0;
             background: white;
             z-index: 9999;
-            font-family: ${pdfFont.family} !important;
-            font-size: ${pdfFont.size} !important;
-            line-height: ${pdfFont.lineHeight} !important;
+            font-family: ${pdfFontFamily} !important;
+            font-size: ${pdfFontSize} !important;
+            line-height: ${pdfLineHeight} !important;
           }
           #letter-renderer {
             width: 210mm !important;
@@ -116,6 +111,7 @@ export function LetterPrintWrapper({
         className="letter-print-controls"
         style={{
           display: "flex",
+          flexWrap: "wrap",
           gap: 10,
           marginBottom: 16,
           justifyContent: "flex-end",

@@ -29,7 +29,7 @@ export function isStoragePath(value: string): boolean {
  */
 export function storagePathToUrl(
   path: string,
-  bucket: "public-media" | "perangkat-fotos" = "public-media",
+  bucket: "public-media" | "perangkat-fotos" | "surat-attachments" = "public-media",
 ): string {
   // Jika sudah full URL, langsung return
   if (path.startsWith("http")) return path;
@@ -45,7 +45,7 @@ export function storagePathToUrl(
  */
 export function getMediaUrl(
   storagePath: string | undefined | null,
-  bucket: "public-media" | "perangkat-fotos" = "public-media",
+  bucket: "public-media" | "perangkat-fotos" | "surat-attachments" = "public-media",
 ): string {
   if (!storagePath) return "";
   if (!isSupabaseConfigured) return storagePath; // fallback base64 / mock URL

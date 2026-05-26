@@ -252,18 +252,6 @@ export const CATEGORIES: ArticleCategory[] = [
   "Kesehatan",
 ];
 
-export function getArticleBySlug(slug: string): Article | null {
-  return ARTICLES.find((a) => a.slug === slug) ?? null;
-}
-
-export function getArticlesByCategory(category: ArticleCategory): Article[] {
-  return ARTICLES.filter((a) => a.category === category);
-}
-
-export function getFeaturedArticles(): Article[] {
-  return ARTICLES.filter((a) => a.featured);
-}
-
 export function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
   const dd = String(d.getDate()).padStart(2, "0");

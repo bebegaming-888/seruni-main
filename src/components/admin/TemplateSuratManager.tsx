@@ -191,7 +191,7 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
               <Button
                 size="sm"
                 onClick={handleNew}
-                className="bg-primary hover:bg-primary-hover text-primary-foreground"
+                className="bg-primary hover:bg-primary text-primary-foreground"
               >
                 <Plus className="h-4 w-4 mr-1.5" /> Template Baru
               </Button>
@@ -311,7 +311,7 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
           </DialogHeader>
 
           {editing?.code && SURAT_MASTER[editing.code] && (
-            <div className="p-3 bg-[#EEAA78]/10 border border-[#EEAA78]/30 rounded-lg flex items-start gap-3 text-[#1a1918]">
+            <div className="p-3 bg-warning/10 border border-warning/30 rounded-lg flex items-start gap-3 text-foreground">
               <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
               <div className="text-xs space-y-1">
                 <p className="font-bold">Peringatan: Template Sistem</p>
@@ -662,7 +662,7 @@ export function TemplateSuratManager({ username = "Admin" }: { username?: string
             </Button>
             <Button
               onClick={onSave}
-              className="bg-primary hover:bg-primary-hover text-primary-foreground"
+              className="bg-primary hover:bg-primary text-primary-foreground"
             >
               Simpan
             </Button>

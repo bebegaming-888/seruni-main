@@ -1,28 +1,24 @@
 /**
- * Netlify Function: generate-pdf
+ * netlify/functions/generate-pdf.js
  *
- * Lightweight handler — fetches surat + warga + settings from Supabase,
- * returns JSON payload for client-side PDF generation (jsPDF).
+ * Patched: H-02 — needs HMAC auth to match Express server (/api/generate-pdf).
+ * Uses _auth.js shared module for session verification.
  *
  * Env vars (set via Netlify dashboard):
+ *   ADMIN_SESSION_SECRET — HMAC signing secret (matches server-side secret)
  *   SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY
  */
+
+import { requireAuth, headers as defaultHeaders, json } from "./_auth.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const headers = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Content-Type": "application/json",
+  ...defaultHeaders,
   "Cache-Control": "private, max-age=60",
 };
-
-function json(data, status = 200) {
-  return { statusCode: status, headers, body: JSON.stringify(data) };
-}
 
 // ── Fetch settings from app_settings ─────────────────────────────────────────
 async function fetchSettings() {
@@ -39,13 +35,18 @@ async function fetchSettings() {
   return data?.value ?? null;
 }
 
-exports.handler = async function (event, context) {
+export const handler = async function (event) {
+  // ── HMAC auth guard ───────────────────────────────────────────────────────
+  const auth = requireAuth(event);
+  if (!auth.ok) return json({ ok: false, error: auth.error }, auth.code);
+  // ── HMAC auth guard ───────────────────────────────────────────────────────
+
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers, body: "" };
   }
 
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers, body: JSON.stringify({ ok: false, error: "Method not allowed" }) };
+    return json({ ok: false, error: "Method not allowed" }, 405);
   }
 
   let body;
@@ -79,11 +80,17 @@ exports.handler = async function (event, context) {
   }
 
   if (suratRow.status !== "Disetujui") {
-    return json({ ok: false, error: `PDF tidak tersedia — surat berstatus '${suratRow.status}'. Hanya surat yang Disetujui yang dapat diunduh.` }, 403);
+    return json(
+      {
+        ok: false,
+        error: `PDF tidak tersedia — surat berstatus '${suratRow.status}'. Hanya surat yang Disetujui yang dapat diunduh.`,
+      },
+      403,
+    );
   }
 
   const record = suratRow;
-  const dataJson = (record.data_json ?? {}) as Record<string, string>;
+  const dataJson = record.data_json ?? {};
   const stringData = {};
   for (const [k, v] of Object.entries(dataJson)) stringData[k] = String(v ?? "");
 
@@ -100,14 +107,16 @@ exports.handler = async function (event, context) {
     signed_at: record.signed_at ? String(record.signed_at) : undefined,
     signed_by: record.signed_by ? String(record.signed_by) : undefined,
     qr_payload: record.qr_payload ? String(record.qr_payload) : undefined,
-    created_at: record.created_at ? new Date(record.created_at).toISOString() : new Date().toISOString(),
+    created_at: record.created_at
+      ? new Date(record.created_at).toISOString()
+      : new Date().toISOString(),
   };
 
   // Fetch warga
   const nik = String(record.nik ?? "");
   const { data: wargaRow } = await sb.from("warga").select("*").eq("nik", nik).single();
 
-  const settingsData = await fetchSettings() ?? {};
+  const settingsData = (await fetchSettings()) ?? {};
   const villageSettings = settingsData?.village ?? {};
 
   const warga = {
@@ -135,7 +144,10 @@ exports.handler = async function (event, context) {
   const settings = {
     village: villageSettings,
     branding: settingsData?.branding ?? { primary_color: "#1e3a5f" },
-    signature: settingsData?.signature ?? { signer_name: "H. Sumardi, S.Sos.", signer_title: "Kepala Desa" },
+    signature: settingsData?.signature ?? {
+      signer_name: "H. Sumardi, S.Sos.",
+      signer_title: "Kepala Desa",
+    },
   };
 
   return json({ ok: true, surat, warga, settings });

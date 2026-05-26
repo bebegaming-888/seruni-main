@@ -1,3 +1,6 @@
+import { cn } from "@/lib/utils";
+import { TextReveal } from "@/components/ui/TextReveal";
+
 type Props = {
   first: string;
   second: string;
@@ -6,17 +9,12 @@ type Props = {
   variant?: "section" | "hero";
 };
 
-const FRAUNCES_STACK = `"Fraunces", Georgia, "Times New Roman", serif`;
-
-// eslint-disable-next-line no-control-regex
-const CONTROL_STRIP = /[\x00-\x1f\x7f]/;
-
 function sanitizeWord(input: unknown, fallback: string): string {
   if (typeof input !== "string") return fallback;
-  const cleaned = input.normalize("NFKC").replace(CONTROL_STRIP, "").trim();
+  const cleaned = input.normalize("NFKC").trim();
   if (!cleaned) return fallback;
   const first = cleaned.split(/\s+/)[0] ?? "";
-  return (first || fallback).slice(0, 32);
+  return (first || fallback).slice(0, 48);
 }
 
 export function SectionTitle({
@@ -31,16 +29,16 @@ export function SectionTitle({
   const Tag = as as "h2";
   const baseClass = variant === "hero" ? "hero-title" : "section-title";
   return (
-    <Tag className={`${baseClass} text-ink ${className}`} style={{ fontFamily: FRAUNCES_STACK }}>
-      <span className="not-italic" style={{ fontFamily: FRAUNCES_STACK }}>
-        {f}
-      </span>{" "}
-      <em
-        className="italic text-primary"
-        style={{ fontFamily: FRAUNCES_STACK, fontStyle: "italic" }}
-      >
-        {s}
-      </em>
+    <Tag className={cn(baseClass, "text-foreground", className)}>
+      <TextReveal mode="scroll">{f}</TextReveal>
+      {second && (
+        <>
+          {" "}
+          <em className="italic text-primary not-italic">
+            <TextReveal mode="scroll">{s}</TextReveal>
+          </em>
+        </>
+      )}
     </Tag>
   );
 }

@@ -193,7 +193,7 @@ function PerangkatFotoField({
       {previewUrl && !imgError && (
         <img
           src={previewUrl}
-          alt="Preview"
+          alt="Foto Perangkat Desa"
           className="h-20 w-20 rounded-xl object-cover border border-border"
           onError={() => setImgError(true)}
         />
@@ -434,7 +434,7 @@ function PerangkatListTab({ strukturList }: { strukturList: PerangkatStruktur[] 
         </Select>
         <Button
           onClick={openAdd}
-          className="rounded-xl gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+          className="rounded-xl gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
         >
           <Plus className="h-4 w-4" />
           Tambah Perangkat
@@ -824,7 +824,7 @@ function PerangkatListTab({ strukturList }: { strukturList: PerangkatStruktur[] 
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="rounded-xl gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+                className="rounded-xl gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 {modal === "add" ? "Simpan" : "Perbarui"}
@@ -1034,7 +1034,7 @@ function StrukurTab({ onRefreshList }: { onRefreshList: () => void }) {
       <div className="flex flex-wrap gap-3 items-center">
         <Button
           onClick={openAddRoot}
-          className="rounded-xl gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+          className="rounded-xl gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
         >
           <Plus className="h-4 w-4" /> Tambah Jabatan Utama
         </Button>
@@ -1153,7 +1153,7 @@ function StrukurTab({ onRefreshList }: { onRefreshList: () => void }) {
               <Button
                 onClick={handleSaveNode}
                 disabled={saving}
-                className="rounded-xl gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground"
+                className="rounded-xl gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />} Simpan
               </Button>

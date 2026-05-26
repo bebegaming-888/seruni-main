@@ -167,7 +167,7 @@ export function KomoditasPage() {
                 hilirisasi produk pertanian dan perikanan di {village.name}.
               </p>
               <div className="flex flex-wrap gap-4">
-                <button className="btn-pill bg-primary text-primary-foreground font-ui font-bold hover:bg-primary-hover px-8">
+                <button className="btn-pill bg-primary text-primary-foreground font-ui font-bold hover:bg-primary px-8">
                   Dapatkan Profil Investasi
                 </button>
                 <button className="btn-pill bg-white/10 text-white font-ui font-bold hover:bg-white/20 px-8">

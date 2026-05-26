@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Link } from "@/components/Link";
 import { getRecord, type SuratRecord } from "@/lib/esurat-store";
-import { isSupabaseConfigured } from "@/lib/supabase";
 import { generateSuratPdf } from "@/lib/pdf-generator";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { PageHero } from "@/components/sections/PageHero";
+import { getSessionToken } from "@/lib/auth";
+import { maskNik } from "@/lib/utils";
 import {
   CheckCircle2,
   XCircle,
@@ -24,7 +25,6 @@ import {
 } from "lucide-react";
 import { useVillage } from "@/hooks/use-village";
 import { getVillage } from "@/lib/village-dynamic";
-import { useSettings, getSettings } from "@/lib/settings-store";
 
 import { toast } from "sonner";
 
@@ -113,35 +113,29 @@ function VerifikasiPage() {
       setNotFound(false);
       setRecord(null);
 
-      if (isSupabaseConfigured) {
-        try {
-          const res = await fetch("/api/verify-surat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              no,
-              qr_secret: getSettings().signature.qr_secret,
-            }),
-          });
-          if (res.ok) {
-            const data = (await res.json()) as {
-              ok: boolean;
-              record?: Record<string, unknown>;
-              error?: string;
-            };
-            if (data.ok && data.record) {
-              setRecord(data.record as unknown as SuratRecord);
-              setLoading(false);
-              return;
-            }
+      try {
+        const res = await fetch("/api/verify-surat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ no }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as {
+            ok: boolean;
+            record?: Record<string, unknown>;
+            error?: string;
+          };
+          if (data.ok && data.record) {
+            setRecord(data.record as unknown as SuratRecord);
+            setLoading(false);
+            return;
           }
-          // fallback to localStorage if API fails
-        } catch {
-          // fallback to localStorage
         }
+      } catch {
+        // fallback to local record if API fails
       }
 
-      // Fallback: localStorage lookup
+      // Fallback: local record lookup (for offline development)
       const found = getRecord(no);
       if (!found) setNotFound(true);
       else setRecord(found);
@@ -204,7 +198,7 @@ function VerifikasiPage() {
               </Link>
               <Link
                 to="/pelayanan/e-surat"
-                className="h-9 px-4 inline-flex items-center justify-center rounded-xl bg-primary text-primary-foreground font-ui text-sm hover:bg-primary-hover transition"
+                className="h-9 px-4 inline-flex items-center justify-center rounded-xl bg-primary text-primary-foreground font-ui text-sm hover:bg-primary transition"
               >
                 Ajukan Surat
               </Link>
@@ -252,21 +246,25 @@ function VerifikasiPage() {
                     label="Unduh PDF"
                     onClick={() => handleDownload(record)}
                     primary
+                    aria-label="Unduh PDF surat"
                   />
                   <ActionButton
                     icon={<Printer className="h-4 w-4" />}
                     label="Cetak"
                     onClick={() => window.print()}
+                    aria-label="Cetak surat"
                   />
                   <ActionButton
                     icon={<Share2 className="h-4 w-4" />}
                     label="Bagikan"
                     onClick={() => handleShare(record)}
+                    aria-label="Bagikan surat"
                   />
                   <ActionButton
                     icon={<Copy className="h-4 w-4" />}
                     label="Salin Nomor"
                     onClick={() => handleCopyNo(record.no)}
+                    aria-label="Salin nomor surat"
                   />
                 </div>
               </div>
@@ -282,6 +280,7 @@ function VerifikasiPage() {
                   icon={<Clipboard className="h-4 w-4" />}
                   label="Salin Link"
                   onClick={() => handleCopyLink(record.no)}
+                  aria-label="Salin tautan verifikasi"
                 />
               </div>
             )}
@@ -381,11 +380,6 @@ function VerifikasiPage() {
   );
 }
 
-function maskNik(nik: string): string {
-  if (nik.length <= 6) return nik;
-  return nik.slice(0, 6).replace(/\d/g, "●") + nik.slice(-6);
-}
-
 function maskPhone(phone: string): string {
   // Show country code + last 4 digits only
   const cleaned = phone.replace(/\D/g, "");
@@ -399,7 +393,9 @@ function maskPhone(phone: string): string {
 function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-4 px-5 py-3">
-      <span className="font-ui text-xs text-muted-foreground shrink-0 w-36">{label}</span>
+      <span className="font-ui text-xs text-muted-foreground shrink-0 w-[30%] sm:w-36">
+        {label}
+      </span>
       <span
         className={`font-ui text-sm text-foreground text-right ${mono ? "font-mono font-medium" : "font-medium"}`}
       >
@@ -414,16 +410,19 @@ function ActionButton({
   label,
   onClick,
   primary,
+  ariaLabel,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
   primary?: boolean;
+  ariaLabel?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 font-ui text-xs font-semibold transition ${
+      aria-label={ariaLabel ?? label}
+      className={`inline-flex items-center gap-1.5 h-11 min-w-[44px] rounded-xl border px-3 py-2 font-ui text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
         primary
           ? "bg-success text-background border-success hover:bg-success/90"
           : "bg-card text-foreground border-border hover:bg-muted"
@@ -437,9 +436,13 @@ function ActionButton({
 
 async function handleDownload(record: SuratRecord) {
   try {
-    const res = await fetch("/api/generate-pdf", {
+    // Use record.no as-is (already official nomor when status=Disetujui, or tracking number for fallback lookup)
+    const sessionToken = getSessionToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (sessionToken) headers["Authorization"] = `Bearer ${sessionToken}`;
+    const res = await fetch("/api/download-pdf", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ no: record.no }),
     });
     if (res.status === 404) {
@@ -464,19 +467,26 @@ async function handleDownload(record: SuratRecord) {
       return;
     }
 
-    // Edge function returns JSON with { surat, warga, settings } for client-side PDF generation
-    const { surat, warga, settings } = await res.json();
+    // API returns { ok: true, surat, warga, settings }
+    // FIX: Correct field names — API returns surat/warga/settings, NOT data.surat/warga/settings
+    const result = await res.json();
+    if (!result.ok) {
+      toast.error("Data tidak valid", { description: result.error ?? "Server returned error" });
+      return;
+    }
+    const { surat, warga, settings } = result;
 
     // Generate PDF client-side (jsPDF + pdf-lib via pdf-generator)
     const pdfBytes = await generateSuratPdf({ surat, warga, settings, includeQr: true });
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const blob = new Blob([pdfBytes as unknown as BlobPart], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${record.no}.pdf`;
+    // Use surat.no from API response (the official nomor surat, not the tracking number)
+    a.download = `${surat.no}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("PDF diunduh", { description: `File PDF ${record.no}.pdf telah diunduh.` });
+    toast.success("PDF diunduh", { description: `File PDF ${surat.no}.pdf telah diunduh.` });
   } catch {
     toast.error("Gagal mengunduh PDF", { description: "Tidak dapat terhubung ke server." });
   }

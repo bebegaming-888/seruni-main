@@ -28,14 +28,6 @@ export function getSupabase(): SupabaseClient | null {
 
   if (_client) return _client;
 
-  // Ambil token admin jika session aktif
-  const sessionRaw =
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("admin_session") ||
-        window.sessionStorage.getItem("admin_session")
-      : null;
-  const adminToken = sessionRaw ? import.meta.env.VITE_ADMIN_DB_TOKEN : undefined;
-
   _client = createClient(supabaseUrl, supabaseAnonKey, {
     // NONaktifkan Supabase Auth session — app ini pakai custom HMAC-SHA256 session.
     // Ini menghilangkan GoTrueClient singleton warning.
@@ -44,14 +36,12 @@ export function getSupabase(): SupabaseClient | null {
       autoRefreshToken: false,
       detectSessionInUrl: false,
     },
-    global: {
-      headers: adminToken ? { "x-admin-token": adminToken } : {},
-    },
+    // NOTE: VITE_ADMIN_DB_TOKEN is NOT sent here. It was previously used as a fake
+    // security header ("x-admin-token") but Supabase RLS does NOT check this header —
+    // RLS uses auth.uid() and auth.role() which come from the JWT anon key.
+    // Sending this header provided FALSE security (attacker could add it trivially).
+    // The token remains in .env for optional audit-log purposes server-side only.
   });
-
-  if (adminToken) {
-    (_client as unknown as Record<string, unknown>)._hadAdminToken = true;
-  }
 
   return _client;
 }

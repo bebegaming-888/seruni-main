@@ -20,6 +20,13 @@ export function formatDate(iso: string | undefined | null): string {
   return `${dd}/${mm}/${yyyy}`;
 }
 
+/** Format byte size ke human-readable string (B / KB / MB). */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 /** Format tanggal ke dd month yyyy (Indonesia full). */
 export function formatDateLong(iso: string | undefined | null): string {
   if (!iso) return "-";
@@ -63,7 +70,8 @@ export function sanitizeHtml(html: string): string {
   return doc.body.innerHTML;
 }
 
-const BULAN_ID: Record<number, string> = {
+/** Nama bulan dalam Bahasa Indonesia — 1-indexed (BULAN_ID[1] = "Januari") */
+export const BULAN_ID: Record<number, string> = {
   1: "Januari",
   2: "Februari",
   3: "Maret",
@@ -77,3 +85,37 @@ const BULAN_ID: Record<number, string> = {
   11: "November",
   12: "Desember",
 };
+
+/**
+ * Mask NIK — 4 digit awal + ●●●● + 4 digit akhir (UU PDP compliance).
+ * Dasar hukum: UU No. 27/2022 Pasal 5 tentang PDP
+ */
+export function maskNik(nik: string): string {
+  if (!nik || nik.length < 8) return nik ?? "";
+  return nik.slice(0, 4) + "●".repeat(nik.length - 8) + nik.slice(-4);
+}
+
+/**
+ * Mask phone number — ●●●● + 4 digit akhir
+ */
+export function maskPhone(phone: string): string {
+  if (!phone || phone.length < 4) return phone ?? "";
+  return "●●●●" + phone.slice(-4);
+}
+
+/**
+ * Mask nama — first name visible, last name masked (UU PDP compliance)
+ */
+export function maskNama(nama: string): string {
+  if (!nama) return "";
+  const parts = nama.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  return (
+    parts[0] +
+    " " +
+    parts
+      .slice(1)
+      .map(() => "●●●")
+      .join(" ")
+  );
+}

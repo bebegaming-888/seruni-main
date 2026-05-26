@@ -40,5 +40,20 @@ export default tseslint.config(
       "react-refresh/only-export-components": "off",
     },
   },
+  // TanStack Router generates search param types with `any` — suppress in route files.
+  // See: https://github.com/TanStack/router/issues — known limitation of generated types.
+  {
+    files: ["src/routes/**", "src/types/global.d.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+  // smart-import.ts parses raw Excel/CSV columns — `any` is unavoidable for cell values.
+  {
+    files: ["src/lib/smart-import.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
   eslintPluginPrettier,
 );

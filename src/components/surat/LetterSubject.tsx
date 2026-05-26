@@ -5,16 +5,17 @@
  */
 import React from "react";
 import type { RenderedLetter } from "@/lib/letter-engine";
+import { getSettings } from "@/lib/settings-store";
 
-type Props = {
-  subject: RenderedLetter["subject"];
-};
+export function LetterSubject({ subject }: { subject: RenderedLetter["subject"] }) {
+  const settings = getSettings();
+  const bodyFont = settings.pdfLayout?.body_font || "Times New Roman, Times, serif";
+  const bodyFontSize = settings.pdfLayout?.body_font_size || 12;
 
-export function LetterSubject({ subject }: Props) {
   if (subject.length === 0) return null;
 
   return (
-    <div style={{ fontFamily: "Times New Roman, serif", fontSize: 11, margin: "6px 0 8px 0" }}>
+    <div style={{ fontFamily: bodyFont, fontSize: bodyFontSize, margin: "6px 0 12px 0" }}>
       <table style={{ borderCollapse: "collapse", width: "100%" }}>
         <tbody>
           {subject.map((row, i) => (
@@ -23,17 +24,17 @@ export function LetterSubject({ subject }: Props) {
                 style={{
                   width: 180,
                   verticalAlign: "top",
-                  paddingBottom: 2,
-                  paddingLeft: 24,
+                  paddingBottom: 4,
+                  paddingLeft: 32,
                 }}
               >
                 {row.label}
               </td>
-              <td style={{ width: 12, verticalAlign: "top" }}>:</td>
+              <td style={{ width: 16, verticalAlign: "top" }}>:</td>
               <td
                 style={{
                   verticalAlign: "top",
-                  paddingBottom: 2,
+                  paddingBottom: 4,
                   fontWeight: row.label === "Nama" ? "bold" : "normal",
                 }}
               >

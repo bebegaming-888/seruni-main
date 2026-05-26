@@ -64,12 +64,35 @@ function buildMessage(
 /**
  * Kirim notifikasi WA pada setiap perubahan status surat.
  * Semua trigger return { ok, message }.
+ *
+ * GUARD: Cek wa_enabled dan per-event flags sebelum kirim.
  */
 export async function notifySurat(
   r: SuratRecord,
   trigger: "submit" | "verify" | "forward" | "approve" | "reject" | "reminder",
   note?: string,
 ): Promise<{ ok: boolean; message: string }> {
+  const settings = getSettings();
+
+  // GUARD: Cek wa_enabled master toggle
+  if (!settings.notifications.wa_enabled) {
+    return { ok: false, message: "Notifikasi WA dinonaktifkan" };
+  }
+
+  // GUARD: Cek per-event flag
+  const eventFlagMap: Record<string, keyof typeof settings.notifications> = {
+    submit: "notify_on_submit",
+    verify: "notify_on_verify",
+    approve: "notify_on_approve",
+    reject: "notify_on_reject",
+    forward: "notify_on_verify", // forward → same as verify
+    reminder: "notify_on_submit", // reminder → same as submit
+  };
+  const flagKey = eventFlagMap[trigger];
+  if (flagKey && settings.notifications[flagKey as keyof typeof settings.notifications] === false) {
+    return { ok: false, message: `Notifikasi "${trigger}" dinonaktifkan di pengaturan` };
+  }
+
   const contact = (r.kontak ?? "").replace(/\D/g, "");
   if (!contact) {
     return { ok: false, message: "Nomor WA tidak tersedia" };

@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Seruni Mumbul — DOM Diagnostic</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", monospace;
+        background: #111827;
+        color: #f9fafb;
+        padding: 20px;
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      h1 {
+        color: #e37222;
+        font-size: 24px;
+      }
+      h2 {
+        color: #66b9bf;
+        font-size: 18px;
+        margin-top: 24px;
+        border-bottom: 1px solid #374151;
+        padding-bottom: 8px;
+      }
+      h3 {
+        color: #eeaa78;
+        font-size: 14px;
+        margin-top: 16px;
+      }
+      .card {
+        background: #1f2937;
+        border: 1px solid #374151;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 12px 0;
+      }
+      .ok {
+        color: #34d399;
+      }
+      .err {
+        color: #f87171;
+      }
+      .warn {
+        color: #fbbf24;
+      }
+      .info {
+        color: #60a5fa;
+      }
+      .log-line {
+        margin: 4px 0;
+        font-size: 13px;
+      }
+      .section {
+        margin: 20px 0;
+      }
+      pre {
+        background: #000;
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+        font-size: 11px;
+        color: #10b981;
+        max-height: 300px;
+      }
+      button {
+        background: #e37222;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
+        margin: 4px;
+      }
+      button:hover {
+        background: #c45f18;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 12px;
+      }
+      .status-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
+      .status-dot.green {
+        background: #34d399;
+      }
+      .status-dot.red {
+        background: #f87171;
+      }
+      .status-dot.yellow {
+        background: #fbbf24;
+      }
+      #results {
+        margin-top: 20px;
+      }
+      .error-box {
+        background: #7f1d1d;
+        border-color: #ef4444;
+      }
+      .error-box pre {
+        color: #fca5a5;
+      }
+      .full-check-btn {
+        background: #059669;
+        font-size: 16px;
+        padding: 14px 28px;
+      }
+      .full-check-btn:hover {
+        background: #047857;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔍 Seruni Mumbul — Diagnostic Tool</h1>
+    <p>Buka tool ini di tab baru. Lalu buka aplikasi utama dan inspect.</p>
+
+    <div class="section">
+      <h2>🎯 CHECK #1 — Full App Inspection</h2>
+      <button class="full-check-btn" onclick="runFullCheck()">⚡ RUN FULL DIAGNOSTIC</button>
+      <button onclick="checkDOM()">1. Check DOM</button>
+      <button onclick="checkIndexedDB()">2. Check IndexedDB</button>
+      <button onclick="checkCSS()">3. Check CSS</button>
+      <button onclick="checkFonts()">4. Check Fonts</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      const results = document.getElementById("results");
+
+      function add(title, lines, type = "info") {
+        const div = document.createElement("div");
+        div.className = `card section`;
+        let html = `<h3><span class="status-dot ${type === "ok" ? "green" : type === "err" ? "red" : "yellow"}"></span>${title}</h3>`;
+        html += '<div class="log-line">';
+        if (Array.isArray(lines)) {
+          html += lines
+            .map((l) => {
+              const cls = l.startsWith("✓")
+                ? "ok"
+                : l.startsWith("✗")
+                  ? "err"
+                  : l.startsWith("⚠")
+                    ? "warn"
+                    : "";
+              return `<div class="${cls}">${escHtml(l)}</div>`;
+            })
+            .join("");
+        } else {
+          html += `<pre>${escHtml(lines)}</pre>`;
+        }
+        html += "</div>";
+        div.innerHTML = html;
+        results.appendChild(div);
+      }
+
+      function escHtml(s) {
+        return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+
+      async function checkDOM() {
+        try {
+          const resp = await fetch("/");
+          const html = await resp.text();
+          const lines = [];
+          lines.push(html.includes('<div id="app"') ? "✓ #app div found" : "✗ #app div NOT found");
+          lines.push(
+            html.includes("tanstack-start")
+              ? "✓ TanStack Start entry found"
+              : "✗ TanStack Start entry NOT found",
+          );
+          lines.push(
+            html.includes("<script")
+              ? `✓ HTML has ${(html.match(/<script/g) || []).length} script tags`
+              : "✗ No script tags",
+          );
+          add("DOM Check", lines, "info");
+        } catch (e) {
+          add("DOM Check", ["✗ Error: " + e.message], "err");
+        }
+      }
+
+      async function checkIndexedDB() {
+        const dbName = "seruni_mumbul_db";
+        const lines = [];
+        try {
+          const db = await new Promise((res, rej) => {
+            const req = indexedDB.open(dbName);
+            req.onsuccess = (e) => res(e.target.result);
+            req.onerror = () => rej(req.error);
+          });
+          lines.push(`✓ Database: ${db.name} v${db.version}`);
+          const stores = Array.from(db.objectStoreNames);
+          lines.push(
+            `Stores (${stores.length}): ${stores.slice(0, 10).join(", ")}${stores.length > 10 ? "..." : ""}`,
+          );
+
+          if (stores.includes("settings")) {
+            const data = await new Promise((res, rej) => {
+              const tx = db.transaction("settings", "readonly");
+              const s = tx.objectStore("settings");
+              const r = s.get("main");
+              r.onsuccess = () => res(r.result);
+              r.onerror = () => rej(r.error);
+            });
+            if (data) {
+              lines.push("✓ Settings data found");
+              lines.push(`  Village: ${data.village?.name || "EMPTY"}`);
+              lines.push(`  District: ${data.wilayah?.district || "EMPTY"}`);
+              lines.push(`  Logo: ${data.village?.logo_url || "EMPTY"}`);
+            } else {
+              lines.push("⚠ No settings data (will use defaults)");
+            }
+          } else {
+            lines.push("✗ Settings store not found");
+          }
+          db.close();
+          add("IndexedDB Check", lines, stores.includes("settings") ? "ok" : "warn");
+        } catch (e) {
+          add("IndexedDB Check", ["✗ Error: " + e.message], "err");
+        }
+      }
+
+      async function checkCSS() {
+        try {
+          const resp = await fetch("/");
+          const html = await resp.text();
+          const lines = [];
+          const styleLinks = html.match(/<link[^>]*stylesheet[^>]*>/g) || [];
+          lines.push(`Found ${styleLinks.length} stylesheet links`);
+
+          for (const link of styleLinks.slice(0, 3)) {
+            const href = (link.match(/href="([^"]+)"/) || [])[1];
+            if (!href) continue;
+            const fullUrl = href.startsWith("http") ? href : location.origin + href;
+            try {
+              const r = await fetch(fullUrl);
+              const size = r.headers.get("content-length") || "unknown";
+              lines.push(r.ok ? `✓ ${href} (${size} bytes)` : `✗ ${href} → ${r.status}`);
+            } catch (e) {
+              lines.push(`✗ ${href} → ${e.message}`);
+            }
+          }
+          add("CSS Check", lines, "info");
+        } catch (e) {
+          add("CSS Check", ["✗ Error: " + e.message], "err");
+        }
+      }
+
+      async function checkFonts() {
+        const fonts = ["Lexend", "Source Sans 3", "Poppins", "Fraunces"];
+        const lines = [];
+        for (const font of fonts) {
+          const loaded = document.fonts.check(`12px "${font}"`);
+          lines.push(loaded ? `✓ ${font} loaded` : `⚠ ${font} NOT loaded (will fallback)`);
+        }
+        add("Font Check", lines, "warn");
+      }
+
+      async function runFullCheck() {
+        results.innerHTML = '<p style="color:#E37222">Running full diagnostic...</p>';
+        await checkDOM();
+        await checkIndexedDB();
+        await checkCSS();
+        await checkFonts();
+
+        // Summary
+        const summary = document.createElement("div");
+        summary.className = "card error-box";
+        summary.innerHTML = `
+        <h3 style="color:#f87171">📋 NEXT STEPS</h3>
+        <ol style="line-height:1.8">
+          <li>Buka aplikasi utama di tab lain (<a href="/" style="color:#60a5fa">klik di sini</a>)</li>
+          <li>Di aplikasi utama: <strong>F12 → Console tab → refresh (Ctrl+R)</strong></li>
+          <li>Copy SEMUA pesan console dan paste di sini</li>
+          <li>Juga: <strong>F12 → Elements tab → expand &lt;body&gt;</strong> — apa yang kamu lihat?</li>
+          <li>Juga: <strong>F12 → Network tab → refresh →</strong> ada resource yang merah (gagal)?</li>
+        </ol>
+        <p style="color:#9ca3af;font-size:12px;margin-top:12px">
+          Tool ini membantu kita memahami kenapa konten tidak tampil.<br>
+          Tanpa info dari console, saya tidak bisa tahu apa yang salah.
+        </p>
+      `;
+        results.appendChild(summary);
+      }
+    </script>
+  </body>
+</html>

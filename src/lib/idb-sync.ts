@@ -71,36 +71,16 @@ export function initIDBSync(): void {
     }
 
     // Handle cross-tab settings save signal
-    if (e.key === "__settings_saved__") {
-      const savedAt = parseInt(e.newValue ?? "0", 10);
-      if (savedAt > _lastSyncTimestamp) {
-        _lastSyncTimestamp = savedAt;
-        console.info("[idb-sync] Settings changed in another tab, re-fetching...");
-
-        notifySyncListeners({
-          source: "tab",
-          store: "settings",
-          key: "main",
-          timestamp: savedAt,
-        });
-      }
-    }
+    handleStorageEvent(e, "__settings_saved__", "settings", "Settings");
 
     // Handle cross-tab template changes
-    if (e.key === "__templates_changed__") {
-      const savedAt = parseInt(e.newValue ?? "0", 10);
-      if (savedAt > _lastSyncTimestamp) {
-        _lastSyncTimestamp = savedAt;
-        console.info("[idb-sync] Templates changed in another tab, signaling refresh...");
+    handleStorageEvent(e, "__templates_changed__", "templates", "Templates");
 
-        notifySyncListeners({
-          source: "tab",
-          store: "templates",
-          key: "all",
-          timestamp: savedAt,
-        });
-      }
-    }
+    // Handle cross-tab perangkat changes
+    handleStorageEvent(e, "__perangkat_changed__", "perangkat", "Perangkat data");
+
+    // Handle cross-tab lembaga changes
+    handleStorageEvent(e, "__lembaga_changed__", "lembaga", "Lembaga data");
   });
 
   // 2. Broadcast local save ke tab lain via localStorage signal
@@ -150,6 +130,32 @@ export function broadcastTemplateChange(): void {
   // Signal untuk tab lain
   localStorage.setItem("__templates_changed__", ts);
   localStorage.removeItem("__templates_changed__");
+}
+
+/**
+ * Broadcast bahwa perangkat data telah berubah.
+ */
+export function broadcastPerangkatChange(): void {
+  if (typeof window === "undefined") return;
+
+  const ts = Date.now().toString();
+  _lastSyncTimestamp = parseInt(ts, 10);
+
+  localStorage.setItem("__perangkat_changed__", ts);
+  localStorage.removeItem("__perangkat_changed__");
+}
+
+/**
+ * Broadcast bahwa lembaga data telah berubah.
+ */
+export function broadcastLembagaChange(): void {
+  if (typeof window === "undefined") return;
+
+  const ts = Date.now().toString();
+  _lastSyncTimestamp = parseInt(ts, 10);
+
+  localStorage.setItem("__lembaga_changed__", ts);
+  localStorage.removeItem("__lembaga_changed__");
 }
 
 /**
@@ -219,6 +225,20 @@ function _getTabId(): string {
     sessionStorage.setItem("__tab_id__", tabId);
   }
   return tabId;
+}
+
+/**
+ * Parse storage-event timestamp value and notify if newer.
+ * DRY helper extracted from four identical storage-event handlers.
+ */
+function handleStorageEvent(e: StorageEvent, key: string, store: string, logLabel: string): void {
+  if (e.key !== key) return;
+  const savedAt = parseInt(e.newValue ?? "0", 10);
+  if (savedAt > _lastSyncTimestamp) {
+    _lastSyncTimestamp = savedAt;
+    console.info(`[idb-sync] ${logLabel} changed in another tab, signaling ${store} refresh...`);
+    notifySyncListeners({ source: "tab", store, key: "all", timestamp: savedAt });
+  }
 }
 
 /**

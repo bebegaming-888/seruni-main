@@ -119,9 +119,7 @@ export function PageHero({
           }}
         >
           {titleFirst}
-          <span className="ml-2" style={{ color: "#EEAA78", fontStyle: "italic" }}>
-            {titleSecond}
-          </span>
+          <span className="ml-2 text-[hsl(27,55%,71%)] italic">{titleSecond}</span>
         </h1>
 
         {/* Description */}

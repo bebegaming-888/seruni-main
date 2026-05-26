@@ -1,6 +1,7 @@
 import { SectionTitle } from "@/components/site/SectionTitle";
 import { Phone, Mail, MapPin, MessageCircle, Clock } from "lucide-react";
 import { useVillage } from "@/hooks/use-village";
+import { TextReveal } from "@/components/ui/TextReveal";
 
 const jam = [
   { day: "Senin", h: "08:00 – 15:00" },
@@ -19,16 +20,19 @@ export function ContactSection() {
   const { village: villageName, address, phone, whatsapp, email } = useVillage();
 
   return (
-    <section id="kontak" className="py-20 sm:py-28 px-4 sm:px-8 bg-muted/50">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-12 max-w-2xl">
+    <section
+      id="kontak"
+      className="min-h-[100dvh] flex flex-col justify-center py-10 px-4 sm:px-8 bg-muted/50 overflow-hidden"
+    >
+      <div className="mx-auto max-w-7xl w-full">
+        <div className="mb-6 max-w-2xl">
           <p className="eyebrow text-primary mb-3">Kontak & Lokasi</p>
           <SectionTitle first="Hubungi" second="kami" className="text-ink" />
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Map placeholder */}
-          <div className="lg:col-span-2 rounded-3xl overflow-hidden border border-border h-[420px] relative">
+          <div className="lg:col-span-2 rounded-2xl overflow-hidden border border-border h-72 relative">
             <iframe
               title={`Peta Desa ${villageName}`}
               src="https://www.openstreetmap.org/export/embed.html?bbox=116.55%2C-8.65%2C116.65%2C-8.55&layer=mapnik&marker=-8.6%2C116.6"
@@ -37,7 +41,10 @@ export function ContactSection() {
             />
             <div className="absolute top-4 left-4 right-4 sm:right-auto sm:max-w-xs rounded-2xl bg-card p-4 shadow-card">
               <div className="flex items-center gap-2 text-success mb-1">
-                <span className="h-2 w-2 rounded-full bg-success animate-pulse-soft" />
+                <span
+                  className="h-2 w-2 rounded-full bg-success animate-pulse-soft"
+                  aria-hidden="true"
+                />
                 <span className="font-ui text-xs font-bold uppercase tracking-wider">
                   Buka sekarang
                 </span>
@@ -110,15 +117,20 @@ export function ContactSection() {
                 </span>
               </div>
               <ul className="space-y-1.5">
-                {jam.map((j, i) => (
-                  <li
-                    key={j.day}
-                    className={`flex items-center justify-between font-ui text-sm py-1 px-2 rounded-lg ${i === todayIdx ? "bg-primary text-primary-foreground" : "text-background/80"}`}
-                  >
-                    <span className="font-semibold">{j.day}</span>
-                    <span>{j.h}</span>
-                  </li>
-                ))}
+                {jam.map((j, i) => {
+                  const isToday = i === todayIdx;
+                  return (
+                    <li
+                      key={j.day}
+                      className={`flex items-center justify-between font-ui text-sm py-1 px-2 rounded-lg ${isToday ? "bg-primary text-primary-foreground" : "text-background"}`}
+                    >
+                      <span className="font-semibold">{j.day}</span>
+                      <span>
+                        <TextReveal mode="hover">{j.h}</TextReveal>
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </div>

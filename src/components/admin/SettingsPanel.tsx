@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,6 +83,7 @@ import {
 import { WilayahSettings } from "@/components/admin/WilayahSettings";
 import { PerangkatDesaManager } from "@/components/admin/PerangkatDesaManager";
 import { LembagaManager } from "@/components/admin/LembagaManager";
+import { sendWaNotification } from "@/lib/fonnte";
 import {
   initPerangkatStore,
   listStrukturAktif,
@@ -100,6 +102,22 @@ import {
   FIXED_ADMIN,
 } from "@/lib/auth";
 import { HeroSettings } from "@/components/admin/HeroSettings";
+import {
+  Section,
+  Grid2,
+  Field,
+  ToggleRow,
+  VideoUploadField,
+  ImageUploadField,
+} from "@/components/admin/settings-ui";
+import {
+  PagesCMS,
+  CMSContentSettings,
+  SocialMediaSettings,
+  PushNotificationPanel,
+} from "@/components/admin/settings-sections";
+import { KopDanBlankoSettings } from "@/components/admin/KopDanBlankoSettings";
+import { useAutoFillVillage, useAutoFillSignature } from "@/components/admin/settings-autofill";
 
 const SECTIONS = [
   { key: "wilayah", label: "Wilayah", icon: MapPin },
@@ -110,8 +128,7 @@ const SECTIONS = [
   { key: "branding", label: "Tampilan & Brand", icon: Palette },
   { key: "cms", label: "Profil Publik (CMS)", icon: Megaphone },
   { key: "social", label: "Media Sosial", icon: Share2 },
-  { key: "kopSurat", label: "Kop Surat", icon: LayoutTemplate },
-  { key: "pdfLayout", label: "Blanko Surat (PDF)", icon: FileText },
+  { key: "kopSurat", label: "Kop & Blanko Surat", icon: LayoutTemplate },
   { key: "pages", label: "Konten Halaman", icon: BookOpen },
   { key: "notifications", label: "Notifikasi WA", icon: BellRing },
   { key: "push", label: "Notifikasi Browser", icon: Bell },
@@ -143,85 +160,23 @@ export function SettingsPanel() {
   const storeVersionRef = useRef<string>("");
   // Track apakah sync sedang aktif ( cegah re-render loop )
   const isSyncingRef = useRef(false);
+  // C-1 fix: track timer IDs to prevent memory leaks
+  const saveStatusTimerRef = useRef<number | null>(null);
 
-  // Autofill state
-  const [autofilling, setAutofilling] = useState(false);
-
-  // Autofill village identity from perangkat_desa aktif
-  const handleAutoFillVillage = async () => {
-    setAutofilling(true);
-    try {
-      await initPerangkatStore();
-      const strukturs = listStrukturAktif();
-
-      const kepalaDesa = strukturs.find((st) => st.nama_jabatan.toLowerCase().includes("kepala"));
-      const sekdes = strukturs.find((st) => st.nama_jabatan.toLowerCase().includes("sekretaris"));
-
-      let filled = false;
-
-      if (kepalaDesa) {
-        const person = getPerangkatByStrukturId(kepalaDesa.id).find((p) => p.status_aktif);
-        if (person) {
-          update("village", { head: person.nama });
-          filled = true;
-        }
-      }
-
-      if (sekdes) {
-        const person = getPerangkatByStrukturId(sekdes.id).find((p) => p.status_aktif);
-        if (person) {
-          update("village", { secretary: person.nama });
-          filled = true;
-        }
-      }
-
-      if (filled) {
-        toast.success("Profil Desa autofill berhasil", {
-          description: "Nama Kepala Desa dan Sekretaris Desa telah diisi dari data Perangkat Desa.",
-        });
-      } else {
-        toast.warning("Tidak ada Perangkat Desa aktif", {
-          description:
-            "Pastikan struktur jabatan Kepala Desa dan Sekretaris Desa sudah diisi di menu Perangkat Desa.",
-        });
-      }
-    } finally {
-      setAutofilling(false);
-    }
+  // update function — declared before useAutoFill hooks so hooks can use it
+  const update = <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => {
+    setS((prev) => ({ ...prev, [k]: { ...prev[k], ...patch } }));
+    setDirty(true);
+    setSaveStatus("idle");
   };
 
-  // Autofill signature signer from aktif pemimpin
-  const handleAutoFillSignature = async () => {
-    setAutofilling(true);
-    try {
-      await initPerangkatStore();
-      const strukturs = listStrukturAktif();
-
-      // Cari struktur dengan kategori Pimpinan yang aktif
-      const pimpinan = strukturs.find((st) => st.kategori === "Pimpinan" && st.status === "Aktif");
-
-      if (pimpinan) {
-        const person = getPerangkatByStrukturId(pimpinan.id).find((p) => p.status_aktif);
-        if (person) {
-          update("signature", {
-            signer_name: person.nama,
-            signer_title: pimpinan.nama_jabatan,
-          });
-          toast.success("Penandatangan autofill berhasil", {
-            description: `Nama: ${person.nama}, Jabatan: ${pimpinan.nama_jabatan}`,
-          });
-          return;
-        }
-      }
-
-      toast.warning("Tidak ada Pimpinan aktif", {
-        description:
-          "Pastikan jabatan dengan kategori 'Pimpinan' sudah terisi di menu Perangkat Desa.",
-      });
-    } finally {
-      setAutofilling(false);
-    }
-  };
+  // Autofill — use shared hooks (H-1 fix: remove duplicate inline implementations)
+  const { autofilling, handleAutoFillVillage } = useAutoFillVillage(
+    update as <K extends string>(k: K, patch: Record<string, unknown>) => void,
+  );
+  const { autofilling: sigAutofilling, handleAutoFillSignature } = useAutoFillSignature(
+    update as <K extends string>(k: K, patch: Record<string, unknown>) => void,
+  );
 
   // Sinkronisasi state saat store selesai di-init dari IndexedDB / Supabase.
   // Hanya update jika: (a) user tidak punya perubahan, atau (b) versi store berubah setelah save.
@@ -244,7 +199,8 @@ export function SettingsPanel() {
     setTimeout(() => {
       isSyncingRef.current = false;
     }, 0);
-  }, [storeSettings, dirty]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- H-2 fix: dirty removed intentionally — effect syncs store→local state, dirty only prevents overwriting user edits (guarded by the if(dirty) check above)
+  }, [storeSettings]);
 
   // Multi-tab sync listener — re-fetch saat tab lain menyimpan
   useEffect(() => {
@@ -283,7 +239,8 @@ export function SettingsPanel() {
     return () => {
       cleanup?.();
     };
-  }, [dirty]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- H-4 fix: listener registers once on mount, dirty not needed in deps
+  }, []);
 
   // Accept external change dan keep local edits
   const handleKeepLocal = () => {
@@ -312,11 +269,6 @@ export function SettingsPanel() {
     body_font?: string;
     body_font_size?: number;
   };
-  const update = <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => {
-    setS((prev) => ({ ...prev, [k]: { ...prev[k], ...patch } }));
-    setDirty(true);
-    setSaveStatus("idle");
-  };
 
   const handleSave = async () => {
     if (saveStatus === "saving") return; // Cegah double-save
@@ -329,8 +281,9 @@ export function SettingsPanel() {
       toast.success("Pengaturan disimpan", {
         description: `Bagian "${SECTIONS.find((s) => s.key === section)?.label ?? section}" telah diperbarui.`,
       });
-      // Reset status after 3s
-      setTimeout(() => setSaveStatus("idle"), 3000);
+      // Reset status after 3s (C-1 fix: clear previous timer)
+      if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+      saveStatusTimerRef.current = window.setTimeout(() => setSaveStatus("idle"), 3000);
     } catch (err) {
       console.error("[SettingsPanel] Gagal menyimpan:", err);
       setSaveStatus("error");
@@ -338,7 +291,9 @@ export function SettingsPanel() {
         description:
           "Pastikan koneksi internet stabil dan coba lagi. Hubungi administrator jika masalah berlanjut.",
       });
-      setTimeout(() => setSaveStatus("idle"), 5000);
+      // Reset status after 5s (C-1 fix: clear previous timer)
+      if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+      saveStatusTimerRef.current = window.setTimeout(() => setSaveStatus("idle"), 5000);
     }
   };
 
@@ -357,14 +312,14 @@ export function SettingsPanel() {
   // ── Conflict resolution banner ──
   if (conflictStatus === "external_change") {
     return (
-      <div className="rounded-2xl border-2 border-[#EEAA78] bg-[#EEAA78]/10 dark:bg-[#EEAA78]/5 p-6 space-y-4">
+      <div className="rounded-2xl border-2 border-[hsl(var(--brand-sand))] bg-[hsl(var(--brand-sand))] dark:border-[hsl(var(--brand-sand))] dark:bg-[hsl(var(--brand-sand))]/5 p-6 space-y-4">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="h-6 w-6 text-[#E37222] shrink-0 mt-0.5" />
+          <AlertTriangle className="h-6 w-6 text-[hsl(var(--brand-orange))] shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-display text-base font-bold text-[#1a1918] dark:text-[#f0efe9]">
+            <h3 className="font-display text-base font-bold text-foreground">
               Data berubah di tab lain
             </h3>
-            <p className="font-body text-sm text-[#5c5a56] dark:text-[#a8a49c] mt-1">
+            <p className="font-body text-sm text-muted-foreground mt-1">
               Ada perubahan settings dari tab browser lain. Perubahan lokal Anda tidak hilang —
               pilih aksi yang ingin dilakukan.
             </p>
@@ -374,14 +329,14 @@ export function SettingsPanel() {
           <Button
             size="sm"
             variant="outline"
-            className="border-[#EEAA78] text-[#1a1918] hover:bg-[#EEAA78]/20"
+            className="border-[hsl(var(--brand-sand))] text-foreground hover:bg-[hsl(var(--brand-sand))]/20"
             onClick={handleKeepLocal}
           >
             Simpan Perubahan Lokal Saya
           </Button>
           <Button
             size="sm"
-            className="bg-[#078898] hover:bg-[#078898]/80 text-white"
+            className="bg-[hsl(var(--brand-teal))] hover:bg-[hsl(var(--brand-teal))]/80 text-white"
             onClick={handleAcceptExternal}
           >
             Gunakan Data Tab Lain
@@ -411,7 +366,7 @@ export function SettingsPanel() {
             size="sm"
             onClick={handleSave}
             disabled={!dirty || saveStatus === "saving"}
-            className="bg-primary text-primary-foreground hover:bg-primary-hover min-w-[140px]"
+            className="bg-primary text-primary-foreground hover:bg-primary min-w-[140px]"
           >
             {saveStatus === "saving" ? (
               <>
@@ -668,8 +623,8 @@ export function SettingsPanel() {
             <SocialMediaSettings s={s} update={update} />
           </TabsContent>
 
-          <TabsContent value="kopSurat" className="m-0 space-y-4">
-            <KopSuratSettings s={s} update={update} />
+          <TabsContent value="kopSurat" className="m-0">
+            <KopDanBlankoSettings s={s} update={update} />
           </TabsContent>
 
           <TabsContent value="pages" className="m-0 space-y-4">
@@ -693,12 +648,6 @@ export function SettingsPanel() {
                     type="password"
                     value={s.notifications.fonnte_token}
                     onChange={(e) => update("notifications", { fonnte_token: e.target.value })}
-                  />
-                </Field>
-                <Field label="Nama Pengirim">
-                  <Input
-                    value={s.notifications.sender_name}
-                    onChange={(e) => update("notifications", { sender_name: e.target.value })}
                   />
                 </Field>
               </Grid2>
@@ -758,7 +707,29 @@ export function SettingsPanel() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => toast.success("Tes pesan terkirim (mock). Cek konsol browser.")}
+                onClick={async () => {
+                  if (!s.notifications.wa_enabled) {
+                    toast.error("Aktifkan toggle 'Aktifkan Notifikasi WA' dulu di pengaturan.");
+                    return;
+                  }
+                  if (!s.notifications.fonnte_token) {
+                    toast.error("Isi Fonnte API Token dulu di pengaturan.");
+                    return;
+                  }
+                  if (!s.village.whatsapp || s.village.whatsapp === "-") {
+                    toast.error("Isi nomor WhatsApp di tab Profil Desa dulu.");
+                    return;
+                  }
+                  const result = await sendWaNotification(
+                    s.village.whatsapp.replace(/\D/g, ""),
+                    `✅ Test Notifikasi WA — ${s.village.name}\n\nIni adalah pesan tes dari sistem. Jika Anda menerima ini, berarti notifikasi WA aktif dan berfungsi.`,
+                  );
+                  if (result.ok) {
+                    toast.success("Pesan tes terkirim! Cek WhatsApp.");
+                  } else {
+                    toast.error("Gagal kirim: " + result.message);
+                  }
+                }}
               >
                 <BellRing className="h-4 w-4 mr-1.5" /> Kirim Tes Pesan
               </Button>
@@ -789,11 +760,11 @@ export function SettingsPanel() {
                     <button
                       type="button"
                       onClick={handleAutoFillSignature}
-                      disabled={autofilling}
+                      disabled={sigAutofilling}
                       title="Autofill dari Perangkat Desa"
                       className="shrink-0 h-9 px-3 rounded-xl bg-primary/10 text-primary text-xs font-ui font-semibold hover:bg-primary/20 disabled:opacity-50 transition inline-flex items-center gap-1.5 border border-primary/20"
                     >
-                      {autofilling ? (
+                      {sigAutofilling ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <Wand2 className="h-3.5 w-3.5" />
@@ -837,11 +808,12 @@ export function SettingsPanel() {
                     onChange={(e) => update("surat", { prefix_no: e.target.value })}
                   />
                 </Field>
-                <Field label="Inisial Jabatan">
+                <Field label="Nomor Urut Terakhir">
                   <Input
-                    placeholder="KDS"
-                    value={s.nomor.inisialJabatan}
-                    onChange={(e) => update("nomor", { inisialJabatan: e.target.value })}
+                    type="number"
+                    min={0}
+                    value={s.nomor.lastUrut ?? 0}
+                    onChange={(e) => update("nomor", { lastUrut: Number(e.target.value) })}
                   />
                 </Field>
                 <Field label="Maks. Ukuran Lampiran (MB)">
@@ -852,11 +824,11 @@ export function SettingsPanel() {
                     onChange={(e) => update("surat", { max_file_mb: Number(e.target.value) })}
                   />
                 </Field>
-                <Field label="Inisial Desa">
+                <Field label="Tahun Counter Berjalan">
                   <Input
-                    placeholder="SRMB"
-                    value={s.nomor.inisialDesa}
-                    onChange={(e) => update("nomor", { inisialDesa: e.target.value })}
+                    type="number"
+                    value={s.nomor.lastYear ?? new Date().getFullYear()}
+                    onChange={(e) => update("nomor", { lastYear: Number(e.target.value) })}
                   />
                 </Field>
                 <Field label="Auto-arsip setelah (hari)">
@@ -896,269 +868,6 @@ export function SettingsPanel() {
                 checked={s.surat.auto_archive}
                 onChange={(v) => update("surat", { auto_archive: v })}
               />
-            </Section>
-          </TabsContent>
-
-          <TabsContent value="pdfLayout" className="m-0 space-y-4">
-            <Section
-              title="Pengaturan Blanko Surat (PDF)"
-              desc="Atur margin kertas, font (Arial), ukuran teks, dan posisi tanda tangan. Semua bagian BODY menggunakan Arial 11pt."
-            >
-              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
-                <p className="font-ui text-xs font-bold text-foreground uppercase tracking-wider">
-                  📐 Margin Kertas
-                </p>
-                <Grid2>
-                  <Field label="Margin Atas">
-                    <select
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      value={s.pdfLayout?.margin.top || "20mm"}
-                      onChange={(e) =>
-                        update("pdfLayout", {
-                          margin: {
-                            ...(s.pdfLayout?.margin || {}),
-                            top: e.target.value,
-                          } as PdfLayoutMargin,
-                        })
-                      }
-                    >
-                      {["15mm", "18mm", "20mm", "22mm", "25mm", "28mm", "30mm"].map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Margin Bawah">
-                    <select
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      value={s.pdfLayout?.margin.bottom || "20mm"}
-                      onChange={(e) =>
-                        update("pdfLayout", {
-                          margin: {
-                            ...(s.pdfLayout?.margin || {}),
-                            bottom: e.target.value,
-                          } as PdfLayoutMargin,
-                        })
-                      }
-                    >
-                      {["15mm", "18mm", "20mm", "22mm", "25mm", "28mm", "30mm"].map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Margin Kiri">
-                    <select
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      value={s.pdfLayout?.margin.left || "25mm"}
-                      onChange={(e) =>
-                        update("pdfLayout", {
-                          margin: {
-                            ...(s.pdfLayout?.margin || {}),
-                            left: e.target.value,
-                          } as PdfLayoutMargin,
-                        })
-                      }
-                    >
-                      {["15mm", "18mm", "20mm", "22mm", "25mm", "28mm", "30mm"].map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Margin Kanan">
-                    <select
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      value={s.pdfLayout?.margin.right || "20mm"}
-                      onChange={(e) =>
-                        update("pdfLayout", {
-                          margin: {
-                            ...(s.pdfLayout?.margin || {}),
-                            right: e.target.value,
-                          } as PdfLayoutMargin,
-                        })
-                      }
-                    >
-                      {["15mm", "18mm", "20mm", "22mm", "25mm", "28mm", "30mm"].map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                </Grid2>
-              </div>
-
-              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
-                <p className="font-ui text-xs font-bold text-foreground uppercase tracking-wider">
-                  🔤 Font & Ukuran (Body — Arial 11pt)
-                </p>
-                <div className="flex items-center gap-2 rounded-lg bg-info/10 border border-info/20 px-3 py-2">
-                  <svg
-                    className="h-4 w-4 text-info shrink-0"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  <p className="font-body text-xs text-info">
-                    <strong>Font body terkunci ke Arial.</strong> Ukuran font untuk Kop Surat diatur
-                    di bagian "Kop Surat" di atas.
-                  </p>
-                </div>
-                <Grid2>
-                  <Field label="Font Family (Body)">
-                    <select
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      value={s.pdfLayout?.font.family || "Arial, sans-serif"}
-                      onChange={(e) =>
-                        update("pdfLayout", {
-                          font: {
-                            ...(s.pdfLayout?.font || {}),
-                            family: e.target.value,
-                          } as PdfLayoutFont,
-                        })
-                      }
-                    >
-                      <option value="Arial, sans-serif">Arial (Sans-Serif) — Default</option>
-                    </select>
-                  </Field>
-                  <Field label="Ukuran Font Body">
-                    <select
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      value={s.pdfLayout?.font.size || "11pt"}
-                      onChange={(e) =>
-                        update("pdfLayout", {
-                          font: {
-                            ...(s.pdfLayout?.font || {}),
-                            size: e.target.value,
-                          } as PdfLayoutFont,
-                        })
-                      }
-                    >
-                      <option value="10pt">10pt (Kecil)</option>
-                      <option value="11pt">11pt (Normal) — Default</option>
-                      <option value="12pt">12pt (Sedang)</option>
-                      <option value="13pt">13pt (Besar)</option>
-                      <option value="14pt">14pt (Sangat Besar)</option>
-                    </select>
-                  </Field>
-                  <Field label="Line Height">
-                    <select
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      value={s.pdfLayout?.font.lineHeight || "1.5"}
-                      onChange={(e) =>
-                        update("pdfLayout", {
-                          font: {
-                            ...(s.pdfLayout?.font || {}),
-                            lineHeight: e.target.value,
-                          } as PdfLayoutFont,
-                        })
-                      }
-                    >
-                      <option value="1.0">1.0 (Padat)</option>
-                      <option value="1.2">1.2 (Normal)</option>
-                      <option value="1.5">1.5 (Sedang) — Default</option>
-                      <option value="1.8">1.8 (Luas)</option>
-                      <option value="2.0">2.0 (Sangat Luas)</option>
-                    </select>
-                  </Field>
-                  <Field label="Font Body (Sistem)">
-                    <select
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      value={s.pdfLayout?.body_font || "Arial, sans-serif"}
-                      onChange={(e) =>
-                        update("pdfLayout", {
-                          body_font: e.target.value,
-                          body_font_size: s.pdfLayout?.body_font_size ?? 11,
-                        } as PdfLayoutPatch)
-                      }
-                    >
-                      <option value="Arial, sans-serif">Arial — Default</option>
-                    </select>
-                  </Field>
-                </Grid2>
-              </div>
-
-              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
-                <p className="font-ui text-xs font-bold text-foreground uppercase tracking-wider">
-                  🔳 QR Code & Tanda Tangan
-                </p>
-                <Grid2>
-                  <Field label="Lebar QR Code">
-                    <select
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      value={s.pdfLayout?.signaturePos.qrWidth || "80px"}
-                      onChange={(e) =>
-                        update("pdfLayout", {
-                          signaturePos: {
-                            ...(s.pdfLayout?.signaturePos || {}),
-                            qrWidth: e.target.value,
-                          } as PdfLayoutSig,
-                        })
-                      }
-                    >
-                      {["50px", "60px", "70px", "80px", "90px", "100px", "120px"].map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Jarak Vertikal TTD">
-                    <select
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      value={s.pdfLayout?.signaturePos.marginY || "1rem"}
-                      onChange={(e) =>
-                        update("pdfLayout", {
-                          signaturePos: {
-                            ...(s.pdfLayout?.signaturePos || {}),
-                            marginY: e.target.value,
-                          } as PdfLayoutSig,
-                        })
-                      }
-                    >
-                      {["0.5rem", "1rem", "1.5rem", "2rem", "2.5rem", "3rem"].map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                </Grid2>
-              </div>
-
-              <div className="mt-4 p-4 border border-border rounded-lg bg-muted/50">
-                <p className="text-sm font-semibold mb-2 flex items-center gap-2">
-                  <MonitorCog className="h-4 w-4" /> Preview Live (Konfigurasi CSS)
-                </p>
-                <pre className="text-xs text-muted-foreground p-3 bg-card rounded border overflow-x-auto whitespace-pre-wrap">
-                  {`@media print {
-  @page {
-    margin: ${s.pdfLayout?.margin.top || "20mm"} ${s.pdfLayout?.margin.right || "20mm"} ${s.pdfLayout?.margin.bottom || "20mm"} ${s.pdfLayout?.margin.left || "25mm"};
-  }
-}
-
-.pdf-print-container {
-  font-family: ${s.pdfLayout?.font.family || "Arial, sans-serif"};
-  font-size: ${s.pdfLayout?.font.size || "11pt"};
-  line-height: ${s.pdfLayout?.font.lineHeight || "1.5"};
-}
-
-.signature-qr {
-  width: ${s.pdfLayout?.signaturePos.qrWidth || "80px"};
-  margin-top: ${s.pdfLayout?.signaturePos.marginY || "1rem"};
-  margin-bottom: ${s.pdfLayout?.signaturePos.marginY || "1rem"};
-}`}
-                </pre>
-              </div>
             </Section>
           </TabsContent>
 
@@ -1257,6 +966,34 @@ export function SettingsPanel() {
           </TabsContent>
         </div>
       </Tabs>
+
+      {/* ── Reset Confirmation Dialog ── */}
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-destructive" />
+              Reset Semua Pengaturan
+            </DialogTitle>
+            <DialogDescription>
+              Semua pengaturan sistem akan dikembalikan ke nilai default. Perubahan yang belum
+              disimpan akan hilang.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setResetOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmReset}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Ya, Reset Sekarang
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1380,7 +1117,7 @@ function UsersPanel() {
           <Button
             type="submit"
             size="sm"
-            className="bg-primary text-primary-foreground hover:bg-primary-hover"
+            className="bg-primary text-primary-foreground hover:bg-primary"
           >
             <Save className="h-4 w-4 mr-1.5" /> {form.id ? "Simpan Perubahan" : "Tambah Pengguna"}
           </Button>
@@ -1740,1336 +1477,5 @@ function AuditPanel() {
         </table>
       </div>
     </Section>
-  );
-}
-
-/* ---------- Tiny UI helpers ---------- */
-function Section({
-  title,
-  desc,
-  children,
-}: {
-  title: string;
-  desc?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="font-display text-lg font-bold">{title}</h3>
-        {desc && <p className="font-body text-sm text-muted-foreground">{desc}</p>}
-      </div>
-      <div className="space-y-3">{children}</div>
-    </div>
-  );
-}
-function Grid2({ children }: { children: React.ReactNode }) {
-  return <div className="grid sm:grid-cols-2 gap-3">{children}</div>;
-}
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="font-ui text-xs font-semibold">{label}</Label>
-      {children}
-      {hint && <p className="font-body text-[11px] text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
-function ToggleRow({
-  label,
-  desc,
-  checked,
-  onChange,
-  compact,
-}: {
-  label: string;
-  desc?: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  compact?: boolean;
-}) {
-  return (
-    <div
-      className={`flex items-center justify-between gap-4 rounded-xl border border-border bg-card ${compact ? "p-3" : "p-4"}`}
-    >
-      <div>
-        <p className="font-ui text-sm font-semibold">{label}</p>
-        {desc && <p className="font-body text-xs text-muted-foreground mt-0.5">{desc}</p>}
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
-  );
-}
-
-/* ---------- Video upload helper (Perangkat + URL) ---------- */
-function VideoUploadField({
-  label,
-  hint,
-  value,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const inputRef = React.useRef<HTMLInputElement>(null);
-  const [urlInput, setUrlInput] = React.useState("");
-  const [showUrlInput, setShowUrlInput] = React.useState(false);
-  const [videoError, setVideoError] = React.useState(false);
-
-  const handleFile = (file: File) => {
-    if (!file.type.startsWith("video/")) {
-      toast.error("Hanya file video yang diizinkan");
-      return;
-    }
-    // Check max size 50MB
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("Ukuran video maksimal 50MB");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setVideoError(false);
-      onChange(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleUrlSubmit = () => {
-    const trimmed = urlInput.trim();
-    if (!trimmed) {
-      toast.error("Masukkan URL video terlebih dahulu");
-      return;
-    }
-    setVideoError(false);
-    onChange(trimmed);
-    setUrlInput("");
-    setShowUrlInput(false);
-  };
-
-  const handleUrlBlur = () => {
-    if (urlInput.trim()) handleUrlSubmit();
-  };
-
-  const isDataUrl = value.startsWith("data:");
-  const videoSrc = videoError ? "" : value;
-
-  return (
-    <div className="space-y-2">
-      <Label className="font-ui text-xs font-semibold">{label}</Label>
-      <div className="flex gap-2 flex-wrap">
-        <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
-          <svg
-            className="h-4 w-4 mr-1.5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <polygon points="23 7 16 12 23 17 23 7" />
-            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-          </svg>
-          Perangkat
-        </Button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="video/*,.mp4,.webm,.mov,.avi"
-          hidden
-          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-        />
-        <Button
-          type="button"
-          variant={showUrlInput ? "default" : "outline"}
-          size="sm"
-          onClick={() => {
-            setShowUrlInput((v) => !v);
-            if (!showUrlInput && value && value.startsWith("http")) {
-              setUrlInput(value);
-            }
-          }}
-        >
-          <svg
-            className="h-4 w-4 mr-1.5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-          </svg>
-          URL
-        </Button>
-        {value && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              onChange("");
-              setVideoError(false);
-              setUrlInput("");
-            }}
-          >
-            <Trash2 className="h-4 w-4" /> Hapus
-          </Button>
-        )}
-      </div>
-
-      {/* URL input panel */}
-      {showUrlInput && (
-        <div className="flex gap-2 items-center">
-          <Input
-            placeholder="https://example.com/video.mp4"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleUrlSubmit();
-              }
-            }}
-            onBlur={handleUrlBlur}
-            className="flex-1"
-          />
-          <Button type="button" size="sm" variant="default" onClick={handleUrlSubmit}>
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setShowUrlInput(false);
-              setUrlInput("");
-            }}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
-
-      {hint && <p className="font-body text-[11px] text-muted-foreground">{hint}</p>}
-
-      {/* Error state */}
-      {videoError && value && (
-        <p className="font-body text-[11px] text-destructive flex items-center gap-1">
-          <AlertTriangle className="h-3 w-3" />
-          Gagal memuat video dari URL ini. Coba URL lain atau upload dari perangkat.
-        </p>
-      )}
-
-      {/* Preview */}
-      {videoSrc && !videoError && (
-        <div className="relative rounded-xl overflow-hidden border border-border w-full max-w-xs">
-          <video
-            src={videoSrc}
-            className="w-full h-36 object-cover"
-            controls
-            onError={() => setVideoError(true)}
-          />
-          <span
-            className={`absolute top-1 right-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${isDataUrl ? "bg-success/90" : "bg-info/90"}`}
-          >
-            {isDataUrl ? "Perangkat" : "URL"}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ---------- Image upload helper — Supabase Storage + optional storage_path ---------- */
-function ImageUploadField({
-  label,
-  hint,
-  value,
-  storagePath,
-  onChange,
-  onStoragePathChange,
-}: {
-  label: string;
-  hint?: string;
-  value: string;
-  storagePath?: string;
-  onChange: (v: string) => void;
-  onStoragePathChange?: (path: string) => void;
-}) {
-  const inputRef = React.useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = React.useState(false);
-  const [imgError, setImgError] = React.useState(false);
-
-  const handleFile = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Hanya file gambar yang diizinkan");
-      return;
-    }
-    setUploading(true);
-    setImgError(false);
-    try {
-      const { uploadMedia } = await import("@/lib/media-upload");
-      const folder = label.toLowerCase().includes("logo")
-        ? "logos"
-        : label.toLowerCase().includes("slide")
-          ? "hero"
-          : label.toLowerCase().includes("cover")
-            ? "covers"
-            : "media";
-      const result = await uploadMedia(file, folder, "public-media");
-      if (result.ok) {
-        onChange(result.publicUrl);
-        if (onStoragePathChange && result.storagePath) {
-          onStoragePathChange(result.storagePath);
-        }
-        toast.success("Gambar berhasil diupload");
-      } else {
-        toast.error(result.error);
-      }
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const isDataUrl = value.startsWith("data:");
-
-  return (
-    <div className="space-y-2">
-      <Label className="font-ui text-xs font-semibold">{label}</Label>
-      <div className="flex gap-2 flex-wrap">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-          className="rounded-xl"
-        >
-          {uploading ? (
-            <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-1.5" />
-          ) : (
-            <Upload className="h-4 w-4 mr-1.5" />
-          )}
-          {uploading ? "Mengupload…" : "Ambil dari Perangkat"}
-        </Button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-        />
-        {value && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              onChange("");
-              setImgError(false);
-            }}
-            className="rounded-xl"
-          >
-            <Trash2 className="h-4 w-4" /> Hapus
-          </Button>
-        )}
-      </div>
-
-      {hint && <p className="font-body text-[11px] text-muted-foreground">{hint}</p>}
-
-      {/* Error state */}
-      {imgError && value && (
-        <p className="font-body text-[11px] text-destructive flex items-center gap-1">
-          <AlertTriangle className="h-3 w-3" />
-          Gagal memuat gambar. Coba upload ulang.
-        </p>
-      )}
-
-      {/* Preview */}
-      {value && !imgError && (
-        <div className="relative rounded-xl overflow-hidden border border-border w-full max-w-xs">
-          <img
-            src={value}
-            alt={label}
-            className="h-36 w-full object-cover"
-            onError={() => setImgError(true)}
-          />
-          <span className="absolute top-1 right-1 bg-success/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-            {isDataUrl ? "Lokal" : "Storage"}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ---------- Hero Settings ---------- */
-
-/* ---------- Kop Surat Settings ---------- */
-function KopSuratSettings({
-  s,
-  update,
-}: {
-  s: SystemSettings;
-  update: <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => void;
-}) {
-  const kopLines = s.kopSurat.kop_lines ?? [];
-
-  const updateKopLine = (id: string, patch: Partial<(typeof kopLines)[0]>) => {
-    update("kopSurat", {
-      kop_lines: kopLines.map((l) => (l.id === id ? { ...l, ...patch } : l)),
-    });
-  };
-
-  const addKopLine = () => {
-    update("kopSurat", {
-      kop_lines: [
-        ...kopLines,
-        {
-          id: `k${Date.now()}`,
-          label: `Baris ${kopLines.length + 1}`,
-          text: "",
-          font_size: 11,
-          bold: false,
-          italic: false,
-        },
-      ],
-    });
-  };
-
-  return (
-    <>
-      {/* Dual Logo Upload */}
-      <Section title="Logo Kop Surat" desc="Logo Kabupaten (kiri) dan Logo Desa (kanan).">
-        <div className="grid sm:grid-cols-2 gap-4">
-          <ImageUploadField
-            label="Logo Kabupaten (Kiri)"
-            hint="PNG transparan, maks 500KB"
-            value={s.kopSurat.logo_kab_url}
-            storagePath={s.kopSurat.logo_kab_storage_path}
-            onChange={(v) => update("kopSurat", { logo_kab_url: v })}
-            onStoragePathChange={(path) => update("kopSurat", { logo_kab_storage_path: path })}
-          />
-          <ImageUploadField
-            label="Logo Desa (Kanan)"
-            hint="PNG transparan, maks 500KB"
-            value={s.kopSurat.logo_desa_url}
-            storagePath={s.kopSurat.logo_desa_storage_path}
-            onChange={(v) => update("kopSurat", { logo_desa_url: v })}
-            onStoragePathChange={(path) => update("kopSurat", { logo_desa_storage_path: path })}
-          />
-        </div>
-        <Field label="Tata Letak Logo">
-          <select
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            value={s.kopSurat.logo_position}
-            onChange={(e) =>
-              update("kopSurat", {
-                logo_position: e.target.value as SystemSettings["kopSurat"]["logo_position"],
-              })
-            }
-          >
-            <option value="separate">Terpisah (Kabupaten Kiri · Desa Kanan)</option>
-            <option value="left">Logo Kabupaten Saja (Kiri)</option>
-            <option value="center">Logo Desa Saja (Tengah)</option>
-            <option value="right">Logo Desa Saja (Kanan)</option>
-          </select>
-        </Field>
-      </Section>
-
-      {/* Per-Line Font Settings */}
-      <Section
-        title="Baris Teks Kop Surat"
-        desc="Atur teks, ukuran font, bold, dan italic untuk setiap baris."
-      >
-        <div className="flex items-center justify-between mb-3">
-          <p className="font-ui text-[11px] text-muted-foreground">
-            5 baris default: Nama Desa, Alamat, Telepon, Website, Email.
-          </p>
-          <button
-            type="button"
-            onClick={async () => {
-              await initPerangkatStore();
-              const strukturs = listStrukturAktif();
-              const villageData = s.village;
-              const existing = kopLines.length;
-              const autoLines = [
-                { label: "Nama Desa", text: villageData.name },
-                {
-                  label: "Alamat",
-                  text: [villageData.address, villageData.district, villageData.regency]
-                    .filter(Boolean)
-                    .join(", "),
-                },
-                {
-                  label: "Telepon / WhatsApp",
-                  text: villageData.phone
-                    ? `Telp. ${villageData.phone}${villageData.whatsapp ? ` / WA ${villageData.whatsapp}` : ""}`
-                    : "",
-                },
-                { label: "Website", text: s.social?.website ?? "" },
-                { label: "Email Resmi", text: villageData.email },
-              ];
-              if (existing === 0) {
-                update("kopSurat", {
-                  kop_lines: autoLines.map((l, i) => ({
-                    id: `k${Date.now() + i}`,
-                    label: l.label,
-                    text: l.text,
-                    font_size: l.label === "Nama Desa" ? 13 : 10,
-                    bold: l.label === "Nama Desa",
-                    italic: false,
-                  })),
-                });
-                toast.success("Kop Surat autofill berhasil", {
-                  description: "5 baris kop surat telah diisi otomatis dari data Profil Desa.",
-                });
-              } else {
-                toast.info("Kop Surat sudah terisi", {
-                  description: "Hapus baris yang ada terlebih dahulu sebelum autofill.",
-                });
-              }
-            }}
-            className="shrink-0 h-8 px-3 rounded-lg bg-info/10 text-info text-xs font-ui font-semibold hover:bg-info/20 transition inline-flex items-center gap-1.5 border border-info/20"
-          >
-            <Wand2 className="h-3.5 w-3.5" />
-            Isi Otomatis
-          </button>
-        </div>
-        <div className="space-y-3">
-          {kopLines.map((line, i) => (
-            <div
-              key={line.id}
-              className="rounded-xl border border-border bg-muted/20 p-3 space-y-2"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-ui text-xs font-bold text-foreground">{line.label}</span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    update("kopSurat", {
-                      kop_lines: kopLines.filter((_, idx) => idx !== i),
-                    })
-                  }
-                  className="text-destructive hover:bg-destructive/10 h-7 w-7 rounded-md flex items-center justify-center"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <Input
-                value={line.text}
-                onChange={(e) => updateKopLine(line.id, { text: e.target.value })}
-                placeholder={`Teks untuk ${line.label}…`}
-                className="text-sm"
-              />
-              <div className="grid grid-cols-4 gap-2">
-                <Field label="Ukuran">
-                  <select
-                    className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none"
-                    value={line.font_size}
-                    onChange={(e) => updateKopLine(line.id, { font_size: Number(e.target.value) })}
-                  >
-                    {[8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24].map((sz) => (
-                      <option key={sz} value={sz}>
-                        {sz}pt
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Bold">
-                  <select
-                    className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none"
-                    value={line.bold ? "true" : "false"}
-                    onChange={(e) => updateKopLine(line.id, { bold: e.target.value === "true" })}
-                  >
-                    <option value="true">Ya — Bold</option>
-                    <option value="false">Tidak — Normal</option>
-                  </select>
-                </Field>
-                <Field label="Italic">
-                  <select
-                    className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none"
-                    value={line.italic ? "true" : "false"}
-                    onChange={(e) => updateKopLine(line.id, { italic: e.target.value === "true" })}
-                  >
-                    <option value="true">Ya — Italic</option>
-                    <option value="false">Tidak — Normal</option>
-                  </select>
-                </Field>
-                <Field label="Label Baris">
-                  <Input
-                    value={line.label}
-                    onChange={(e) => updateKopLine(line.id, { label: e.target.value })}
-                    placeholder="Nama baris…"
-                    className="text-xs h-8"
-                  />
-                </Field>
-              </div>
-            </div>
-          ))}
-          <Button type="button" variant="outline" size="sm" onClick={addKopLine}>
-            <Plus className="h-3.5 w-3.5 mr-1" /> Tambah Baris
-          </Button>
-        </div>
-      </Section>
-
-      {/* Warna & Footer */}
-      <Section title="Warna & Footer" desc="Pengaturan visual dan footer kop surat.">
-        <Field label="Warna Bar Header">
-          <div className="flex gap-2">
-            <input
-              type="color"
-              value={s.kopSurat.header_bar_color}
-              onChange={(e) => update("kopSurat", { header_bar_color: e.target.value })}
-              className="h-10 w-14 rounded border border-border bg-card cursor-pointer"
-            />
-            <Input
-              value={s.kopSurat.header_bar_color}
-              onChange={(e) => update("kopSurat", { header_bar_color: e.target.value })}
-            />
-          </div>
-        </Field>
-        <ToggleRow
-          label="Aktifkan Footer"
-          checked={s.kopSurat.footer_enabled}
-          onChange={(v) => update("kopSurat", { footer_enabled: v })}
-        />
-        <Field label="Teks Footer" hint="Muncul di bagian bawah setiap surat">
-          <Textarea
-            rows={2}
-            value={s.kopSurat.footer_text}
-            onChange={(e) => update("kopSurat", { footer_text: e.target.value })}
-          />
-        </Field>
-        <Field label="Style Tanda Tangan">
-          <select
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            value={s.kopSurat.signature_style}
-            onChange={(e) =>
-              update("kopSurat", {
-                signature_style: e.target.value as SystemSettings["kopSurat"]["signature_style"],
-              })
-            }
-          >
-            <option value="text">Teks (Nama + Jabatan)</option>
-            <option value="image">Gambar Spesimen TTD</option>
-          </select>
-        </Field>
-        <ImageUploadField
-          label="Gambar Spesimen TTD"
-          hint="Jika style TTD = Gambar, gambar ini dipakai"
-          value={s.signature.sign_image_url}
-          storagePath={s.signature.sign_image_storage_path}
-          onChange={(v) => update("signature", { sign_image_url: v })}
-          onStoragePathChange={(path) => update("signature", { sign_image_storage_path: path })}
-        />
-      </Section>
-
-      {/* Preview Kop Surat */}
-      <Section title="Preview Kop Surat" desc="Pratinjau kop surat sesuai pengaturan.">
-        <div className="rounded-xl border border-border overflow-hidden bg-white font-ui">
-          {/* Bar header */}
-          <div className="h-2 w-full" style={{ backgroundColor: s.kopSurat.header_bar_color }} />
-          <div className="flex items-center gap-3 p-4">
-            {/* Logo Kabupaten (kiri) */}
-            {s.kopSurat.logo_kab_url &&
-              (s.kopSurat.logo_position === "separate" || s.kopSurat.logo_position === "left") && (
-                <img
-                  src={s.kopSurat.logo_kab_url}
-                  alt="Logo Kabupaten"
-                  className="h-16 w-auto object-contain"
-                />
-              )}
-            {/* Logo Desa (kanan) */}
-            {s.kopSurat.logo_desa_url &&
-              (s.kopSurat.logo_position === "separate" ||
-                s.kopSurat.logo_position === "right" ||
-                s.kopSurat.logo_position === "center") && (
-                <img
-                  src={s.kopSurat.logo_desa_url}
-                  alt="Logo Desa"
-                  className={`h-16 w-auto object-contain ${
-                    s.kopSurat.logo_position === "right"
-                      ? "ml-auto"
-                      : s.kopSurat.logo_position === "center"
-                        ? "mx-auto"
-                        : ""
-                  }`}
-                />
-              )}
-            {/* Teks baris kop */}
-            <div className="flex-1 text-center space-y-0.5">
-              {kopLines.map((line) => (
-                <p
-                  key={line.id}
-                  style={{
-                    fontSize: `${line.font_size}pt`,
-                    fontWeight: line.bold ? "bold" : "normal",
-                    fontStyle: line.italic ? "italic" : "normal",
-                    fontFamily: "Arial, sans-serif",
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {line.text}
-                </p>
-              ))}
-            </div>
-          </div>
-          <div className="border-t border-border mt-1" />
-        </div>
-      </Section>
-    </>
-  );
-}
-
-/* ---------- Pages CMS ---------- */
-const PAGE_GROUPS = [
-  {
-    group: "Profil",
-    pages: [
-      { path: "/profil/desa", label: "Profil Desa" },
-      { path: "/profil/perangkat", label: "Perangkat Desa" },
-      { path: "/profil/lembaga", label: "Lembaga Desa" },
-      { path: "/profil/bpd", label: "BPD" },
-      { path: "/profil/lpm", label: "LPM" },
-      { path: "/profil/karangtaruna", label: "Karang Taruna" },
-      { path: "/profil/pkkrw", label: "PKK & KWT" },
-    ],
-  },
-  {
-    group: "Informasi",
-    pages: [
-      { path: "/informasi/berita", label: "Berita" },
-      { path: "/informasi/agenda", label: "Agenda" },
-      { path: "/informasi/galeri", label: "Galeri" },
-      { path: "/informasi/idm", label: "IDM" },
-      { path: "/informasi/pengumuman", label: "Pengumuman" },
-    ],
-  },
-  {
-    group: "Pelayanan",
-    pages: [
-      { path: "/pelayanan/pengaduan", label: "Pengaduan" },
-      { path: "/pelayanan/konsultasi", label: "Konsultasi" },
-      { path: "/pelayanan/penduduk", label: "Statistik Penduduk" },
-    ],
-  },
-  {
-    group: "Laporan",
-    pages: [
-      { path: "/laporan/apbdes", label: "APBDes" },
-      { path: "/laporan/realisasi", label: "Realisasi" },
-    ],
-  },
-  {
-    group: "Ekonomi",
-    pages: [{ path: "/ekonomi/bumdes", label: "BUMDes" }],
-  },
-  {
-    group: "Lainnya",
-    pages: [
-      { path: "/lainnya/peta", label: "Peta Interaktif" },
-      { path: "/lainnya/produk-hukum", label: "Produk Hukum" },
-      { path: "/lainnya/monografi", label: "Monografi" },
-      { path: "/lainnya/komoditas", label: "Komoditas" },
-    ],
-  },
-];
-
-function PagesCMS({
-  s,
-  update,
-}: {
-  s: SystemSettings;
-  update: <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => void;
-}) {
-  const [selectedPage, setSelectedPage] = useState<string>("/profil/desa");
-
-  const allPages = s.pages ?? DEFAULT_SETTINGS.pages;
-
-  const pageConfig = allPages[selectedPage] ?? allPages["/profil/desa"];
-
-  const updatePage = (patch: Partial<PageConfig>) => {
-    update("pages", {
-      [selectedPage]: { ...pageConfig, ...patch },
-    });
-  };
-
-  return (
-    <Section
-      title="Konten Halaman"
-      desc="Kelola judul, deskripsi, gambar cover, dan konten kustom untuk setiap halaman."
-    >
-      <div className="flex gap-4 flex-col sm:flex-row">
-        {/* Sidebar daftar halaman */}
-        <div className="sm:w-48 shrink-0 space-y-1">
-          {PAGE_GROUPS.map((g) => (
-            <div key={g.group}>
-              <p className="font-ui text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 px-1">
-                {g.group}
-              </p>
-              {g.pages.map((p) => {
-                const cfg = allPages[p.path];
-                return (
-                  <button
-                    key={p.path}
-                    onClick={() => setSelectedPage(p.path)}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-lg font-ui text-xs transition-colors ${
-                      selectedPage === p.path
-                        ? "bg-primary text-primary-foreground font-semibold"
-                        : "hover:bg-muted"
-                    }`}
-                  >
-                    {p.label}
-                    {!cfg?.enabled && (
-                      <span className="ml-1 text-[10px] opacity-60">(nonaktif)</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-
-        {/* Editor panel */}
-        <div className="flex-1 space-y-4">
-          <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-display font-bold">{selectedPage}</h4>
-              <ToggleRow
-                compact
-                label="Halaman Aktif"
-                checked={pageConfig.enabled}
-                onChange={(v) => updatePage({ enabled: v })}
-              />
-            </div>
-            <Grid2>
-              <Field label="Judul Halaman">
-                <Input
-                  value={pageConfig.title}
-                  onChange={(e) => updatePage({ title: e.target.value })}
-                />
-              </Field>
-              <Field label="Gambar Cover">
-                <ImageUploadField
-                  label=""
-                  hint="Gambar utama halaman (disarankan 1200×630px)"
-                  value={pageConfig.image_url}
-                  storagePath={(pageConfig as { image_storage_path?: string }).image_storage_path}
-                  onChange={(v) => updatePage({ image_url: v })}
-                  onStoragePathChange={(path) =>
-                    updatePage({ image_storage_path: path } as unknown as Partial<PageConfig>)
-                  }
-                />
-              </Field>
-            </Grid2>
-            <Field label="Deskripsi Singkat">
-              <Textarea
-                rows={2}
-                value={pageConfig.description}
-                onChange={(e) => updatePage({ description: e.target.value })}
-              />
-            </Field>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-            <div>
-              <Label className="font-ui text-xs font-semibold">Konten Kustom</Label>
-              <p className="font-body text-[11px] text-muted-foreground mt-0.5">
-                Teks atau konten tambahan yang akan ditampilkan di halaman. Gunakan | untuk
-                memisahkan paragraf.
-              </p>
-            </div>
-            <Textarea
-              rows={6}
-              value={pageConfig.custom_content}
-              onChange={(e) => updatePage({ custom_content: e.target.value })}
-              placeholder="Masukkan konten tambahan di sini…&#10;Gunakan | sebagai pemisah paragraf."
-            />
-          </div>
-
-          {selectedPage === "/profil/desa" && (
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-              <p className="font-ui text-sm font-semibold">Konten Profil Desa</p>
-              <Field label="Sejarah Singkat">
-                <Textarea
-                  rows={4}
-                  value={pageConfig.extras.sejarah ?? ""}
-                  onChange={(e) =>
-                    updatePage({ extras: { ...pageConfig.extras, sejarah: e.target.value } })
-                  }
-                  placeholder="Tulis sejarah singkat desa…"
-                />
-              </Field>
-              <div className="rounded-lg border border-warning/20 bg-warning/5 p-3 space-y-2">
-                <p className="font-ui text-xs font-semibold text-warning">
-                  Visi & Misi ada di bagian "Profil Publik (CMS)"
-                </p>
-                <p className="font-ui text-[11px] text-muted-foreground">
-                  Visi dan Misi desa dikelola di tab <strong>Profil Publik (CMS)</strong> agar
-                  konsisten di landing page dan halaman profil. Tidak perlu mengisi di sini.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </Section>
-  );
-}
-
-/* ---------- CMS Content Settings ---------- */
-function CMSContentSettings({
-  s,
-  update,
-}: {
-  s: SystemSettings;
-  update: <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => void;
-}) {
-  const content = s.content || DEFAULT_SETTINGS.content;
-
-  const updateContent = (patch: Partial<SystemSettings["content"]>) => {
-    update("content", { ...content, ...patch });
-  };
-
-  const addMission = () => {
-    updateContent({ mission: [...(content.mission || []), ""] });
-  };
-
-  const updateMission = (idx: number, val: string) => {
-    const arr = [...(content.mission || [])];
-    arr[idx] = val;
-    updateContent({ mission: arr });
-  };
-
-  const removeMission = (idx: number) => {
-    updateContent({ mission: (content.mission || []).filter((_, i) => i !== idx) });
-  };
-
-  const updateStat = (idx: number, patch: Partial<SystemSettings["content"]["stats"][0]>) => {
-    const arr = [...(content.stats || [])];
-    arr[idx] = { ...arr[idx], ...patch };
-    updateContent({ stats: arr });
-  };
-
-  return (
-    <>
-      <Section
-        title="Visi & Misi"
-        desc="Visi dan misi desa yang ditampilkan di halaman profil dan landing page."
-      >
-        <Field label="Visi Desa" hint="Satu kalimat besar yang menjadi cita-cita desa.">
-          <Textarea
-            rows={2}
-            value={content.vision}
-            onChange={(e) => updateContent({ vision: e.target.value })}
-            placeholder="Terwujudnya desa yang..."
-          />
-        </Field>
-        <div className="space-y-2">
-          <Label className="font-ui text-xs font-semibold">Misi Desa</Label>
-          <div className="space-y-2">
-            {(content.mission || []).map((m, i) => (
-              <div key={i} className="flex gap-2">
-                <Input
-                  value={m}
-                  onChange={(e) => updateMission(i, e.target.value)}
-                  placeholder={`Misi ke-${i + 1}`}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeMission(i)}
-                  className="text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            <Button variant="outline" size="sm" onClick={addMission}>
-              <Plus className="h-4 w-4 mr-1.5" /> Tambah Misi
-            </Button>
-          </div>
-        </div>
-      </Section>
-
-      <Section title="Tentang Desa" desc="Teks pengantar desa yang muncul di landing page.">
-        <Field label="Teks 'Tentang Desa'">
-          <Textarea
-            rows={5}
-            value={content.about_text}
-            onChange={(e) => updateContent({ about_text: e.target.value })}
-            placeholder="Deskripsi desa..."
-          />
-        </Field>
-      </Section>
-
-      <Section title="Statistik Desa" desc="Pencapaian atau data cepat desa (Landing Page).">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {(content.stats || []).map((st, i) => (
-            <div key={i} className="rounded-xl border border-border bg-card p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="font-ui text-xs font-bold">Statistik {i + 1}</span>
-                <Select value={st.icon} onValueChange={(v) => updateStat(i, { icon: v })}>
-                  <SelectTrigger className="h-7 w-24">
-                    <SelectValue placeholder="Icon" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="users">Warga</SelectItem>
-                    <SelectItem value="map">Wilayah</SelectItem>
-                    <SelectItem value="palmtree">Wisata</SelectItem>
-                    <SelectItem value="trophy">Prestasi</SelectItem>
-                    <SelectItem value="home">Rumah</SelectItem>
-                    <SelectItem value="star">Bintang</SelectItem>
-                    <SelectItem value="heart">Sosial</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Grid2>
-                <Field label="Label">
-                  <Input
-                    value={st.label}
-                    onChange={(e) => updateStat(i, { label: e.target.value })}
-                  />
-                </Field>
-                <Field label="Nilai (Value)">
-                  <Input
-                    value={st.value}
-                    onChange={(e) => updateStat(i, { value: e.target.value })}
-                  />
-                </Field>
-              </Grid2>
-            </div>
-          ))}
-        </div>
-      </Section>
-    </>
-  );
-}
-
-/* ---------- Social Media Settings ---------- */
-function SocialMediaSettings({
-  s,
-  update,
-}: {
-  s: SystemSettings;
-  update: <K extends keyof SystemSettings>(k: K, patch: Partial<SystemSettings[K]>) => void;
-}) {
-  const social = s.social || DEFAULT_SETTINGS.social;
-
-  return (
-    <Section title="Media Sosial" desc="Tautan ke akun media sosial resmi pemerintah desa.">
-      <div className="space-y-4">
-        <Field label="Facebook URL">
-          <div className="flex gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/30">
-              <Facebook className="h-4 w-4 text-[#1877F2]" />
-            </div>
-            <Input
-              value={social.facebook}
-              onChange={(e) => update("social", { facebook: e.target.value })}
-              placeholder="https://facebook.com/..."
-            />
-          </div>
-        </Field>
-        <Field label="Instagram URL">
-          <div className="flex gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/30">
-              <Instagram className="h-4 w-4 text-[#E4405F]" />
-            </div>
-            <Input
-              value={social.instagram}
-              onChange={(e) => update("social", { instagram: e.target.value })}
-              placeholder="https://instagram.com/..."
-            />
-          </div>
-        </Field>
-        <Field label="YouTube URL">
-          <div className="flex gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/30">
-              <Youtube className="h-4 w-4 text-[#FF0000]" />
-            </div>
-            <Input
-              value={social.youtube}
-              onChange={(e) => update("social", { youtube: e.target.value })}
-              placeholder="https://youtube.com/@..."
-            />
-          </div>
-        </Field>
-        <Field label="Twitter / X URL">
-          <div className="flex gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/30">
-              <Twitter className="h-4 w-4 text-[#1a1918]" />
-            </div>
-            <Input
-              value={social.twitter}
-              onChange={(e) => update("social", { twitter: e.target.value })}
-              placeholder="https://twitter.com/..."
-            />
-          </div>
-        </Field>
-        <Field label="Website Resmi" className="sm:col-span-2">
-          <div className="flex gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/30">
-              <Globe className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <Input
-              value={social.website ?? ""}
-              onChange={(e) => update("social", { website: e.target.value })}
-              placeholder="https://nama-desa.desa.id"
-            />
-          </div>
-        </Field>
-      </div>
-    </Section>
-  );
-}
-
-// ── Push Notification Panel ─────────────────────────────────────────────────
-
-function PushNotificationPanel() {
-  const [status, setStatus] = useState<"unsupported" | "denied" | "granted" | "default">("default");
-  const [subscribed, setSubscribed] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    // Dynamic import to avoid SSR issues
-    import("@/lib/push-notif").then(({ getNotificationPermission, isPushSubscribed }) => {
-      setStatus(getNotificationPermission());
-      isPushSubscribed().then(setSubscribed);
-    });
-  }, []);
-
-  const handleActivate = async () => {
-    setLoading(true);
-    try {
-      const { subscribePush, isPushSupported, requestNotificationPermission } =
-        await import("@/lib/push-notif");
-      if (!isPushSupported()) {
-        toast.error("Browser tidak mendukung push notification");
-        return;
-      }
-      const perm = await requestNotificationPermission();
-      if (!perm) {
-        toast.error("Izin notifikasi ditolak");
-        setStatus("denied");
-        return;
-      }
-      const sub = await subscribePush();
-      if (sub) {
-        setSubscribed(true);
-        setStatus("granted");
-        toast.success("Notifikasi browser aktif!");
-      } else {
-        toast.error("Gagal mengaktifkan. Pastikan VITE_VAPID_PUBLIC_KEY sudah diset.");
-      }
-    } catch (e) {
-      toast.error("Gagal mengaktifkan notifikasi");
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeactivate = async () => {
-    setLoading(true);
-    try {
-      const { unsubscribePush } = await import("@/lib/push-notif");
-      await unsubscribePush();
-      setSubscribed(false);
-      toast.success("Notifikasi browser dinonaktifkan");
-    } catch {
-      toast.error("Gagal menonaktifkan");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (status === "unsupported") {
-    return (
-      <div className="flex items-start gap-3 p-4 rounded-xl border border-border bg-muted/30">
-        <BellOff className="h-5 w-5 text-muted-foreground mt-0.5" />
-        <div>
-          <p className="font-ui text-sm font-semibold">Tidak Didukung</p>
-          <p className="font-ui text-xs text-muted-foreground mt-0.5">
-            Browser Anda tidak mendukung Web Push Notification.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === "denied") {
-    return (
-      <div className="flex items-start gap-3 p-4 rounded-xl border border-destructive/30 bg-destructive/5">
-        <BellOff className="h-5 w-5 text-destructive mt-0.5" />
-        <div>
-          <p className="font-ui text-sm font-semibold text-destructive">Izin Ditolak</p>
-          <p className="font-ui text-xs text-muted-foreground mt-0.5">
-            Untuk mengaktifkan notifikasi, ubah izin di pengaturan browser Anda.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        {subscribed ? (
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success/10">
-              <CheckCircle2 className="h-5 w-5 text-success" />
-            </div>
-            <div>
-              <p className="font-ui text-sm font-semibold text-success">Notifikasi Aktif</p>
-              <p className="font-ui text-xs text-muted-foreground">
-                Anda akan menerima pemberitahuan saat status surat berubah.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-              <Bell className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="font-ui text-sm font-semibold">Belum Aktif</p>
-              <p className="font-ui text-xs text-muted-foreground">
-                Aktifkan untuk menerima notifikasi real-time di browser.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {subscribed ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-destructive/30 text-destructive hover:bg-destructive/10"
-          disabled={loading}
-          onClick={handleDeactivate}
-        >
-          <BellOff className="h-4 w-4 mr-1.5" />
-          Nonaktifkan Notifikasi
-        </Button>
-      ) : (
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-primary text-primary hover:bg-primary/10"
-          disabled={loading}
-          onClick={handleActivate}
-        >
-          <Bell className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
-          {loading ? "Mengaktifkan..." : "Aktifkan Notifikasi Browser"}
-        </Button>
-      )}
-
-      <div className="rounded-xl border border-border bg-muted/20 p-4">
-        <p className="font-ui text-xs font-semibold text-foreground mb-1.5">Setup VAPID Key</p>
-        <p className="font-ui text-xs text-muted-foreground leading-relaxed">
-          Untuk mengaktifkan push notification, Anda perlu:
-        </p>
-        <ol className="mt-2 space-y-1 pl-4 font-ui text-[11px] text-muted-foreground list-decimal list-inside">
-          <li>
-            Generate VAPID keys:
-            <code className="ml-1.5 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-              npx web-push generate-vapid-keys
-            </code>
-          </li>
-          <li>
-            Set{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
-              VITE_VAPID_PUBLIC_KEY
-            </code>{" "}
-            di file <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">.env</code>
-          </li>
-          <li>
-            Set{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
-              VAPID_PRIVATE_KEY
-            </code>{" "}
-            sebagai secret di Netlify (Site → Environment Variables → Production)
-          </li>
-        </ol>
-      </div>
-
-      {/* ── Reset Confirmation Dialog ── */}
-      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <RotateCcw className="h-5 w-5 text-destructive" />
-              Reset Semua Pengaturan
-            </DialogTitle>
-            <DialogDescription>
-              Semua pengaturan sistem akan dikembalikan ke nilai default. Perubahan yang belum
-              disimpan akan hilang.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setResetOpen(false)}>
-              Batal
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmReset}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Ya, Reset Sekarang
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── VAPID Key Instructions Panel ── */}
-      <div className="rounded-xl border border-border bg-muted/20 p-4">
-        <p className="font-ui text-xs font-semibold text-foreground mb-1.5">Setup VAPID Key</p>
-        <p className="font-ui text-xs text-muted-foreground leading-relaxed">
-          Untuk mengaktifkan push notification, Anda perlu:
-        </p>
-        <ol className="mt-2 space-y-1 pl-4 font-ui text-[11px] text-muted-foreground list-decimal list-inside">
-          <li>
-            Generate VAPID keys:
-            <code className="ml-1.5 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-              npx web-push generate-vapid-keys
-            </code>
-          </li>
-          <li>
-            Set{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
-              VITE_VAPID_PUBLIC_KEY
-            </code>{" "}
-            di file <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">.env</code>
-          </li>
-          <li>
-            Set{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
-              VAPID_PRIVATE_KEY
-            </code>{" "}
-            sebagai secret di Netlify (Site → Environment Variables → Production)
-          </li>
-        </ol>
-      </div>
-    </div>
   );
 }

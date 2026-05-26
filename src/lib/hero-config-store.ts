@@ -81,7 +81,7 @@ export type HeroConfig = {
 
 // ── ID Generator ─────────────────────────────────────────────────────────────
 
-function _genId(): string {
+function genId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
@@ -91,12 +91,12 @@ function _genId(): string {
 
 const DEFAULT_MARQUEE_LINES: MarqueeLine[] = [
   {
-    id: _genId(),
+    id: genId(),
     text: "Selamat Datang di Portal Resmi Desa Seruni Mumbul",
     enabled: true,
   },
   {
-    id: _genId(),
+    id: genId(),
     text: "Melayani dengan Sepenuh Hati",
     enabled: true,
   },
@@ -310,7 +310,7 @@ function _ensureMarqueeDefaults(config: HeroConfig): HeroConfig {
       ...config,
       marquee_lines: DEFAULT_MARQUEE_LINES.map((l) => ({
         ...l,
-        id: _genId(),
+        id: genId(),
       })),
     };
   }

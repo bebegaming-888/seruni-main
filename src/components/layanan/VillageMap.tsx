@@ -195,7 +195,7 @@ export function VillageMap({ height = "500px", showSidebar = true }: VillageMapP
         }).addTo(map);
 
         marker.bindPopup(`
-          <div style="font-family: 'Poppins', sans-serif; min-width: 160px;">
+          <div style="font-family: 'Raleway', sans-serif; min-width: 160px;">
             <div style="font-size: 18px; margin-bottom: 4px;">${config.icon}</div>
             <strong style="font-size: 13px; color: #111;">${facility.name}</strong>
             ${facility.dusun ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${facility.dusun}</div>` : ""}

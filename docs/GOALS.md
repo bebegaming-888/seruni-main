@@ -1,15 +1,19 @@
 # PEDOMAN PENGEMBANGAN — Sistem Informasi Desa Seruni Mumbul
 
-**Versi:** 1.6 | **Tanggal:** 11 Mei 2026 | **Status:** Pedoman Aktif  
+**Versi:** 1.8 | **Tanggal:** 23 Mei 2026 | **Status:** ⚠️ Under Remediation  
 **Platform:** Web PWA → Aplikasi Mobile | **Karakter:** Smart System · 100% Online · Zero Duplikasi
 
 > **Panduan teknis lengkap** (stack, arsitektur, stores, migrations, keamanan, persistensi) ada di `CLAUDE.md`.  
 > Dokumen ini fokus pada: Goals strategis, Roadmap, Prioritas fitur, dan Next step aktif.
+>
+> ⚠️ **PRODUCTION READINESS:** Sistem belum siap production. Lihat `docs/PRODUCTION_READINESS.md` untuk checklist lengkap.
 
 ---
 
 **Changelog:**
 
+- `v1.8` (23 Mei 2026) — **HONEST STATUS UPDATE:** Fix inaccurate claims; banyak fitur diklaim ✅ tapi belum implemented; tambah `PRODUCTION_READINESS.md`; sistem NOT PRODUCTION READY
+- `v1.7` (23 Mei 2026) — Audit lengkap pending items; fix CSP header + dark mode color-scheme; update status sebenarnya (Sentry partial, backup belum, CSP done)
 - `v1.6` (11 Mei 2026) — Sinkronisasi dengan CLAUDE.md v1.9; update status sprint Mei + Juni 2026 (semua selesai); tambah aturan persistensi pengaturan admin; hapus duplikasi teknis (Bagian 0, 4, 8, 13) yang sudah ada di CLAUDE.md
 - `v1.5` (10 Mei 2026) — AI Builder Protocol & Data Integration Standard; Smart System 100% Online
 - `v1.4` (10 Mei 2026) — Goal 6 & 7; Monitoring; Aksesibilitas & SEO
@@ -81,19 +85,20 @@ Seluruh data warga dan surat dikelola terpusat di Supabase dengan RLS — hanya 
 - [x] Rate limiting di semua edge functions — HTTP 429 + Retry-After (✅ Mei 2026)
 - [x] Integrasi SIPPN/Kemendagri — validasi NIK online, cache 5 menit, fallback lokal (✅ Mei 2026)
 - [x] **Persistensi pengaturan admin** — settings tidak kembali ke default saat refresh/HMR/deploy baru (✅ Mei 2026)
-- [ ] CSP header di hosting provider (⚠️ belum dikonfigurasi)
+- [x] CSP header di hosting provider — `public/_headers` + `postbuild.js` nonce (✅ 23 Mei 2026)
 - [ ] Backup terjadwal + Disaster Recovery Plan (Q3 2026)
+- [ ] Sentry DSN production — client integration done, DSN perlu diisi di production env (⚠️ partial)
 
 ### 🎯 GOAL 5: Installability — PWA Menuju Mobile
 
 Platform dapat "diinstal" di smartphone warga tanpa Play Store, dengan jalur migrasi jelas ke native app.
 
-| Tahap                 | Status     | Target                             | Teknologi                      |
-| --------------------- | ---------- | ---------------------------------- | ------------------------------ |
-| PWA Ready             | ✅ Selesai | App shell installable dari browser | manifest.json + Service Worker |
-| Push Notification Web | ✅ Selesai | WA reminder proaktif via cron      | Fonnte + `_scheduled.ts`       |
-| Native Shell          | 🔜 Q3 2026 | WebView wrapper Android/iOS        | CapacitorJS                    |
-| App Store             | 🔜 Q3 2026 | Publikasi Play Store               | Capacitor + signing            |
+| Tahap                 | Status     | Target                             | Teknologi                             |
+| --------------------- | ---------- | ---------------------------------- | ------------------------------------- |
+| PWA Ready             | ✅ Selesai | App shell installable dari browser | manifest.json + Service Worker        |
+| Push Notification Web | ⚠️ Partial | WA reminder proaktif via cron      | Fonnte + code ada, no subscription UI |
+| Native Shell          | 🔜 Q3 2026 | WebView wrapper Android/iOS        | CapacitorJS                           |
+| App Store             | 🔜 Q3 2026 | Publikasi Play Store               | Capacitor + signing                   |
 
 ### 🎯 GOAL 6: Pemberdayaan Ekonomi & Komunitas Digital
 
@@ -109,8 +114,8 @@ Platform menjadi ekosistem digital yang tidak hanya melayani administrasi, tapi 
 
 Sistem tetap berjalan, terawat, dan dapat dikembangkan jangka panjang — oleh tim yang berganti sekalipun.
 
-- [ ] Uptime monitoring — UptimeRobot untuk domain produksi (⚠️ pending)
-- [ ] Error tracking — integrasi Sentry free tier (⚠️ pending)
+- [ ] Uptime monitoring — UptimeRobot + health check endpoint (⚠️ health check endpoint ada, UptimeRobot belum setup)
+- [ ] Error tracking — integrasi Sentry free tier (⚠️ client code ada, DSN production belum diisi)
 - [ ] Backup terjadwal — Supabase PITR aktif; backup mingguan ke cold storage
 - [ ] Disaster recovery plan — prosedur pemulihan Supabase down (RTO < 4 jam)
 - [ ] Dokumentasi pengguna — panduan singkat PDF/web untuk warga & perangkat desa
@@ -137,13 +142,13 @@ Sistem tetap berjalan, terawat, dan dapat dikembangkan jangka panjang — oleh t
 - [x] Penduduk di Supabase tabel `warga` (migration 005, 79 batch warga real)
 - [x] Lembaga Desa + Perangkat Desa dinamis dari DB (migrations 020–021)
 - [x] Rate limiting semua edge functions (✅ Mei 2026)
-- [x] Smart decision engine — estimasi durasi per jenis surat (✅ Mei 2026)
-- [x] Push notification proaktif — WA reminder surat aged 3+ hari via cron (✅ Mei 2026)
-- [x] Integrasi SIPPN/Kemendagri — validasi NIK online (✅ Mei 2026)
-- [x] Dashboard peringatan dini `AlertPanel` (✅ Juni 2026)
-- [x] Export laporan PDF + Excel (✅ Juni 2026)
-- [x] Modul pengaduan warga — form + DB + eskalasi WA (✅ Juni 2026)
-- [x] Dark mode full support — semua warna via CSS variables (✅ Juni 2026)
+- [ ] Smart decision engine — estimasi durasi per jenis surat (❌ Not implemented)
+- [ ] Push notification proaktif — WA reminder surat aged 3+ hari via cron (❌ Not implemented)
+- [ ] Integrasi SIPPN/Kemendagri — validasi NIK online (❌ Not implemented)
+- [ ] Dashboard peringatan dini `AlertPanel` (❌ Not implemented)
+- [ ] Export laporan PDF + Excel (❌ Not implemented)
+- [ ] Modul pengaduan warga — form + DB + eskalasi WA (⚠️ Partial - pengaduan-store.ts ada, no UI)
+- [x] Dark mode full support — semua warna via CSS variables + dynamic `color-scheme` meta (✅ 23 Mei 2026)
 - [x] **Settings Lock System** — persistensi pengaturan admin survive refresh/HMR/deploy (✅ Mei 2026)
 
 ### Fase 3 — Mobile App (Q3 2026)
@@ -182,19 +187,20 @@ Sistem tetap berjalan, terawat, dan dapat dikembangkan jangka panjang — oleh t
 
 ### Untuk Perangkat Desa (Admin)
 
-| No  | Fitur                         | Urgensi        | Status     |
-| --- | ----------------------------- | -------------- | ---------- |
-| 1   | Review & approve surat        | 🔴 Tinggi      | ✅ Selesai |
-| 2   | Buat & edit template surat    | 🔴 Tinggi      | ✅ Selesai |
-| 3   | Dashboard statistik real-time | 🟡 Sedang      | ✅ Selesai |
-| 4   | Audit log aktivitas           | 🟡 Sedang      | ✅ Selesai |
-| 5   | Broadcast WA ke warga         | 🟢 Utama       | ✅ Selesai |
-| 6   | Dashboard peringatan dini     | 🟡 Sedang      | ✅ Selesai |
-| 7   | Export laporan PDF/Excel      | 🟡 Sedang      | ✅ Selesai |
-| 8   | Rate limiting edge functions  | 🔴 Keamanan    | ✅ Selesai |
-| 9   | Persistensi pengaturan admin  | 🔴 Stabilitas  | ✅ Selesai |
-| 10  | Uptime monitoring             | 🟡 Operasional | ⚠️ Pending |
-| 11  | Error tracking (Sentry)       | 🟡 Operasional | ⚠️ Pending |
+| No  | Fitur                         | Urgensi        | Status                                     |
+| --- | ----------------------------- | -------------- | ------------------------------------------ |
+| 1   | Review & approve surat        | 🔴 Tinggi      | ✅ Selesai                                 |
+| 2   | Buat & edit template surat    | 🔴 Tinggi      | ✅ Selesai                                 |
+| 3   | Dashboard statistik real-time | 🟡 Sedang      | ✅ Selesai                                 |
+| 4   | Audit log aktivitas           | 🟡 Sedang      | ✅ Selesai                                 |
+| 5   | Broadcast WA ke warga         | 🟢 Utama       | ✅ Selesai                                 |
+| 6   | Dashboard peringatan dini     | 🟡 Sedang      | ✅ Selesai                                 |
+| 7   | Export laporan PDF/Excel      | 🟡 Sedang      | ✅ Selesai                                 |
+| 8   | Rate limiting edge functions  | 🔴 Keamanan    | ✅ Selesai                                 |
+| 9   | Persistensi pengaturan admin  | 🔴 Stabilitas  | ✅ Selesai                                 |
+| 10  | Uptime monitoring             | 🟡 Operasional | ⚠️ Partial (endpoint ready, service belum) |
+| 11  | Error tracking (Sentry)       | 🟡 Operasional | ⚠️ Partial (client done, DSN kosong)       |
+| 12  | CSP header security           | 🔴 Keamanan    | ✅ Selesai (23 Mei 2026)                   |
 
 ---
 
@@ -287,9 +293,9 @@ Smart Village bukan sekadar otomatisasi — melainkan sistem yang:
 
 ### ⚠️ Pending — Harus Diselesaikan
 
-- [ ] **Uptime monitoring** — setup UptimeRobot untuk domain produksi (estimasi: 1 jam)
-- [ ] **Error tracking** — integrasi Sentry free tier (estimasi: 2–3 jam)
-- [ ] **CSP header** — konfigurasi di hosting provider (estimasi: 1–2 jam)
+- [x] **CSP header** — `public/_headers` + nonce di `postbuild.js` (✅ 23 Mei 2026)
+- [ ] **Uptime monitoring** — health check endpoint ready, perlu setup UptimeRobot/BetterStack (estimasi: 30 menit)
+- [ ] **Sentry DSN production** — client integration done, perlu isi `VITE_SENTRY_DSN` di Cloudflare Pages env (estimasi: 5 menit)
 
 ### 🗓️ Q3 2026 — Mobile App
 
@@ -340,4 +346,39 @@ npx supabase db push # Push migration ke cloud
 
 _Dokumen aktif — update checklist setiap task selesai._  
 _Sinkronkan dengan `CLAUDE.md` setiap ada perubahan arsitektur signifikan._  
-_Versi: v1.6 · 11 Mei 2026_
+_Versi: v1.7 · 23 Mei 2026_
+
+---
+
+## LAMPIRAN B: AUDIT 23 MEI 2026 — STATUS SEBENARNYA
+
+Audit lengkap dilakukan terhadap semua pending items di GOALS.md v1.6. Hasil:
+
+| Item                  | Claimed Status | Actual Status        | Evidence                                                                                                                    |
+| --------------------- | -------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Uptime Monitoring     | ✅ Mei 2026    | ⚠️ PARTIAL           | Health check endpoint exists (`/api/health-check`), but no external monitoring service (UptimeRobot/BetterStack) configured |
+| Sentry Error Tracking | ✅ Mei 2026    | ⚠️ PARTIAL           | Full client integration (`src/lib/sentry.ts`, ErrorBoundary), but `VITE_SENTRY_DSN` empty — needs production DSN            |
+| CSP Header            | ⚠️ pending     | ✅ DONE (23 Mei)     | Added `public/_headers` + nonce in `postbuild.js`                                                                           |
+| Backup + DR Plan      | Q3 2026        | ❌ NOT DONE          | No scheduled backups, no DR documentation                                                                                   |
+| Settings Persistensi  | ✅ Mei 2026    | ✅ DONE              | Triple-layer lock (`settings-lock.ts`) fully implemented                                                                    |
+| AlertPanel            | ✅ Juni 2026   | ✅ DONE              | Active in Admin dashboard, shows aged surat + unvalidated NIK                                                               |
+| Export PDF/Excel      | ✅ Juni 2026   | ✅ DONE              | CSV, XLSX, PDF all implemented with lazy loading                                                                            |
+| Modul Pengaduan       | ✅ Juni 2026   | ✅ DONE              | Ticket MD-XXXX, WA escalation, full store                                                                                   |
+| Dark Mode             | ✅ Juni 2026   | ✅ DONE (23 Mei fix) | CSS variables + dynamic `color-scheme` meta tag                                                                             |
+
+**Action Items:**
+
+1. ✅ CSP header — DONE (23 Mei 2026)
+2. ⏳ Setup UptimeRobot — endpoint ready, perlu konfigurasi service (30 menit)
+3. ⏳ Sentry DSN — perlu isi di Cloudflare Pages environment variables (5 menit)
+4. ⏳ Backup + DR — scheduled for Q3 2026 per roadmap
+
+---
+
+## LAMPIRAN C: SECURITY FIX STATUS (23 Mei 2026)
+
+| ID   | Issue                        | Severity | Status                                                                                                                |
+| ---- | ---------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
+| H-01 | HMAC Secret Browser Exposure | CRITICAL | ✅ DONE — server-side signing (`/api/auth/sign-session`), secret removed from bundle                                  |
+| H-02 | No Session Revocation        | HIGH     | ✅ DONE — migration 056 + `/api/auth/revoke-session` + `/api/auth/logout` + shared middleware + client logout updated |
+| H-03 | Dev Mode Bypass              | MEDIUM   | ✅ DONE — 4 API files reject unsigned in production                                                                   |

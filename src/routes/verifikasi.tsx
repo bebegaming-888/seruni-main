@@ -26,7 +26,7 @@ export const Route = createFileRoute("/verifikasi")({
   component: VerifikasiPage,
 });
 
-export function VerifikasiPage() {
+function VerifikasiPage() {
   const { village: villageName, inisial_desa, inisial_jabatan } = useVillage();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -72,7 +72,7 @@ export function VerifikasiPage() {
             <button
               type="submit"
               disabled={!query.trim() || loading}
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-9 px-5 rounded-xl bg-primary text-primary-foreground font-ui text-sm font-semibold hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-9 px-5 rounded-xl bg-primary text-primary-foreground font-ui text-sm font-semibold hover:bg-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

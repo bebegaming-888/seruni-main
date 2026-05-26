@@ -1,0 +1,32 @@
+[
+  {
+    "bugId": "BUG-11",
+    "response": "DISPROVE",
+    "analysisSummary": "Dev bypass requires BOTH VITE_DEV_LOGIN_ENABLED=true AND import.meta.env.DEV=true. The import.meta.env.DEV flag is controlled by Vite and is false in production builds regardless of VITE_DEV_LOGIN_ENABLED. Production builds have DEV=false, so the plaintext bypass never activates in production. False positive — the security boundary is preserved by Vite's own build flag.",
+    "counterEvidence": "src/lib/auth.ts:353 — import.meta.env.DEV is Vite-controlled, set to false in production builds. VITE_DEV_LOGIN_ENABLED alone cannot activate the bypass in production."
+  },
+  {
+    "bugId": "BUG-12",
+    "response": "DISPROVE",
+    "analysisSummary": "Dev mode allows unsigned sessions, but this is documented and intentional for developer testing. In production (import.meta.env.PROD=true), unsigned sessions are rejected. The tampered session still needs to pass HMAC verification on the server (server/api/submit-surat.js checks IS_PROD). Dev mode is not a security boundary.",
+    "counterEvidence": "src/lib/auth.ts:302-310 — 'if (import.meta.env.PROD) { logout(); return null; }' — production enforces signed sessions. Dev is developer-only."
+  },
+  {
+    "bugId": "BUG-13",
+    "response": "DISPROVE",
+    "analysisSummary": "Requires BOTH VITE_DEV_OTP_BYPASS=true AND window.location.hostname === 'localhost' or '127.0.0.1'. VITE_DEV_OTP_BYPASS is a Vite build-time variable set via .env files. For production build, .env.production does not contain VITE_DEV_OTP_BYPASS=true, so the flag is false/undefined. Production builds cannot activate the bypass. Additionally, the hostname check prevents exploitation via hosts file because production build would serve from production domain.",
+    "counterEvidence": "src/lib/warga-auth.ts:244-246 — requires import.meta.env.DEV (Vite-controlled) AND hostname check. Both must be true simultaneously, which is only possible in local dev."
+  },
+  {
+    "bugId": "BUG-14",
+    "response": "ACCEPT",
+    "analysisSummary": "Confirmed: if Supabase sync fails on first initUsersStore(), _usersCache is set to empty array. Non-fixed-admin users cannot login. However, CLAUDE.md notes the fixed admin account (from env var) always works. This is a fallback behavior — not critical, but a real issue. Medium-Low impact.",
+    "counterEvidence": "src/lib/auth.ts:164-165 — catch block sets _usersCache = [] on first failure"
+  },
+  {
+    "bugId": "BUG-15",
+    "response": "DISPROVE",
+    "analysisSummary": "The client-side rate limit (in warga-auth.ts) is a UX optimization, not a security control. The server-side rate limit (server/api/request-otp.js via check_otp_rate_limit RPC) is the authoritative enforcement. Client-side bypass does not bypass the server-side rate limit. The server RPC enforces max 3 OTP per NIK per 15 minutes regardless of client-side state.",
+    "counterEvidence": "server/api/request-otp.js:82-97 — server-side rate limit check via Supabase RPC 'check_otp_rate_limit' is the primary defense. Client-side rate limit is supplementary only."
+  }
+]

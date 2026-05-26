@@ -11,24 +11,58 @@ export const NAV = [
         to: "/profil/perangkat",
       },
       { label: "Lembaga Desa", desc: "BPD, LPM, PKK, Karang Taruna", to: "/profil/lembaga" },
+      {
+        label: "BPD",
+        desc: "Badan Permusyawaratan Desa",
+        to: "/profil/bpd",
+      },
+      {
+        label: "LPM",
+        desc: "Lembaga Pemberdayaan Masyarakat",
+        to: "/profil/lpm",
+      },
+      {
+        label: "PKK & KWT",
+        desc: "TP-PKK & Kelompok Wanita Tani",
+        to: "/profil/pkkrw",
+      },
+      {
+        label: "Karang Taruna",
+        desc: "Organisasi kepemudaan desa",
+        to: "/profil/karangtaruna",
+      },
     ],
   },
   {
     label: "Pelayanan",
     to: "/pelayanan",
     children: [
-      { label: "E-Surat", desc: "Ajukan surat online dengan mudah", to: "/pelayanan/e-surat" },
+      { label: "Ajukan Surat", desc: "E-Surat:Ajukan surat online", to: "/pelayanan/e-surat" },
+      {
+        label: "Lacak Surat",
+        desc: "Pantau status pengajuan surat Anda",
+        to: "/pelayanan/monitoring",
+      },
+      {
+        label: "Surat Terbit",
+        desc: "Arsip surat yang telah diterbitkan",
+        to: "/pelayanan/surat-terbit",
+      },
       {
         label: "Data Penduduk",
         desc: "Statistik dan data kependudukan",
         to: "/pelayanan/penduduk",
       },
       {
-        label: "Konsultasi",
-        desc: "Konsultasi langsung dengan perangkat",
-        to: "/pelayanan/konsultasi",
+        label: "Pengaduan",
+        desc: "Sampaikan aspirasi dan keluhan Anda",
+        to: "/pelayanan/pengaduan",
       },
-      { label: "Pengaduan", desc: "Sampaikan keluhan dan aspirasi", to: "/pelayanan/pengaduan" },
+      {
+        label: "Verifikasi Surat",
+        desc: "Cek keabsahan dokumen surat",
+        to: "/verifikasi",
+      },
     ],
   },
   {
@@ -37,40 +71,28 @@ export const NAV = [
     children: [
       { label: "Berita", desc: "Kabar terkini dari desa", to: "/informasi/berita" },
       { label: "Agenda", desc: "Jadwal kegiatan mendatang", to: "/informasi/agenda" },
-      { label: "Galeri", desc: "Dokumentasi foto kegiatan", to: "/informasi/galeri" },
-      { label: "IDM", desc: "Indeks Desa Membangun", to: "/informasi/idm" },
       { label: "Pengumuman", desc: "Informasi penting warga", to: "/informasi/pengumuman" },
+      { label: "Galeri", desc: "Dokumentasi foto kegiatan", to: "/informasi/galeri" },
     ],
   },
   {
-    label: "Laporan",
-    to: "/laporan",
-    children: [
-      { label: "APBDes", desc: "Anggaran Pendapatan & Belanja Desa", to: "/laporan/apbdes" },
-      {
-        label: "Realisasi Anggaran",
-        desc: "Realisasi penggunaan APBDes",
-        to: "/laporan/realisasi",
-      },
-    ],
-  },
-  {
-    label: "Wisata & Ekonomi",
+    label: "Wisata",
     to: "/wisata",
     children: [
-      { label: "Destinasi Wisata", desc: "Tempat-tempat menarik di desa", to: "/wisata/destinasi" },
-      { label: "Peta Wisata", desc: "Peta interaktif lokasi wisata", to: "/wisata/peta" },
-      { label: "Portal Penjual", desc: "Pelajari dan kelola pesanan produk Anda", to: "/penjual" },
+      { label: "Destinasi", desc: "Tempat menarik di desa", to: "/wisata/destinasi" },
+      { label: "UMKM", desc: "Produk usaha warga", to: "/wisata/umkm" },
     ],
   },
   {
     label: "Lainnya",
     to: "/lainnya",
     children: [
-      { label: "Monografi Desa", desc: "Data lengkap profil desa", to: "/lainnya/monografi" },
-      { label: "Produk Hukum", desc: "Perdes & Peraturan Desa", to: "/lainnya/produk-hukum" },
-      { label: "Harga Komoditas", desc: "Harga pasar komoditas terkini", to: "/lainnya/komoditas" },
-      { label: "Peta Desa", desc: "Peta wilayah administratif", to: "/lainnya/peta" },
+      { label: "APBDes", desc: "Anggaran desa", to: "/laporan/apbdes" },
+      { label: "Produk Hukum", desc: "Peraturan desa", to: "/lainnya/produk-hukum" },
+      { label: "Peta Desa", desc: "Peta lokasi dan wilayah", to: "/lainnya/peta" },
+      { label: "IDM", desc: "Indeks Desa Membangun", to: "/informasi/idm" },
+      { label: "Komoditas", desc: "Harga pasar", to: "/lainnya/komoditas" },
+      { label: "Monografi", desc: "Data monografi desa", to: "/lainnya/monografi" },
     ],
   },
 ];

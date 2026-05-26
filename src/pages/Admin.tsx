@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { generateSuratPdf } from "@/lib/pdf-generator";
 import { Footer } from "@/components/site/Footer";
 import { Link } from "@/components/Link";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,6 @@ import {
   Search,
   FileText,
   Clock,
-  Users,
   TrendingUp,
   Inbox,
   Hourglass,
@@ -38,18 +36,40 @@ import {
   CloudDownload,
   Loader2,
   AlertCircle,
-  Building2,
   Paperclip,
+  X,
+  Zap,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { TemplateSuratManager } from "@/components/admin/TemplateSuratManager";
+import { LetterLayoutEditor } from "@/components/admin/LetterLayoutEditor";
+import { WilayahManager } from "@/components/admin/WilayahManager";
 import { PendudukManager } from "@/components/admin/PendudukManager";
 import { CMSManager } from "@/components/admin/CMSManager";
-import { Newspaper, History } from "lucide-react";
+import {
+  Newspaper,
+  History,
+  MessageSquare,
+  BarChart3,
+  Mail,
+  Warehouse,
+  Building2,
+  Heart,
+  Users,
+} from "lucide-react";
+import { StatCardSkeleton } from "@/components/ui/skeleton";
 import { AuditLogManager } from "@/components/admin/AuditLogManager";
 import { AlertPanel } from "@/components/admin/AlertPanel";
 import { SuratPreviewPanel, RejectionModal } from "@/components/admin/SuratPreviewPanel";
+import { KeuanganMainView } from "@/components/admin/keuangan/KeuanganMainView";
+import { PengaduanAdminDashboard } from "@/components/admin/pengaduan/PengaduanAdminDashboard";
+import { StatistikDashboard } from "@/components/admin/statistik/StatistikDashboard";
+import { SuratAgendaManager } from "@/components/admin/keuangan/SuratAgendaManager";
+import { InventarisDashboard } from "@/components/admin/inventaris/InventarisDashboard";
+import { PembangunanDashboard } from "@/components/admin/pembangunan/PembangunanDashboard";
+import { BantuanDashboard } from "@/components/admin/bantuan/BantuanDashboard";
+import { KelompokDashboard } from "@/components/admin/kelompok/KelompokDashboard";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,10 +77,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { getSession, logout } from "@/lib/auth";
+import { getSession, getSessionToken, logout } from "@/lib/auth";
 import { listRecords, listArchive, lookupPenduduk, type SuratRecord } from "@/lib/esurat-store";
-import { listPenduduk, savePendudukBatch, isUsingMock } from "@/lib/penduduk-store";
+import { listPenduduk, savePendudukBatch, isUsingMock, maskNik } from "@/lib/penduduk-store";
+import { maskPhone } from "@/lib/utils";
 import { notifySurat } from "@/lib/esurat-notif";
+import { sendWaNotification } from "@/lib/fonnte";
 import {
   syncSetStatus,
   syncSaveRecord,
@@ -71,6 +93,8 @@ import {
   healthCheck,
 } from "@/lib/useSupabaseSync";
 import { generateNomorSurat } from "@/lib/nomor-surat";
+import { getSettings } from "@/lib/settings-store";
+import { can, suratActionsFor } from "@/lib/roles";
 import type { Penduduk } from "@/data/penduduk";
 import {
   ResponsiveContainer,
@@ -85,6 +109,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { initLazyStores } from "@/lib/store-init";
 
 type StatusKey = SuratRecord["status"];
 const STATUS_KEYS: StatusKey[] = [
@@ -110,10 +135,20 @@ export default function AdminPage() {
     | "monitoring"
     | "archive"
     | "templates"
+    | "layouts"
+    | "wilayah"
     | "penduduk"
     | "settings"
     | "konten"
     | "audit"
+    | "keuangan"
+    | "pengaduan_admin"
+    | "statistik"
+    | "agenda"
+    | "inventaris"
+    | "pembangunan"
+    | "bantuan"
+    | "kelompok"
   >("dashboard");
   const [records, setRecords] = useState<SuratRecord[]>([]);
   const [archive, setArchive] = useState<SuratRecord[]>([]);
@@ -124,6 +159,8 @@ export default function AdminPage() {
   const [pendIsMock, setPendIsMock] = useState(false);
   const [tab, setTab] = useState<"all" | StatusKey>("all");
   const [q, setQ] = useState("");
+  const [searchQuery, setSearchQuery] = useState(""); // Debounced search
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   // null = checking, true = connected, false = offline/error
   const [connectionStatus, setConnectionStatus] = useState<boolean | null>(null);
@@ -142,11 +179,18 @@ export default function AdminPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [view]);
 
+  // ── Init CMS stores when konten view is activated ─────────────────────────
+  useEffect(() => {
+    if (view === "konten") {
+      initLazyStores().catch(console.error);
+    }
+  }, [view]);
+
   const session = getSession();
   const username = session?.name ?? "Admin";
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     toast.success("Berhasil keluar", { description: "Anda telah keluar dari sesi admin." });
     navigate({ to: "/login" });
   };
@@ -157,6 +201,42 @@ export default function AdminPage() {
     setPendCount(listPenduduk().length);
     setPendIsMock(isUsingMock());
   };
+
+  /** Debounced search handler — updates searchQuery 600ms after user stops typing */
+  const handleSearchChange = (raw: string) => {
+    setQ(raw);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchQuery(raw.trim().toLowerCase());
+    }, 600);
+  };
+
+  /**
+   * Fuzzy score: returns 0 if no match, else positive score (higher = better match).
+   * - Exact substring match: score += 100
+   * - Match at word boundary: bonus +50
+   * - Match at start of string: bonus +25
+   * - Match on NIK: bonus +20 (common search field)
+   */
+  function fuzzyScore(text: string, query: string): number {
+    if (!query) return 1;
+    const lower = (text ?? "").toLowerCase();
+    if (lower.includes(query)) {
+      const idx = lower.indexOf(query);
+      let score = 100;
+      // Word boundary bonus: character before match is space, dash, or start
+      if (idx === 0 || /[\s\-_/]/.test(lower[idx - 1])) score += 50;
+      // Start-of-string bonus
+      if (idx === 0) score += 25;
+      // NIK bonus (digits-heavy match)
+      if (/\d{5,}/.test(query)) score += 20;
+      return score;
+    }
+    // Multi-term AND match
+    const terms = query.split(/\s+/);
+    if (terms.every((t) => lower.includes(t))) return 50;
+    return 0;
+  }
 
   const handleCloudSync = async () => {
     setIsSyncing(true);
@@ -261,20 +341,39 @@ export default function AdminPage() {
     return days;
   }, [records, archive]);
 
-  /* ---------- Filtering ---------- */
+  /* ---------- Filtering with fuzzy multi-field search ---------- */
   const filtered = useMemo(() => {
     let list = records;
     if (tab !== "all") list = list.filter((r) => r.status === tab);
-    const s = q.trim().toLowerCase();
-    if (s) {
-      list = list.filter((r) =>
-        [r.no, r.nama_surat, r.pemohon, r.nik, r.kontak].some((v) =>
-          (v ?? "").toLowerCase().includes(s),
-        ),
-      );
-    }
-    return list;
-  }, [records, tab, q]);
+    const s = searchQuery;
+    if (!s) return list;
+    return list
+      .map((r) => {
+        const fields = [
+          { v: r.no, label: "no", boost: 40 },
+          { v: r.nama_surat, label: "nama_surat", boost: 30 },
+          { v: r.pemohon, label: "pemohon", boost: 30 },
+          { v: r.nik, label: "nik", boost: 50 },
+          { v: r.kontak, label: "kontak", boost: 20 },
+          { v: r.kode, label: "kode", boost: 25 },
+          { v: r.catatan ?? "", label: "catatan", boost: 10 },
+        ];
+        const scores = fields.map((f) => ({
+          ...f,
+          score: fuzzyScore(f.v, s),
+        }));
+        const maxScore = Math.max(...scores.map((f) => f.score));
+        if (maxScore === 0) return null;
+        return {
+          r,
+          score: maxScore,
+          topField: scores.find((f) => f.score === maxScore)?.label ?? "",
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+      .sort((a, b) => b.score - a.score)
+      .map((x) => x.r);
+  }, [records, tab, searchQuery]);
 
   /* ---------- Actions (via sync layer) ---------- */
   const verify = async (r: SuratRecord) => {
@@ -347,24 +446,28 @@ export default function AdminPage() {
       return n;
     });
   };
-  const approve = async (r: SuratRecord, signerTitle: string) => {
+  const approve = async (r: SuratRecord, signerTitle: string = "Kepala Desa") => {
     if (pendingActions.has(r.no)) return;
     setPendingActions((s) => new Set(s).add(r.no));
     try {
       const tahun = new Date().getFullYear();
       const noSurat = await generateNomorSurat(r.kode, tahun);
       const signed_at = new Date().toISOString();
-      const signerName = signerTitle === "Sekretaris Desa"
-        ? getSettings().signature.sekdes_name ?? "Sekretaris Desa"
-        : getSettings().signature.signer_name;
+      const signerName =
+        signerTitle === "Sekretaris Desa"
+          ? (getSettings().signature.sekdes_name ?? "Sekretaris Desa")
+          : getSettings().signature.signer_name;
 
-      // QR signing via Netlify Function — QR_SECRET stays server-side.
+      // QR signing via local API server — QR_SECRET stays server-side.
       // Falls back to unsigned if the function is unreachable (degraded mode).
       let qrPayload = "";
+      const sessionToken = getSessionToken();
       try {
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (sessionToken) headers["Authorization"] = `Bearer ${sessionToken}`;
         const res = await fetch("/api/sign-surat-qr", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ no: noSurat, nik: r.nik, kode: r.kode, signer: signerTitle }),
         });
         if (res.ok) {
@@ -714,15 +817,17 @@ export default function AdminPage() {
                     ? "Arsip Surat Keluar"
                     : view === "templates"
                       ? "Template Surat"
-                      : view === "penduduk"
-                        ? "Data Penduduk"
-                        : view === "konten"
-                          ? "Konten Website"
-                          : view === "audit"
-                            ? "Audit Log Aktivitas"
-                            : view === "settings"
-                              ? "Pengaturan Sistem"
-                              : "Pengaturan"}
+                      : view === "layouts"
+                        ? "Layout Blanko"
+                        : view === "penduduk"
+                          ? "Data Penduduk"
+                          : view === "konten"
+                            ? "Konten Website"
+                            : view === "audit"
+                              ? "Audit Log Aktivitas"
+                              : view === "settings"
+                                ? "Pengaturan Sistem"
+                                : "Pengaturan"}
             </span>
           </nav>
 
@@ -737,7 +842,7 @@ export default function AdminPage() {
                   <p className="eyebrow mb-2">
                     <span
                       className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                        ok === false ? "bg-[#E37222]" : ok ? "bg-[#078898]" : "bg-[#EEAA78]"
+                        ok === false ? "bg-destructive" : ok ? "bg-success" : "bg-warning"
                       }`}
                       title={
                         ok === false
@@ -756,42 +861,44 @@ export default function AdminPage() {
                   · {session.name} ({session.role})
                 </span>
               )}
-              <h1 className="hero-title text-background">
-                {view === "dashboard" && (
-                  <>
-                    Dashboard <em className="not-italic text-primary">E-Surat</em>
-                  </>
-                )}
-                {view === "monitoring" && (
-                  <>
-                    Monitoring <em className="not-italic text-primary">Pengajuan</em>
-                  </>
-                )}
-                {view === "archive" && (
-                  <>
-                    Arsip <em className="not-italic text-primary">Surat Keluar</em>
-                  </>
-                )}
-                {view === "templates" && (
-                  <>
-                    Template <em className="not-italic text-primary">Surat</em>
-                  </>
-                )}
-                {view === "penduduk" && (
-                  <>
-                    Data <em className="not-italic text-primary">Penduduk</em>
-                  </>
-                )}
-                {view === "konten" && (
-                  <>
-                    Konten <em className="not-italic text-primary">Website</em>
-                  </>
-                )}
-                {view === "settings" && (
-                  <>
-                    Pengaturan <em className="not-italic text-primary">Sistem</em>
-                  </>
-                )}
+              <h1 className="sr-only" aria-live="polite" aria-atomic="true">
+                {view === "dashboard"
+                  ? "Dashboard E-Surat"
+                  : view === "monitoring"
+                    ? "Monitoring Pengajuan Surat"
+                    : view === "archive"
+                      ? "Arsip Surat Keluar"
+                      : view === "templates"
+                        ? "Template Surat"
+                        : view === "layouts"
+                          ? "Layout Blanko Surat"
+                          : view === "penduduk"
+                            ? "Data Penduduk"
+                            : view === "konten"
+                              ? "Konten Website"
+                              : view === "settings"
+                                ? "Pengaturan Sistem"
+                                : view === "audit"
+                                  ? "Log Audit"
+                                  : view === "keuangan"
+                                    ? "Kelola Keuangan"
+                                    : view === "pengaduan_admin"
+                                      ? "Pengaduan"
+                                      : view === "statistik"
+                                        ? "Statistik"
+                                        : view === "agenda"
+                                          ? "Agenda"
+                                          : view === "inventaris"
+                                            ? "Inventaris"
+                                            : view === "pembangunan"
+                                              ? "Pembangunan"
+                                              : view === "bantuan"
+                                                ? "Bantuan"
+                                                : view === "kelompok"
+                                                  ? "Kelompok"
+                                                  : view === "wilayah"
+                                                    ? "Wilayah"
+                                                    : "Admin Panel"}
               </h1>
               <p className="font-body text-background/70 mt-2 max-w-xl text-sm sm:text-base">
                 {view === "dashboard" &&
@@ -802,6 +909,8 @@ export default function AdminPage() {
                   "Inventaris surat keluar yang telah disetujui dan ditandatangani digital."}
                 {view === "templates" &&
                   "Kelola katalog template surat: CRUD, import/export, preview, alur verifikasi & approval, hingga pengiriman dokumen."}
+                {view === "layouts" &&
+                  "Desain tampilan blanko surat per jenis surat — 100% configurable, OpenSID-compatible."}
                 {view === "penduduk" &&
                   "Kelola database kependudukan: CRUD, import CSV massal, export data, dan filter multi-kriteria."}
                 {view === "konten" &&
@@ -861,7 +970,8 @@ export default function AdminPage() {
                   <Button
                     size="sm"
                     onClick={exportArchive}
-                    className="hidden sm:inline-flex bg-primary text-primary-foreground hover:bg-primary-hover"
+                    disabled={isSyncing}
+                    className="hidden sm:inline-flex bg-primary text-primary-foreground hover:bg-primary"
                   >
                     <Download className="h-4 w-4 sm:mr-2" />
                     <span className="hidden md:inline">CSV Arsip</span>
@@ -929,8 +1039,8 @@ export default function AdminPage() {
           </div>
 
           {/* Section tabs — role-adaptive */}
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <div className="inline-flex rounded-full bg-background/10 border border-background/20 p-1 gap-1">
+          <div className="max-w-[calc(100vw-2rem)] overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="inline-flex rounded-full bg-background/10 border border-background/20 p-1 gap-1 max-w-[calc(100vw-2rem)] overflow-x-auto">
               <SectionTab
                 active={view === "dashboard"}
                 onClick={() => setView("dashboard")}
@@ -943,6 +1053,22 @@ export default function AdminPage() {
                   onClick={() => setView("templates")}
                   icon={Files}
                   label="Template Surat"
+                />
+              )}
+              {can("template.view") && (
+                <SectionTab
+                  active={view === "layouts"}
+                  onClick={() => setView("layouts")}
+                  icon={FileText}
+                  label="Layout Blanko"
+                />
+              )}
+              {can("template.view") && (
+                <SectionTab
+                  active={view === "wilayah"}
+                  onClick={() => setView("wilayah")}
+                  icon={Building2}
+                  label="Wilayah"
                 />
               )}
               <SectionTab
@@ -979,6 +1105,70 @@ export default function AdminPage() {
               )}
               {can("settings.manage") && (
                 <SectionTab
+                  active={view === "keuangan"}
+                  onClick={() => setView("keuangan")}
+                  icon={TrendingUp}
+                  label="Keuangan"
+                />
+              )}
+              {can("settings.manage") && (
+                <SectionTab
+                  active={view === "pengaduan_admin"}
+                  onClick={() => setView("pengaduan_admin")}
+                  icon={MessageSquare}
+                  label="Pengaduan"
+                />
+              )}
+              {can("settings.manage") && (
+                <SectionTab
+                  active={view === "statistik"}
+                  onClick={() => setView("statistik")}
+                  icon={BarChart3}
+                  label="Statistik"
+                />
+              )}
+              {can("settings.manage") && (
+                <SectionTab
+                  active={view === "agenda"}
+                  onClick={() => setView("agenda")}
+                  icon={Mail}
+                  label="Agenda"
+                />
+              )}
+              {can("settings.manage") && (
+                <SectionTab
+                  active={view === "inventaris"}
+                  onClick={() => setView("inventaris")}
+                  icon={Warehouse}
+                  label="Inventaris"
+                />
+              )}
+              {can("settings.manage") && (
+                <SectionTab
+                  active={view === "pembangunan"}
+                  onClick={() => setView("pembangunan")}
+                  icon={Building2}
+                  label="Pembangunan"
+                />
+              )}
+              {can("settings.manage") && (
+                <SectionTab
+                  active={view === "bantuan"}
+                  onClick={() => setView("bantuan")}
+                  icon={Heart}
+                  label="Bantuan"
+                />
+              )}
+              {can("settings.manage") && (
+                <SectionTab
+                  active={view === "kelompok"}
+                  onClick={() => setView("kelompok")}
+                  icon={Users}
+                  label="Kelompok"
+                />
+              )}
+              {can("settings.manage") && (
+                <SectionTab
                   active={view === "settings"}
                   onClick={() => setView("settings")}
                   icon={SettingsIcon}
@@ -1008,6 +1198,54 @@ export default function AdminPage() {
             <AuditLogManager />
           </div>
         </section>
+      ) : view === "keuangan" ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <KeuanganMainView />
+          </div>
+        </section>
+      ) : view === "pengaduan_admin" ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <PengaduanAdminDashboard />
+          </div>
+        </section>
+      ) : view === "statistik" ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <StatistikDashboard />
+          </div>
+        </section>
+      ) : view === "agenda" ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <SuratAgendaManager />
+          </div>
+        </section>
+      ) : view === "inventaris" ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <InventarisDashboard />
+          </div>
+        </section>
+      ) : view === "pembangunan" ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <PembangunanDashboard />
+          </div>
+        </section>
+      ) : view === "bantuan" ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <BantuanDashboard />
+          </div>
+        </section>
+      ) : view === "kelompok" ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <KelompokDashboard />
+          </div>
+        </section>
       ) : view === "penduduk" ? (
         <section className="py-8 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl">
@@ -1020,45 +1258,118 @@ export default function AdminPage() {
             <TemplateSuratManager username={username} />
           </div>
         </section>
+      ) : view === "layouts" && can("template.view") ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <LetterLayoutEditor />
+          </div>
+        </section>
+      ) : view === "wilayah" && can("template.view") ? (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <WilayahManager username={username} />
+          </div>
+        </section>
       ) : view === "monitoring" ? (
-        <>
-          <section className="py-8 px-4 sm:px-8">
-            <div className="mx-auto max-w-7xl">
-              <MonitoringTable
-                records={records}
-                onPreview={setPreview}
-                onVerify={verify}
-                onReject={(r) => setRejectTarget(r)}
-                onLanjut={lanjutApproval}
-                onApprove={approve}
-                onSend={(r) =>
-                  sendWaNotification(
-                    r.kontak,
-                    `Dokumen ${r.nama_surat} (${r.no}) telah dikirim.`,
-                  ).then(() => {
-                    logAudit({
-                      action: "surat.send_wa",
-                      detail: `Kirim notifikasi WA ke ${r.pemohon} (${r.kontak}) untuk surat ${r.no}`,
-                      username,
-                    });
-                    toast.success("Dikirim via WA", {
-                      description: `Notifikasi WA untuk ${r.pemohon} (${r.no}) telah dikirim.`,
-                    });
-                  })
-                }
-              />
+        <section className="py-8 px-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_380px] gap-6">
+              {/* Main content: MonitoringTable */}
+              <div>
+                <MonitoringTable
+                  records={records}
+                  onPreview={setPreview}
+                  onVerify={verify}
+                  onReject={(r) => setRejectTarget(r)}
+                  onLanjut={lanjutApproval}
+                  onApprove={approve}
+                  onSend={(r) =>
+                    sendWaNotification(
+                      r.kontak,
+                      `Dokumen ${r.nama_surat} (${r.no}) telah dikirim.`,
+                    ).then(() => {
+                      logAudit({
+                        action: "surat.send_wa",
+                        detail: `Kirim notifikasi WA ke ${r.pemohon} (${r.kontak}) untuk surat ${r.no}`,
+                        username,
+                      });
+                      toast.success("Dikirim via WA", {
+                        description: `Notifikasi WA untuk ${r.pemohon} (${r.no}) telah dikirim.`,
+                      });
+                    })
+                  }
+                />
+              </div>
+
+              {/* Preview sidebar */}
+              <aside className="lg:sticky lg:top-24 h-fit">
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-display text-lg font-bold">Preview Surat</h3>
+                    {preview && <StatusPill status={preview.status} />}
+                  </div>
+                  {!preview ? (
+                    <div className="text-center py-10">
+                      <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+                      <p className="font-body text-sm text-muted-foreground">
+                        Klik tombol <Eye className="inline h-3.5 w-3.5 mx-0.5" /> pada tabel untuk
+                        melihat preview blanko surat.
+                      </p>
+                    </div>
+                  ) : (
+                    <SuratPreviewPanel
+                      preview={preview}
+                      onVerify={verify}
+                      onReject={reject}
+                      onLanjut={lanjutApproval}
+                      onApprove={(r, signerTitle) => approve(r, signerTitle)}
+                    />
+                  )}
+                </div>
+              </aside>
             </div>
-          </section>
-        </>
+          </div>
+        </section>
       ) : view === "archive" ? (
         <section className="py-8 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl">
-            <ArchiveTable
-              archive={archive}
-              onPreview={setPreview}
-              onExport={exportArchive}
-              onExportExcel={exportArchiveExcel}
-            />
+            <div className="grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_380px] gap-6">
+              {/* Main content: ArchiveTable */}
+              <div>
+                <ArchiveTable
+                  archive={archive}
+                  onPreview={setPreview}
+                  onExport={exportArchive}
+                  onExportExcel={exportArchiveExcel}
+                />
+              </div>
+
+              {/* Preview sidebar */}
+              <aside className="lg:sticky lg:top-24 h-fit">
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-display text-lg font-bold">Arsip Surat</h3>
+                    {preview && <StatusPill status={preview.status} />}
+                  </div>
+                  {!preview ? (
+                    <div className="text-center py-10">
+                      <Archive className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+                      <p className="font-body text-sm text-muted-foreground">
+                        Pilih surat arsip untuk melihat detail.
+                      </p>
+                    </div>
+                  ) : (
+                    <SuratPreviewPanel
+                      preview={preview}
+                      onVerify={verify}
+                      onReject={reject}
+                      onLanjut={lanjutApproval}
+                      onApprove={(r, signerTitle) => approve(r, signerTitle)}
+                    />
+                  )}
+                </div>
+              </aside>
+            </div>
           </div>
         </section>
       ) : (
@@ -1068,7 +1379,7 @@ export default function AdminPage() {
             <AlertPanel />
 
             {/* Stat cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard
                 icon={Inbox}
                 label="Total Pengajuan"
@@ -1202,7 +1513,7 @@ export default function AdminPage() {
                   pekerjaan, alamat, rt, rw, dusun, no_kk, no_hp.
                 </p>
               </div>
-              <Label className="btn-pill bg-primary text-primary-foreground hover:bg-primary-hover cursor-pointer">
+              <Label className="btn-pill bg-primary text-primary-foreground hover:bg-primary cursor-pointer">
                 <Upload className="h-4 w-4" /> Import CSV
                 <input
                   type="file"
@@ -1214,7 +1525,7 @@ export default function AdminPage() {
             </div>
 
             {/* Antrian + Preview */}
-            <div className="grid lg:grid-cols-[1fr_380px] gap-6">
+            <div className="grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_380px] gap-6">
               <div className="space-y-5" id="monitoring-top">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="font-display text-2xl font-bold flex items-center gap-2">
@@ -1223,11 +1534,61 @@ export default function AdminPage() {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Cari no/NIK/nama…"
+                      placeholder={
+                        searchQuery
+                          ? `Hasil untuk: "${q}" — ${filtered.length} ditemukan`
+                          : "Cari no/NIK/nama…"
+                      }
                       value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                      className="pl-9 w-64 rounded-full"
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      className={`pl-9 w-full sm:w-64 rounded-full ${searchQuery ? "ring-1 ring-primary/30 border-primary/50" : ""}`}
                     />
+                    {searchQuery && (
+                      <button
+                        onClick={() => {
+                          setQ("");
+                          setSearchQuery("");
+                          if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] rounded-full bg-muted-foreground/40 flex items-center justify-center hover:bg-muted-foreground/60 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                        aria-label="Hapus pencarian"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                  {/* Quick search chips */}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {[
+                      { label: "Pending", value: "pending" },
+                      { label: "Menunggu Verif", value: "Menunggu Verifikasi" },
+                      { label: "Belum diproses", value: "pending" },
+                    ].map(({ label, value }) => (
+                      <button
+                        key={label}
+                        onClick={() => {
+                          if (value === "pending") {
+                            setTab("all");
+                            setQ("pending");
+                            setSearchQuery("pending");
+                          } else {
+                            setTab(value as typeof tab);
+                            setQ("");
+                            setSearchQuery("");
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 h-6 px-2.5 rounded-full text-[11px] font-ui font-semibold bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                      >
+                        <Zap className="h-2.5 w-2.5" />
+                        {label}
+                      </button>
+                    ))}
+                    {searchQuery && (
+                      <span className="inline-flex items-center gap-1 h-6 px-2.5 rounded-full text-[11px] font-ui font-semibold bg-primary/10 text-primary">
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        {filtered.length} hasil
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1297,7 +1658,7 @@ export default function AdminPage() {
                                     key={a}
                                     size="sm"
                                     onClick={() => verify(r)}
-                                    className="bg-info hover:bg-info/90 text-background"
+                                    className="bg-info hover:bg-info/90 text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                                   >
                                     <ShieldCheck className="h-4 w-4 mr-1" /> Verifikasi
                                   </Button>
@@ -1308,7 +1669,7 @@ export default function AdminPage() {
                                     key={a}
                                     size="sm"
                                     onClick={() => lanjutApproval(r)}
-                                    className="bg-primary hover:bg-primary-hover"
+                                    className="bg-primary hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                                   >
                                     <Eye className="h-4 w-4 mr-1" /> Lanjut Approval
                                   </Button>
@@ -1319,7 +1680,7 @@ export default function AdminPage() {
                                     key={a}
                                     size="sm"
                                     onClick={() => approve(r)}
-                                    className="bg-success hover:bg-success/90 text-background"
+                                    className="bg-success hover:bg-success/90 text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                                   >
                                     <FileSignature className="h-4 w-4 mr-1" /> Approve & TTD
                                   </Button>
@@ -1355,7 +1716,7 @@ export default function AdminPage() {
                                         });
                                       });
                                     }}
-                                    className="bg-primary hover:bg-primary-hover"
+                                    className="bg-primary hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                                   >
                                     <Send className="h-4 w-4 mr-1" /> Kirim
                                   </Button>
@@ -1405,7 +1766,7 @@ export default function AdminPage() {
                             alt="QR"
                             className="w-14 h-14 border border-border rounded"
                           />
-                          <p className="text-[10px] text-muted-foreground mt-0.5">QR e-sign</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">QR e-sign</p>
                         </div>
                       )}
                     </div>
@@ -1435,18 +1796,6 @@ export default function AdminPage() {
 
 /* ---------- helpers ---------- */
 
-/** Mask NIK — 4 digit awal + ●● + 4 digit akhir (UU PDP compliance) */
-function maskNik(nik: string): string {
-  if (!nik || nik.length < 8) return nik ?? "";
-  return nik.slice(0, 4) + "●".repeat(nik.length - 8) + nik.slice(-4);
-}
-
-/** Mask phone number — 4 digit akhir only */
-function maskPhone(phone: string): string {
-  if (!phone || phone.length < 4) return phone ?? "";
-  return "●●●●" + phone.slice(-4);
-}
-
 function SectionTab({
   active,
   onClick,
@@ -1461,7 +1810,8 @@ function SectionTab({
   return (
     <button
       onClick={onClick}
-      className={`px-4 h-9 rounded-full text-xs font-ui font-semibold inline-flex items-center gap-1.5 transition whitespace-nowrap ${
+      aria-pressed={active}
+      className={`px-4 min-h-[44px] rounded-full text-xs font-ui font-semibold inline-flex items-center gap-1.5 transition whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
         active
           ? "bg-primary text-primary-foreground shadow-sm"
           : "text-background/80 hover:text-background hover:bg-background/10"
@@ -1515,7 +1865,7 @@ function StatusPill({ status }: { status: SuratRecord["status"] }) {
   };
   return (
     <span
-      className={`text-[10px] font-ui font-semibold px-2 py-0.5 rounded-full border ${map[status]}`}
+      className={`text-xs font-ui font-semibold px-2 py-0.5 rounded-full border ${map[status]}`}
     >
       {status}
     </span>
@@ -1691,12 +2041,15 @@ function MonitoringTable({
                           <Button
                             size="sm"
                             variant="outline"
+                            title="Preview Blanko Surat"
+                            aria-label="Preview blanko surat"
                             onClick={(e) => {
                               e.stopPropagation();
                               onPreview(r);
                             }}
+                            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                           >
-                            <Eye className="h-3.5 w-3.5" />
+                            <Eye className="h-3.5 w-3.5" /> Preview
                           </Button>
                           {acts.map((a) => {
                             if (a === "surat.verify")
@@ -1705,7 +2058,7 @@ function MonitoringTable({
                                   key={a}
                                   size="sm"
                                   onClick={() => onVerify(r)}
-                                  className="bg-info hover:bg-info/90 text-background"
+                                  className="bg-info hover:bg-info/90 text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                                 >
                                   <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Verifikasi
                                 </Button>
@@ -1716,7 +2069,7 @@ function MonitoringTable({
                                   key={a}
                                   size="sm"
                                   onClick={() => onLanjut(r)}
-                                  className="bg-primary hover:bg-primary-hover"
+                                  className="bg-primary hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                                 >
                                   <Eye className="h-3.5 w-3.5 mr-1" /> Approval
                                 </Button>
@@ -1726,10 +2079,10 @@ function MonitoringTable({
                                 <Button
                                   key={a}
                                   size="sm"
-                                  onClick={() => { setPreview(r); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                                  className="bg-success hover:bg-success/90 text-background"
+                                  onClick={() => onApprove(r)}
+                                  className="bg-success hover:bg-success/90 text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                                 >
-                                  <Eye className="h-3.5 w-3.5 mr-1" /> Approve
+                                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve
                                 </Button>
                               );
                             if (a === "surat.reject")
@@ -1739,6 +2092,8 @@ function MonitoringTable({
                                   size="sm"
                                   variant="outline"
                                   onClick={() => onReject(r)}
+                                  aria-label="Tolak pengajuan"
+                                  className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                                 >
                                   <XCircle className="h-3.5 w-3.5" />
                                 </Button>
@@ -1749,7 +2104,7 @@ function MonitoringTable({
                                   key={a}
                                   size="sm"
                                   onClick={() => onSend(r)}
-                                  className="bg-primary hover:bg-primary-hover"
+                                  className="bg-primary hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                                 >
                                   <Send className="h-3.5 w-3.5 mr-1" /> Kirim
                                 </Button>
@@ -1814,16 +2169,21 @@ function ArchiveTable({
 
   const downloadLink = async (r: SuratRecord) => {
     // Generate PDF: edge function returns JSON → client generates PDF via jsPDF
+    // Lazy-import pdf-generator to keep initial bundle small
     try {
+      const sessionToken = getSessionToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (sessionToken) headers["Authorization"] = `Bearer ${sessionToken}`;
       const res = await fetch("/api/generate-pdf", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ no: r.no }),
       });
       if (!res.ok) throw new Error("Gagal fetch data surat");
       const { surat, warga, settings } = await res.json();
+      const { generateSuratPdf } = await import("@/lib/pdf-generator");
       const pdfBytes = await generateSuratPdf({ surat, warga, settings, includeQr: false });
-      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const blob = new Blob([pdfBytes as unknown as BlobPart], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -1869,7 +2229,11 @@ function ArchiveTable({
           >
             <TrendingUp className="h-4 w-4 mr-1.5" /> Excel
           </Button>
-          <Button size="sm" onClick={onExport} className="bg-primary hover:bg-primary-hover">
+          <Button
+            size="sm"
+            onClick={onExport}
+            className="bg-primary hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+          >
             <Download className="h-4 w-4 mr-1.5" /> CSV
           </Button>
         </div>
@@ -1909,7 +2273,7 @@ function ArchiveTable({
                       {r.attachments && r.attachments.length > 0 && (
                         <div className="flex items-center gap-1 mt-0.5">
                           <Paperclip className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             {r.attachments.length} lampiran
                           </span>
                         </div>
@@ -1927,18 +2291,20 @@ function ArchiveTable({
                         <Button
                           size="sm"
                           variant="outline"
+                          aria-label="Preview blanko surat arsip"
                           onClick={(e) => {
                             e.stopPropagation();
                             onPreview(r);
                           }}
+                          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                         >
                           <Eye className="h-3.5 w-3.5 mr-1" /> Preview
                         </Button>
                         <Button
                           size="sm"
                           onClick={() => downloadLink(r)}
-                          className="bg-primary hover:bg-primary-hover"
-                          title="Unduh PDF"
+                          className="bg-primary hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                          aria-label="Unduh PDF arsip"
                         >
                           <Download className="h-3.5 w-3.5" />
                         </Button>

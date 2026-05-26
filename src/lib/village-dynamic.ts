@@ -141,7 +141,14 @@ export function getVillage(): VillageInfo;
 
 /** Get all village info as a single object. Cached per render cycle. */
 export function getVillage(field?: string | undefined): VillageInfo | string {
-  if (_cache) return _cache;
+  if (_cache) {
+    if (field) {
+      const value = _cache[field as keyof VillageInfo];
+      if (Array.isArray(value)) return value.join(", ");
+      return value ?? "";
+    }
+    return _cache;
+  }
 
   const s = getSettings();
   const w = s.wilayah;
@@ -189,15 +196,10 @@ export function getVillage(field?: string | undefined): VillageInfo | string {
     kop_desa: `DESA ${(w.village ?? village).toUpperCase()}`,
     kop_alamat: `${address}, ${w.village ?? village}, ${regency}, ${province} ${postal_code}`,
     kop_alamat_clean: `${address}, ${w.village ?? village}, ${regency}, ${postal_code}`,
-    kop_telp:
-      notif.sender_name !== DEFAULT_SETTINGS.notifications.sender_name
-        ? notif.sender_name
-        : phone
-          ? `Telp. ${phone}`
-          : "",
+    kop_telp: phone ? `Telp. ${phone}` : "",
 
     // Notification
-    sender_name: notif.sender_name || `Pemdes ${w.village ?? village}`,
+    sender_name: `Pemdes ${w.village ?? village}`,
 
     // Number/signature
     inisial_desa: nomor.inisialDesa,

@@ -3,17 +3,23 @@
  *
  * Layout: Logo Kab (kiri) | Hierarki Teks (tengah) | Logo Desa (kanan)
  * Diikuti alamat, kontak, dan double rule.
+ *
+ * logo_position: "separate" → 3-column (Kab | Teks | Desa)
+ *                 "left"    → Logo Kab di kiri, teks+desa di kanan
+ *                 "center"  → Logo Desa di tengah, teks di sekitar
+ *                 "right"   → Logo Desa di kanan, teks+kab di kiri
  */
 import React from "react";
 import type { RenderedLetter } from "@/lib/letter-engine";
+import { getSettings } from "@/lib/settings-store";
+import { getMediaUrl } from "@/lib/media-upload";
 
 // ── Brand palette defaults for letter components ────────────────────────────────
-// Primary = E37222 (orange), Secondary = 078898 (teal)
 const BRAND_PRIMARY = "#E37222";
-const BRAND_SECONDARY = "#078898";
 const BRAND_BORDER = "#D5D5D5";
 const BRAND_TEXT = "#1a1918";
 const BRAND_MUTED = "#5c5a56";
+const DEFAULT_FONT = "Arial, sans-serif";
 
 type Props = {
   header: RenderedLetter["header"];
@@ -21,6 +27,20 @@ type Props = {
 };
 
 export function LetterHeader({ header, primaryColor = BRAND_PRIMARY }: Props) {
+  const settings = getSettings();
+  const bodyFont = settings.pdfLayout?.body_font || DEFAULT_FONT;
+  const logoPos = settings.kopSurat.logo_position;
+
+  const logoKabUrl = settings.kopSurat.logo_kab_storage_path
+    ? getMediaUrl(settings.kopSurat.logo_kab_storage_path, "public-media")
+    : settings.kopSurat.logo_kab_url || "";
+  const logoDesaUrl = settings.kopSurat.logo_desa_storage_path
+    ? getMediaUrl(settings.kopSurat.logo_desa_storage_path, "public-media")
+    : settings.kopSurat.logo_desa_url || "";
+
+  const hasLogoKab = Boolean(logoKabUrl);
+  const hasLogoDesa = Boolean(logoDesaUrl);
+
   return (
     <div className="letter-header">
       {/* Double top rule */}
@@ -34,81 +54,83 @@ export function LetterHeader({ header, primaryColor = BRAND_PRIMARY }: Props) {
         }}
       />
 
-      {/* Row: Logo Kab | Teks | Logo Desa */}
+      {/* Row — layout depends on logo_position setting */}
       <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          padding: "6px 0",
-        }}
+        className="flex items-center gap-3 py-1.5"
+        style={{ paddingLeft: logoPos === "center" ? 80 : 0, paddingRight: logoPos === "center" ? 80 : 0 }}
       >
-        {/* Logo Kabupaten */}
-        <div style={{ width: 72, flexShrink: 0, textAlign: "center" }}>
-          {header.logoKabupatenUrl ? (
-            <img
-              src={header.logoKabupatenUrl}
-              alt="Logo Kabupaten"
-              style={{ width: 68, height: 68, objectFit: "contain" }}
-            />
-          ) : (
-            <div
-              style={{
-                width: 68,
-                height: 68,
-                border: `1px dashed ${BRAND_BORDER}`,
-                borderRadius: 4,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 9,
-                color: BRAND_MUTED,
-              }}
-            >
-              Logo Kab
-            </div>
-          )}
+        {/* Logo Kabupaten — shown when position includes left */}
+        {logoPos !== "right" && (logoPos === "separate" || logoPos === "left") && (
+          <div className="shrink-0 text-center" style={{ width: logoPos === "separate" ? 72 : 60 }}>
+            {hasLogoKab ? (
+              <img
+                src={logoKabUrl}
+                alt="Logo Kabupaten"
+                className="object-contain mx-auto"
+                style={{ width: logoPos === "separate" ? 68 : 56, height: logoPos === "separate" ? 68 : 56 }}
+              />
+            ) : (
+              <div
+                className="flex items-center justify-center border border-dashed rounded-1 mx-auto"
+                style={{
+                  width: logoPos === "separate" ? 68 : 56,
+                  height: logoPos === "separate" ? 68 : 56,
+                  borderColor: BRAND_BORDER,
+                  fontSize: 9,
+                  color: BRAND_MUTED,
+                }}
+              >
+                Logo Kab
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Hierarki Teks — always shown, width varies */}
+        <div
+          className="text-center"
+          style={{
+            flex: logoPos === "center" ? "0 0 auto" : 1,
+            textAlign: logoPos === "right" ? "right" : "center",
+            fontFamily: bodyFont,
+            paddingLeft: logoPos === "center" ? 80 : 0,
+            paddingRight: logoPos === "center" ? 80 : 0,
+          }}
+        >
+          <div className="text-[13px] font-bold tracking-wide">{header.namaKabupaten}</div>
+          <div className="text-sm font-bold">{header.namaKecamatan}</div>
+          <div className="text-sm font-bold tracking-widest">{header.namaDesa}</div>
+          <div className="text-[9px] mt-1" style={{ color: BRAND_TEXT }}>{header.alamat}</div>
+          <div className="text-[9px]" style={{ color: BRAND_MUTED }}>{header.kontak}</div>
         </div>
 
-        {/* Hierarki Teks */}
-        <div style={{ flex: 1, textAlign: "center", fontFamily: "Times New Roman, serif" }}>
-          <div style={{ fontSize: 13, fontWeight: "bold", letterSpacing: 0.5 }}>
-            {header.namaKabupaten}
-          </div>
-          <div style={{ fontSize: 12, fontWeight: "bold" }}>{header.namaKecamatan}</div>
-          <div style={{ fontSize: 14, fontWeight: "bold", letterSpacing: 1 }}>
-            {header.namaDesa}
-          </div>
-          <div style={{ fontSize: 9, marginTop: 3, color: BRAND_TEXT }}>{header.alamat}</div>
-          <div style={{ fontSize: 9, color: BRAND_MUTED }}>{header.kontak}</div>
-        </div>
-
-        {/* Logo Desa */}
-        <div style={{ width: 72, flexShrink: 0, textAlign: "center" }}>
-          {header.logoDesaUrl ? (
-            <img
-              src={header.logoDesaUrl}
-              alt="Logo Desa"
-              style={{ width: 68, height: 68, objectFit: "contain" }}
-            />
-          ) : (
-            <div
-              style={{
-                width: 68,
-                height: 68,
-                border: `1px dashed ${BRAND_BORDER}`,
-                borderRadius: 4,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 9,
-                color: BRAND_MUTED,
-              }}
-            >
-              Logo Desa
+        {/* Logo Desa — shown when position includes right */}
+        {logoPos !== "left" &&
+          (logoPos === "separate" || logoPos === "center" || logoPos === "right") && (
+            <div className="shrink-0 text-center" style={{ width: logoPos === "separate" ? 72 : 60 }}>
+              {hasLogoDesa ? (
+                <img
+                  src={logoDesaUrl}
+                  alt="Logo Desa"
+                  className="object-contain mx-auto"
+                  style={{ width: logoPos === "separate" ? 68 : 56, height: logoPos === "separate" ? 68 : 56 }}
+                />
+              ) : (
+                <div
+                  className="flex items-center justify-center border border-dashed rounded-1 mx-auto"
+                  style={{
+                    width: logoPos === "separate" ? 68 : 56,
+                    height: logoPos === "separate" ? 68 : 56,
+                    borderColor: BRAND_BORDER,
+                    fontSize: 9,
+                    color: BRAND_MUTED,
+                  }}
+                >
+                  Logo Desa
+                </div>
+              )}
             </div>
           )}
-        </div>
       </div>
 
       {/* Bottom double rule */}

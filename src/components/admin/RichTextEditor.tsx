@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import { Label } from "@/components/ui/label";
+import { sanitizeHtml } from "@/lib/utils";
 
 interface RichTextEditorProps {
   value: string;
@@ -88,7 +89,7 @@ export default function RichTextEditor({
     return (
       <div className="rounded-xl border border-border bg-muted/30 p-4 min-h-[200px] prose prose-sm max-w-none text-sm">
         {value ? (
-          <div dangerouslySetInnerHTML={{ __html: value }} />
+          <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(value) }} />
         ) : (
           <span className="text-muted-foreground">Konten kosong</span>
         )}

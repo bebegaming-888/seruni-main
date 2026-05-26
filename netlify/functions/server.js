@@ -1,5 +1,5 @@
 // Netlify Function wrapper for TanStack Start SSR server
-import { handler as serverHandler } from '../../dist/server/index.js';
+import { handler as serverHandler } from "../../dist/server/index.js";
 
 export const handler = async (event, context) => {
   // Convert Netlify event to standard Request

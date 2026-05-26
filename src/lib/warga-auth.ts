@@ -3,8 +3,46 @@
 // Password: tidak ada — verifikasi via OTP WA (zero-knowledge)
 
 import { isSupabaseConfigured } from "./supabase";
+import { logAudit } from "./settings-store";
 
 const SESSION_KEY = "warga_session_v1";
+
+// OTP rate limiting — max 3 requests per NIK per 15 minutes
+const OTP_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const OTP_RATE_LIMIT_MAX = 3;
+
+function getOtpAttemptKey(nik: string): string {
+  return `otp_attempts_${nik}`;
+}
+
+function checkOtpRateLimit(nik: string): boolean {
+  const key = getOtpAttemptKey(nik);
+  const raw = sessionStorage.getItem(key);
+  const now = Date.now();
+  let attempts: number[] = [];
+  if (raw) {
+    try {
+      const data = JSON.parse(raw) as { attempts: number[]; ts: number };
+      // Expire stale data
+      if (now - data.ts < OTP_RATE_LIMIT_WINDOW_MS) {
+        attempts = data.attempts;
+      }
+    } catch {
+      // Invalid data — clear it
+      sessionStorage.removeItem(key);
+    }
+  }
+  if (attempts.length >= OTP_RATE_LIMIT_MAX) {
+    return false;
+  }
+  attempts.push(now);
+  sessionStorage.setItem(key, JSON.stringify({ attempts, ts: now }));
+  return true;
+}
+
+function clearOtpAttempts(nik: string): void {
+  sessionStorage.removeItem(getOtpAttemptKey(nik));
+}
 
 export type WargaSession = {
   token: string;
@@ -17,29 +55,13 @@ export type WargaSession = {
   expires_at: number; // timestamp ms
 };
 
-/** Cek apakah warga sudah login (token valid dan belum expire). */
-export function isWargaLoggedIn(): boolean {
-  if (typeof window === "undefined") return false;
+// Shared session parser — extracts and validates session from storage.
+// Returns null if missing, invalid, or expired. Eliminates duplicate
+// parse+expiry-check logic across isWargaLoggedIn / getWargaSession.
+function parseSession(): WargaSession | null {
+  const raw = sessionStorage.getItem(SESSION_KEY);
+  if (!raw) return null;
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return false;
-    const session = JSON.parse(raw) as WargaSession;
-    if (Date.now() > session.expires_at) {
-      sessionStorage.removeItem(SESSION_KEY);
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Ambil session warga yang sedang login. */
-export function getWargaSession(): WargaSession | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
     const session = JSON.parse(raw) as WargaSession;
     if (Date.now() > session.expires_at) {
       sessionStorage.removeItem(SESSION_KEY);
@@ -49,6 +71,16 @@ export function getWargaSession(): WargaSession | null {
   } catch {
     return null;
   }
+}
+
+/** Cek apakah warga sudah login (token valid dan belum expire). */
+export function isWargaLoggedIn(): boolean {
+  return parseSession() !== null;
+}
+
+/** Ambil session warga yang sedang login. */
+export function getWargaSession(): WargaSession | null {
+  return parseSession();
 }
 
 /** Simpan session warga (setelah OTP berhasil diverifikasi). */
@@ -62,12 +94,29 @@ export function saveWargaSession(
     expires_at: Date.now() + session.expires_in * 1000,
   };
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(full));
+
+  // Audit trail: log warga login (UU PDP compliance)
+  logAudit(
+    session.warga.nama,
+    "auth.warga_login",
+    `Warga login: ${session.warga.nama} (NIK: ${session.warga.nik})`,
+  );
 }
 
 /** Logout warga — hapus session. */
 export function logoutWarga() {
   if (typeof window === "undefined") return;
+  const session = getWargaSession();
   sessionStorage.removeItem(SESSION_KEY);
+
+  // Audit trail: log warga logout (UU PDP compliance)
+  if (session) {
+    logAudit(
+      session.warga.nama,
+      "auth.warga_logout",
+      `Warga logout: ${session.warga.nama} (NIK: ${session.warga.nik})`,
+    );
+  }
 }
 
 /**
@@ -131,6 +180,14 @@ export async function refreshWargaSession(): Promise<WargaSession | null> {
 export async function requestOtp(
   nik: string,
 ): Promise<{ ok: boolean; message: string; dev_otp?: string }> {
+  // Rate limit — max 3 OTP requests per NIK per 15 minutes
+  if (!checkOtpRateLimit(nik)) {
+    return {
+      ok: false,
+      message: "Terlalu banyak request OTP. Coba lagi dalam 15 menit.",
+    };
+  }
+
   if (!isSupabaseConfigured) {
     // Dev mode tanpa Supabase — return mock response
     return {
@@ -182,21 +239,9 @@ export async function verifyOtp(
   message: string;
   session?: Omit<WargaSession, "expires_at"> & { expires_in: number };
 }> {
-  if (!isSupabaseConfigured) {
-    // Dev mode — accept "123456" as valid OTP
-    if (otp === "123456") {
-      return {
-        ok: true,
-        message: "Login berhasil (dev mode)",
-        session: {
-          token: "dev-token-" + Date.now(),
-          warga: { id: "dev-id", nik, nama: "Warga Dev", no_hp: "081234567890" },
-          expires_in: 7 * 24 * 60 * 60,
-        },
-      };
-    }
-    return { ok: false, message: "OTP tidak valid di mode development" };
-  }
+  // NOTE: Dev OTP bypass has been REMOVED for security.
+  // OTP verification now requires server-side verification only.
+  // Set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY for warga login.
 
   try {
     const res = await fetch("/api/auth/verify-otp", {

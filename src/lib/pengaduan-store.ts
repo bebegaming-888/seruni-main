@@ -100,10 +100,6 @@ export async function initPengaduanStore(): Promise<void> {
   }
 }
 
-function makeTicket(): string {
-  return `MD-${Math.floor(1000 + Math.random() * 9000)}`;
-}
-
 /** List semua pengaduan (dari IndexedDB, async) — sorted newest first */
 export async function listPengaduan(): Promise<Pengaduan[]> {
   if (typeof window === "undefined") return [];
@@ -177,7 +173,7 @@ export async function submitPengaduan(
   input: PengaduanInput,
   adminWaNumber?: string,
 ): Promise<{ ok: boolean; ticket: string; error?: string }> {
-  const ticket = makeTicket();
+  const ticket = `MD-${Math.floor(1000 + Math.random() * 9000)}`;
   const now = new Date().toISOString();
 
   // Tentukan prioritas otomatis dari kategori

@@ -23,17 +23,27 @@ import { useBeritaStore } from "@/lib/content-store";
 import { Newspaper, Eye, Clock, Search, X, CalendarDays, User, Bookmark } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearch, useNavigate } from "@tanstack/react-router";
+import { ArticleCardSkeleton } from "@/components/ui/skeleton";
 
 // ── Category Brand Colors ─────────────────────────────────────────────────────
 const CAT_STYLE: Record<string, { text: string; bg: string }> = {
-  Berita: { text: "#E37222", bg: "bg-[#E37222]/10" },
-  Pengumuman: { text: "#EEAA78", bg: "bg-[#EEAA78]/10" },
-  Agenda: { text: "#078898", bg: "bg-[#078898]/10" },
+  Berita: { text: "text-[hsl(27,79%,52%)]", bg: "bg-[hsl(27,79%,52%_/_0.1)]" },
+  Pengumuman: { text: "text-[hsl(27,55%,71%)]", bg: "bg-[hsl(27,55%,71%_/_0.1)]" },
+  Agenda: { text: "text-[hsl(190,75%,36%)]", bg: "bg-[hsl(190,75%,36%_/_0.1)]" },
 };
 
 function getCatStyle(cat: string) {
-  return CAT_STYLE[cat] ?? { text: "#5c5a56", bg: "bg-muted" };
+  return CAT_STYLE[cat] ?? { text: "text-muted-foreground", bg: "bg-muted" };
 }
+
+// ── Color constants (HSL, Tailwind-safe) ───────────────────────────────────────
+const HSL_ORANGE = "text-[hsl(27,79%,52%)]";
+const HSL_WARM = "text-[hsl(27,55%,71%)]";
+const HSL_TEAL = "text-[hsl(190,75%,36%)]";
+const HSL_BG_ORANGE = "bg-[hsl(27,79%,52%_/_0.1)]";
+const HSL_BG_TEAL = "bg-[hsl(190,75%,36%_/_0.1)]";
+const HSL_LIGHT = "bg-[hsl(0,0%,96%)]"; // ≈ #F4F4F4
+const HSL_BORDER = "border-[hsl(0,0%,84%)]"; // ≈ #D5D5D5
 
 // ── Hero Primary Article ─────────────────────────────────────────────────────
 function HeroPrimary({ article }: { article: Article }) {
@@ -42,6 +52,7 @@ function HeroPrimary({ article }: { article: Article }) {
       <Link
         to="/informasi/berita/$slug"
         params={{ slug: article.slug }}
+        search={{} as any}
         className="block aspect-video overflow-hidden rounded-2xl bg-muted"
       >
         {article.cover_image ? (
@@ -49,10 +60,12 @@ function HeroPrimary({ article }: { article: Article }) {
             src={article.cover_image}
             alt={article.title}
             className="w-full h-full object-cover hover:scale-[1.02] transition-transform duration-300"
+            width={1280}
+            height={720}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-[#F4F4F4]">
-            <Newspaper className="h-12 w-12 text-[#D5D5D5]" />
+          <div className="w-full h-full flex items-center justify-center bg-[hsl(0,0%,96%)]">
+            <Newspaper className="h-12 w-12 text-[hsl(0,0%,84%)]" />
           </div>
         )}
       </Link>
@@ -62,7 +75,7 @@ function HeroPrimary({ article }: { article: Article }) {
           return (
             <Link
               to="/informasi/berita"
-              search={{ q: "", category: article.category } as Record<string, string>}
+              search={{ q: "", category: article.category }}
               className={`inline-block text-[11px] font-ui font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${cs.bg}`}
               style={{ color: cs.text }}
             >
@@ -71,7 +84,7 @@ function HeroPrimary({ article }: { article: Article }) {
           );
         })()}
         <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink leading-tight mt-2 mb-3">
-          <Link to="/informasi/berita/$slug" params={{ slug: article.slug }}>
+          <Link to="/informasi/berita/$slug" params={{ slug: article.slug }} search={{} as any}>
             {article.title}
           </Link>
         </h2>
@@ -108,12 +121,15 @@ function HeroSecondary({ article }: { article: Article }) {
         <Link
           to="/informasi/berita/$slug"
           params={{ slug: article.slug }}
+          search={{} as any}
           className="shrink-0 w-20 h-16 overflow-hidden rounded-xl bg-muted"
         >
           <img
             src={article.cover_image}
             alt={article.title}
             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+            width={640}
+            height={360}
           />
         </Link>
       )}
@@ -125,7 +141,7 @@ function HeroSecondary({ article }: { article: Article }) {
           {article.category}
         </span>
         <h3 className="font-display text-sm font-semibold text-ink leading-tight line-clamp-2">
-          <Link to="/informasi/berita/$slug" params={{ slug: article.slug }}>
+          <Link to="/informasi/berita/$slug" params={{ slug: article.slug }} search={{} as any}>
             {article.title}
           </Link>
         </h3>
@@ -141,21 +157,24 @@ function HeroSecondary({ article }: { article: Article }) {
 function ArticleCard({ article }: { article: Article }) {
   const cs = getCatStyle(article.category);
   return (
-    <article className="rounded-2xl border border-border bg-card overflow-hidden hover:shadow-card hover:border-[#E37222]/30 transition group flex flex-col">
+    <article className="rounded-2xl border border-border bg-card overflow-hidden hover:shadow-card hover:border-[hsl(27,79%,52%_/_0.3)] transition group flex flex-col">
       <Link
         to="/informasi/berita/$slug"
         params={{ slug: article.slug }}
-        className="block aspect-video overflow-hidden bg-[#F4F4F4]"
+        search={{} as any}
+        className="block aspect-video overflow-hidden bg-[hsl(0,0%,96%)]"
       >
         {article.cover_image ? (
           <img
             src={article.cover_image}
             alt={article.title}
             className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-300"
+            width={640}
+            height={360}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Newspaper className="h-8 w-8 text-[#D5D5D5]" />
+            <Newspaper className="h-8 w-8 text-[hsl(0,0%,84%)]" />
           </div>
         )}
       </Link>
@@ -167,7 +186,7 @@ function ArticleCard({ article }: { article: Article }) {
           {article.category}
         </span>
         <h3 className="font-display text-base font-bold text-ink leading-snug line-clamp-2 flex-1">
-          <Link to="/informasi/berita/$slug" params={{ slug: article.slug }}>
+          <Link to="/informasi/berita/$slug" params={{ slug: article.slug }} search={{} as any}>
             {article.title}
           </Link>
         </h3>
@@ -199,23 +218,10 @@ function ArticleCard({ article }: { article: Article }) {
   );
 }
 
-// ── Skeleton Card ─────────────────────────────────────────────────────────────
-function CardSkeleton() {
-  return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
-      <div className="aspect-video bg-[#F4F4F4] animate-pulse" />
-      <div className="p-4 space-y-3">
-        <div className="h-3 w-16 rounded-full bg-[#F4F4F4] animate-pulse" />
-        <div className="h-4 w-full rounded bg-[#F4F4F4] animate-pulse" />
-        <div className="h-4 w-3/4 rounded bg-[#F4F4F4] animate-pulse" />
-        <div className="h-3 w-1/2 rounded bg-[#F4F4F4] animate-pulse mt-2" />
-      </div>
-    </div>
-  );
-}
+// Skeleton now imported from @/components/ui/skeleton
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-export function BeritaPage() {
+function BeritaPage() {
   const { village } = useSettings();
   const store = useBeritaStore();
   const items = store.items;
@@ -235,13 +241,13 @@ export function BeritaPage() {
   // Debounced search
   useEffect(() => {
     const t = setTimeout(() => {
-      navigate({ search: { q: inputValue, category: selectedCategory } });
+      navigate({ search: { q: inputValue, category: selectedCategory } as any });
     }, 300);
     return () => clearTimeout(t);
-  }, [inputValue, selectedCategory]);
+  }, [inputValue, selectedCategory, navigate]);
 
   const setCategory = useCallback(
-    (cat: string) => navigate({ search: { q: inputValue, category: cat } }),
+    (cat: string) => navigate({ search: { q: inputValue, category: cat } as any }),
     [navigate, inputValue],
   );
 
@@ -292,7 +298,7 @@ export function BeritaPage() {
         />
 
         {/* Date bar */}
-        <div className="bg-[#F4F4F4] border-b border-[#D5D5D5]">
+        <div className="bg-[hsl(0,0%,96%)] border-b border-[hsl(0,0%,84%)]">
           <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-end">
             <span className="font-ui text-[11px] text-muted-foreground">{todayStr}</span>
           </div>
@@ -332,14 +338,14 @@ export function BeritaPage() {
         )}
 
         {/* Category filter */}
-        <div className="sticky top-[64px] z-10 bg-background border-b border-[#D5D5D5]">
+        <div className="sticky-nav bg-background border-b border-[hsl(0,0%,84%)]">
           <div className="max-w-6xl mx-auto px-4">
             <div className="flex items-center gap-0 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => setCategory("Semua")}
                 className={`inline-flex items-center gap-1.5 px-4 py-3 border-b-2 font-ui text-xs font-semibold whitespace-nowrap transition-colors ${
                   selectedCategory === "Semua"
-                    ? "border-[#E37222] text-[#E37222]"
+                    ? "border-[hsl(27,79%,52%)] text-[hsl(27,79%,52%)]"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -354,7 +360,7 @@ export function BeritaPage() {
                     onClick={() => setCategory(cat)}
                     className={`inline-flex items-center gap-1.5 px-4 py-3 border-b-2 font-ui text-xs font-semibold whitespace-nowrap transition-colors ${
                       selectedCategory === cat
-                        ? "border-[#E37222] text-[#E37222]"
+                        ? "border-[hsl(27,79%,52%)] text-[hsl(27,79%,52%)]"
                         : "border-transparent text-muted-foreground hover:text-foreground"
                     }`}
                     style={selectedCategory === cat ? {} : { color: cs.text }}
@@ -372,7 +378,7 @@ export function BeritaPage() {
         <section className="py-10 px-4">
           <div className="max-w-6xl mx-auto">
             {/* Section header */}
-            <div className="flex items-center justify-between mb-6 pb-3 border-b-2 border-[#D5D5D5]">
+            <div className="flex items-center justify-between mb-6 pb-3 border-b-2 border-[hsl(0,0%,84%)]">
               <h2 className="font-display text-lg font-bold text-ink">
                 {selectedCategory === "Semua"
                   ? searchQuery
@@ -389,13 +395,13 @@ export function BeritaPage() {
             {isLoading ? (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <CardSkeleton key={i} />
+                  <ArticleCardSkeleton key={i} />
                 ))}
               </div>
             ) : gridItems.length === 0 ? (
               <div className="text-center py-16 rounded-2xl border border-dashed border-border">
-                <div className="w-14 h-14 rounded-2xl bg-[#E37222]/10 flex items-center justify-center mx-auto mb-4">
-                  <Newspaper className="h-7 w-7 text-[#E37222]" />
+                <div className="w-14 h-14 rounded-2xl bg-[hsl(27,79%,52%_/_0.1)] flex items-center justify-center mx-auto mb-4">
+                  <Newspaper className="h-7 w-7 text-[hsl(27,79%,52%)]" />
                 </div>
                 <h3 className="font-display text-xl font-bold text-ink mb-2">
                   {searchQuery ? `Tidak ada hasil untuk "${searchQuery}"` : "Belum Ada Artikel"}

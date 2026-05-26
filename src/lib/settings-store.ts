@@ -88,6 +88,7 @@ export type SystemSettings = {
     site_title: string;
     tagline: string;
     favicon_url: string;
+    favicon_storage_path?: string;
   };
   content: {
     about_text: string;
@@ -105,7 +106,6 @@ export type SystemSettings = {
   notifications: {
     wa_enabled: boolean;
     fonnte_token: string;
-    sender_name: string;
     notify_on_submit: boolean;
     notify_on_verify: boolean;
     notify_on_approve: boolean;
@@ -132,7 +132,7 @@ export type SystemSettings = {
     allowed_types: string[];
     max_file_mb: number;
   };
-  nomor: { inisialJabatan: string; inisialDesa: string };
+  nomor: { inisialJabatan: string; inisialDesa: string; lastUrut?: number; lastYear?: number };
   security: {
     session_timeout_min: number;
     require_strong_password: boolean;
@@ -217,6 +217,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     site_title: "Sistem Informasi Desa",
     tagline: "Bersama membangun desa yang mandiri, sejahtera, dan berbudaya.",
     favicon_url: "",
+    favicon_storage_path: "",
   },
   content: {
     about_text: "",
@@ -228,7 +229,6 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   notifications: {
     wa_enabled: false,
     fonnte_token: "",
-    sender_name: "",
     notify_on_submit: true,
     notify_on_verify: true,
     notify_on_approve: true,
@@ -254,7 +254,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     allowed_types: ["jpg", "jpeg", "png", "pdf"],
     max_file_mb: 5,
   },
-  nomor: { inisialJabatan: "", inisialDesa: "" },
+  nomor: { inisialJabatan: "", inisialDesa: "", lastUrut: 0, lastYear: new Date().getFullYear() },
   security: {
     session_timeout_min: 30,
     require_strong_password: true,
@@ -372,10 +372,6 @@ export function getSettings(): SystemSettings {
   return _settingsData;
 }
 
-export function getSettingsSafe(): SystemSettings {
-  return _settingsData;
-}
-
 export function getWilayah(): WilayahConfig {
   return _settingsData.wilayah;
 }
@@ -456,10 +452,13 @@ export async function saveSettings(s: SystemSettings, updatedBy?: string): Promi
   await idbPut("settings", { id: "main", ...clean });
   console.info("[settings] Written to IndexedDB — idbPut done");
 
-  // 2. Update _settingsData SYNCHRONOUSLY
-  // This is critical — HeroSection reads this on next render without any await
-  _settingsData = clean;
-  _syncZustand(clean);
+  // Only sync Zustand if data actually changed — skip identical saves
+  const prevStr = JSON.stringify(_settingsData);
+  const nextStr = JSON.stringify(clean);
+  if (prevStr !== nextStr) {
+    _settingsData = clean;
+    _syncZustand(clean);
+  }
 
   // Invalidate village cache so getVillage() picks up new settings
   try {
@@ -612,18 +611,33 @@ export async function logAudit(user: string, action: string, detail?: string): P
       }
     }
 
-    // Only trim audit log if count exceeds limit (was: read-all-then-count → O(n) on every call)
-    const count = await idbCount("audit_log");
-    if (count > 500) {
-      // Fetch only the sorted slice we need to keep (top 500 newest)
-      const { idbGetAll, idbReplaceAll } = await import("@/lib/idb-store");
-      const all = await idbGetAll<AuditEntry>("audit_log");
-      const sorted = all.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 500);
-      await idbReplaceAll("audit_log", sorted);
-    }
+    // Defer audit trim to background scheduler — never block the caller
+    scheduleAuditTrim();
   } catch {
     /* non-blocking */
   }
+}
+
+// Background audit trim — runs once per session, not on every logAudit call
+let _auditTrimScheduled = false;
+function scheduleAuditTrim() {
+  if (_auditTrimScheduled) return;
+  _auditTrimScheduled = true;
+  setTimeout(async () => {
+    try {
+      const { idbCount, idbGetAll, idbReplaceAll } = await import("@/lib/idb-store");
+      const count = await idbCount("audit_log");
+      if (count > 500) {
+        const all = await idbGetAll<AuditEntry>("audit_log");
+        const sorted = all.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 500);
+        await idbReplaceAll("audit_log", sorted);
+      }
+    } catch {
+      /* silent */
+    } finally {
+      _auditTrimScheduled = false; // allow next session to re-schedule
+    }
+  }, 5000); // 5s debounce — batch multiple logs within same session
 }
 
 export async function listAudit(): Promise<AuditEntry[]> {

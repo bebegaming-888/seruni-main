@@ -31,6 +31,19 @@ import {
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
+// ── Brand palette (HSL — Tailwind-safe) ───────────────────────────────────────
+const HSL = {
+  primary: "hsl(27,79%,52%)", // #E37222
+  secondary: "hsl(190,75%,36%)", // #078898
+  accent: "hsl(183,50%,58%)", // #66B9BF
+  warm: "hsl(27,55%,71%)", // #EEAA78
+  light: "hsl(0,0%,96%)", // #F4F4F4
+  border: "hsl(0,0%,84%)", // #D5D5D5
+  text: "hsl(30,5%,10%)", // #1a1918
+  textDim: "hsl(30,2%,37%)", // #5c5a56
+  textMuted: "hsl(30,2%,55%)", // #9b9890
+};
+
 // ── Brand CSS — only 7 palette colors ─────────────────────────────────────────
 const BRAND = {
   primary: "#E37222",
@@ -44,17 +57,17 @@ const BRAND = {
 
 const STYLES = `
 :root {
-  --sa-primary:   ${BRAND.primary};
-  --sa-secondary: ${BRAND.secondary};
-  --sa-accent:    ${BRAND.accent};
-  --sa-warm:      ${BRAND.warm};
-  --sa-white:      ${BRAND.white};
-  --sa-light:      ${BRAND.light};
-  --sa-border:     ${BRAND.border};
+  --sa-primary:   ${HSL.primary};
+  --sa-secondary: ${HSL.secondary};
+  --sa-accent:    ${HSL.accent};
+  --sa-warm:      ${HSL.warm};
+  --sa-white:      ${HSL.light};
+  --sa-light:      ${HSL.light};
+  --sa-border:     ${HSL.border};
   /* Text — semi-stable within brand family */
-  --sa-text:       #1a1918;
-  --sa-text-dim:   #5c5a56;
-  --sa-text-muted: #9b9890;
+  --sa-text:       ${HSL.text};
+  --sa-text-dim:   ${HSL.textDim};
+  --sa-text-muted: ${HSL.textMuted};
   /* Fonts — brand only */
   --sa-font-display: 'Fraunces', Georgia, serif;
   --sa-font-body: 'Raleway', system-ui, sans-serif;
@@ -64,19 +77,19 @@ const STYLES = `
 @media (prefers-color-scheme: dark) {
   :root {
     /* Dark mode — only brand palette derived surfaces */
-    --sa-text:       #f0efe9;
-    --sa-text-dim:   #a8a49c;
-    --sa-text-muted: #6b6860;
+    --sa-text:       hsl(30,5%,93%);
+    --sa-text-dim:   hsl(30,2%,72%);
+    --sa-text-muted: hsl(30,2%,42%);
   }
 }
 `;
 
 // ── Category Colors — only brand tokens ─────────────────────────────────────────
 const CAT_COLOR: Record<string, { color: string; label: string }> = {
-  Berita: { color: BRAND.primary, label: "Berita" },
-  Pengumuman: { color: BRAND.warm, label: "Pengumuman" },
-  Agenda: { color: BRAND.secondary, label: "Agenda" },
-  default: { color: BRAND.border, label: "" },
+  Berita: { color: HSL.primary, label: "Berita" },
+  Pengumuman: { color: HSL.warm, label: "Pengumuman" },
+  Agenda: { color: HSL.secondary, label: "Agenda" },
+  default: { color: HSL.border, label: "" },
 };
 
 function getCatColor(cat: string) {
@@ -152,8 +165,8 @@ function ShareButton({ title, slug }: { title: string; slug: string }) {
       onClick={handleShare}
       className={`inline-flex items-center gap-1.5 font-ui text-xs font-semibold px-4 py-2 rounded-full border transition-colors ${
         copied
-          ? "bg-[#E37222] text-white border-[#E37222]"
-          : "bg-white text-[#5c5a56] border-[#D5D5D5] hover:border-[#078898] hover:text-[#078898]"
+          ? "bg-[hsl(27,79%,52%)] text-white border-[hsl(27,79%,52%)]"
+          : "bg-white text-[hsl(30,2%,37%)] border-[hsl(0,0%,84%)] hover:border-[hsl(190,75%,36%)] hover:text-[hsl(190,75%,36%)]"
       }`}
     >
       <Share2 className="h-3.5 w-3.5" />
@@ -196,8 +209,8 @@ function BookmarkButton({ articleId, title }: { articleId: string; title: string
       onClick={toggle}
       className={`inline-flex items-center gap-1.5 font-ui text-xs font-semibold px-4 py-2 rounded-full border transition-colors ${
         saved
-          ? "bg-[#E37222] text-white border-[#E37222]"
-          : "bg-white text-[#5c5a56] border-[#D5D5D5] hover:border-[#078898] hover:text-[#078898]"
+          ? "bg-[hsl(27,79%,52%)] text-white border-[hsl(27,79%,52%)]"
+          : "bg-white text-[hsl(30,2%,37%)] border-[hsl(0,0%,84%)] hover:border-[hsl(190,75%,36%)] hover:text-[hsl(190,75%,36%)]"
       }`}
     >
       <Bookmark className={`h-3.5 w-3.5 ${saved ? "fill-current" : ""}`} />
@@ -213,14 +226,17 @@ function ArticleNotFound() {
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-20 text-center">
-        <p className="font-display text-7xl font-bold text-[#D5D5D5] leading-none mb-4">404</p>
+        <p className="font-display text-7xl font-bold text-[hsl(0,0%,84%)] leading-none mb-4">
+          404
+        </p>
         <h1 className="font-display text-2xl font-bold text-ink mb-3">Artikel Tidak Ditemukan</h1>
         <p className="font-body text-muted-foreground max-w-sm mb-8 leading-relaxed">
           Artikel yang Anda cari tidak tersedia atau telah dipindahkan.
         </p>
         <Link
           to="/informasi/berita"
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border-2 border-[#E37222] text-[#E37222] font-ui text-sm font-semibold hover:bg-[#E37222] hover:text-white transition-colors"
+          search={{ q: "", category: "Semua" }}
+          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border-2 border-[hsl(27,79%,52%)] text-[hsl(27,79%,52%)] font-ui text-sm font-semibold hover:bg-[hsl(27,79%,52%)] hover:text-white transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           Kembali ke Berita
@@ -242,7 +258,7 @@ function getInitials(name: string) {
 }
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
-export function ArticleDetailPage() {
+function ArticleDetailPage() {
   const { slug } = Route.useParams();
   const items = useBeritaStore((state) => state.items);
   const article = items.find((a) => a.slug === slug);
@@ -279,7 +295,11 @@ export function ArticleDetailPage() {
             Beranda
           </Link>
           <ChevronRight className="h-3 w-3" />
-          <Link to="/informasi/berita" className="hover:text-foreground transition-colors">
+          <Link
+            to="/informasi/berita"
+            search={{ q: "" as any, category: "Semua" as any }}
+            className="hover:text-foreground transition-colors"
+          >
             Berita
           </Link>
           <ChevronRight className="h-3 w-3" />
@@ -309,7 +329,7 @@ export function ArticleDetailPage() {
 
         {/* Meta bar */}
         <div
-          className="flex flex-wrap items-center gap-4 py-4 border-y border-[#D5D5D5] mb-8"
+          className="flex flex-wrap items-center gap-4 py-4 border-y border-[hsl(0,0%,84%)] mb-8"
           style={{ fontFamily: "var(--sa-font-body)" }}
         >
           {/* Author */}
@@ -351,10 +371,10 @@ export function ArticleDetailPage() {
         </div>
 
         {/* Action bar */}
-        <div className="flex flex-wrap items-center gap-2 pb-6 border-b border-[#D5D5D5] mb-10">
+        <div className="flex flex-wrap items-center gap-2 pb-6 border-b border-[hsl(0,0%,84%)] mb-10">
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 font-ui text-xs font-semibold px-4 py-2 rounded-full border border-[#D5D5D5] text-[#5c5a56] hover:border-[#078898] hover:text-[#078898] transition-colors"
+            className="inline-flex items-center gap-1.5 font-ui text-xs font-semibold px-4 py-2 rounded-full border border-[hsl(0,0%,84%)] text-[hsl(30,2%,37%)] hover:border-[hsl(190,75%,36%)] hover:text-[hsl(190,75%,36%)] transition-colors"
           >
             <Printer className="h-3.5 w-3.5" />
             Cetak
@@ -372,28 +392,28 @@ export function ArticleDetailPage() {
         >
           <style>{`
             .prose-berita h1, .prose-berita h2, .prose-berita h3,
-            .prose-berita h4 { font-family: 'Fraunces', Georgia, serif; font-weight: 700; color: #1a1918; line-height: 1.2; margin: 1.75em 0 0.5em; letter-spacing: -0.01em; }
+            .prose-berita h4 { font-family: 'Fraunces', Georgia, serif; font-weight: 700; color: hsl(30,5%,10%); line-height: 1.2; margin: 1.75em 0 0.5em; letter-spacing: -0.01em; }
             .prose-berita h1 { font-size: 1.875rem; }
             .prose-berita h2 { font-size: 1.5rem; }
             .prose-berita h3 { font-size: 1.25rem; }
             .prose-berita h4 { font-size: 1.125rem; }
             .prose-berita p { margin: 0 0 1.25em; }
-            .prose-berita a { color: #E37222; text-decoration: none; }
+            .prose-berita a { color: hsl(27,79%,52%); text-decoration: none; }
             .prose-berita a:hover { text-decoration: underline; }
             .prose-berita strong { font-weight: 700; }
             .prose-berita em { font-style: italic; }
             .prose-berita blockquote {
-              border-left: 3px solid #E37222; padding: 0.5rem 0 0.5rem 1.25rem;
-              margin: 1.5em 0; color: #5c5a56; font-style: italic;
+              border-left: 3px solid hsl(27,79%,52%); padding: 0.5rem 0 0.5rem 1.25rem;
+              margin: 1.5em 0; color: hsl(30,2%,37%); font-style: italic;
             }
             .prose-berita ul, .prose-berita ol { padding-left: 1.5rem; margin: 0 0 1.25em; }
             .prose-berita li { margin-bottom: 0.375em; }
             .prose-berita img { max-width: 100%; height: auto; border-radius: 8px; margin: 1.5em 0; }
             .prose-berita table { width: 100%; border-collapse: collapse; margin: 1.5em 0; font-size: 0.9375rem; }
-            .prose-berita th, .prose-berita td { border: 1px solid #D5D5D5; padding: 0.5rem 0.75rem; text-align: left; }
-            .prose-berita th { background: #F4F4F4; font-weight: 700; }
-            .prose-berita code { font-family: 'Courier New', monospace; font-size: 0.875em; background: #F4F4F4; border: 1px solid #D5D5D5; padding: 0.1em 0.35em; border-radius: 4px; }
-            .prose-berita pre { background: #F4F4F4; border: 1px solid #D5D5D5; border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1.5em 0; }
+            .prose-berita th, .prose-berita td { border: 1px solid hsl(0,0%,84%); padding: 0.5rem 0.75rem; text-align: left; }
+            .prose-berita th { background: hsl(0,0%,96%); font-weight: 700; }
+            .prose-berita code { font-family: 'Courier New', monospace; font-size: 0.875em; background: hsl(0,0%,96%); border: 1px solid hsl(0,0%,84%); padding: 0.1em 0.35em; border-radius: 4px; }
+            .prose-berita pre { background: hsl(0,0%,96%); border: 1px solid hsl(0,0%,84%); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1.5em 0; }
             .prose-berita pre code { background: none; border: none; padding: 0; }
           `}</style>
           <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }} />
@@ -401,7 +421,7 @@ export function ArticleDetailPage() {
 
         {/* Tags */}
         {article.tags.length > 0 && (
-          <div className="pt-8 border-t border-[#D5D5D5]">
+          <div className="pt-8 border-t border-[hsl(0,0%,84%)]">
             <p className="flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">
               <Tag className="h-3.5 w-3.5" />
               Tags
@@ -410,7 +430,7 @@ export function ArticleDetailPage() {
               {article.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-ui font-semibold border border-[#D5D5D5] text-[#5c5a56] bg-[#F4F4F4] hover:bg-[#E37222] hover:text-white hover:border-[#E37222] transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-ui font-semibold border border-[hsl(0,0%,84%)] text-[hsl(30,2%,37%)] bg-[hsl(0,0%,96%)] hover:bg-[hsl(27,79%,52%)] hover:text-white hover:border-[hsl(27,79%,52%)] transition-colors"
                 >
                   {tag}
                 </span>
@@ -420,28 +440,30 @@ export function ArticleDetailPage() {
         )}
 
         {/* Author card */}
-        <div className="mt-10 p-5 rounded-2xl border border-[#D5D5D5] bg-[#F4F4F4] flex items-start gap-4">
+        <div className="mt-10 p-5 rounded-2xl border border-[hsl(0,0%,84%)] bg-[hsl(0,0%,96%)] flex items-start gap-4">
           <div
             className="w-12 h-12 rounded-full flex items-center justify-center text-white font-display text-lg font-bold shrink-0"
-            style={{ background: "var(--sa-primary)" }}
+            style={{ background: "hsl(27,79%,52%)" }}
           >
             {getInitials(article.author.nama)}
           </div>
           <div>
             <p className="font-body text-sm font-bold text-foreground">{article.author.nama}</p>
             <p className="font-ui text-xs text-muted-foreground mb-2">{article.author.role}</p>
-            <p className="font-body text-sm text-[#5c5a56] leading-relaxed">{article.excerpt}</p>
+            <p className="font-body text-sm text-[hsl(30,2%,37%)] leading-relaxed">
+              {article.excerpt}
+            </p>
           </div>
         </div>
       </section>
 
       {/* Related Articles */}
       {related.length > 0 && (
-        <section className="border-t border-[#D5D5D5] py-10 px-4">
+        <section className="border-t border-[hsl(0,0%,84%)] py-10 px-4">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-center gap-4 mb-6">
               <h2 className="font-display text-lg font-bold text-ink shrink-0">Artikel Terkait</h2>
-              <div className="h-px flex-1 bg-[#D5D5D5]" />
+              <div className="h-px flex-1 bg-[hsl(0,0%,84%)]" />
             </div>
             <div className="grid sm:grid-cols-3 gap-4">
               {related.map((r) => {
@@ -451,7 +473,8 @@ export function ArticleDetailPage() {
                     key={r.id}
                     to="/informasi/berita/$slug"
                     params={{ slug: r.slug }}
-                    className="group rounded-2xl border border-[#D5D5D5] bg-card p-4 hover:shadow-card hover:border-[#E37222]/30 transition flex flex-col gap-2"
+                    search={{} as any}
+                    className="group rounded-2xl border border-[hsl(0,0%,84%)] bg-card p-4 hover:shadow-card hover:border-[hsl(27,79%,52%_/_0.3)] transition flex flex-col gap-2"
                   >
                     <span
                       className="text-[10px] font-ui font-bold uppercase tracking-wider"
@@ -459,10 +482,10 @@ export function ArticleDetailPage() {
                     >
                       {r.category}
                     </span>
-                    <p className="font-display text-sm font-semibold text-ink leading-snug group-hover:text-[#E37222] transition-colors line-clamp-3">
+                    <p className="font-display text-sm font-semibold text-ink leading-snug group-hover:text-[hsl(27,79%,52%)] transition-colors line-clamp-3">
                       {r.title}
                     </p>
-                    <p className="font-ui text-[11px] text-muted-foreground mt-auto pt-2 border-t border-[#D5D5D5] flex items-center gap-1">
+                    <p className="font-ui text-[11px] text-muted-foreground mt-auto pt-2 border-t border-[hsl(0,0%,84%)] flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {r.read_time}m · {formatRelativeDate(r.published_at)}
                     </p>
@@ -475,11 +498,12 @@ export function ArticleDetailPage() {
       )}
 
       {/* Nav footer */}
-      <div className="border-t border-[#D5D5D5] py-6 px-4">
+      <div className="border-t border-[hsl(0,0%,84%)] py-6 px-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4 flex-wrap">
           <Link
             to="/informasi/berita"
-            className="inline-flex items-center gap-2 font-ui text-sm font-semibold px-5 py-2.5 rounded-full border border-[#D5D5D5] text-[#5c5a56] bg-white hover:border-[#078898] hover:text-[#078898] transition-colors"
+            search={{ q: "" as any, category: "Semua" as any }}
+            className="inline-flex items-center gap-2 font-ui text-sm font-semibold px-5 py-2.5 rounded-full border border-[hsl(0,0%,84%)] text-[hsl(30,2%,37%)] bg-white hover:border-[hsl(190,75%,36%)] hover:text-[hsl(190,75%,36%)] transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             Semua Artikel
@@ -499,6 +523,7 @@ export function ArticleDetailPage() {
 }
 
 export const Route = createFileRoute("/informasi/berita/$slug")({
+  validateSearch: () => ({}),
   head: ({ params }) => {
     const article = useBeritaStore.getState().items.find((a) => a.slug === params.slug);
     const { village } = getSettings();

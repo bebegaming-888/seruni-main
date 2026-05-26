@@ -22,9 +22,6 @@ dist-ssr
 .nitro
 *.local
 
-# Wrangler / Cloudflare
-.wrangler/
-
 # Environment variables
 .env
 .env.local
@@ -42,4 +39,26 @@ dist-ssr
 *.sln
 *.sw?
 
+# Deployment
 .vercel
+.netlify
+
+# Python
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Bundle analysis
+*.stats.html
+bundle-stats.json
+analyze/
+dist-bundle/
+
+# Temporary files
+*.tmp
+*.temp
+test.txt
+
+# Local API server (only needed locally, not in git)
+# Server-side secrets are in .dev.vars (already gitignored)

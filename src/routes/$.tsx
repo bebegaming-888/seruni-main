@@ -81,7 +81,7 @@ function NotFoundPage() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground hover:bg-primary-hover px-5 py-2.5 font-ui text-sm font-semibold transition-colors"
+            className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground hover:bg-primary px-5 py-2.5 font-ui text-sm font-semibold transition-colors"
           >
             <Home className="h-4 w-4" /> Kembali ke Beranda
           </Link>

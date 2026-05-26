@@ -1,30 +1,45 @@
 // Frontend stub for Fonnte WhatsApp notifications.
-// Token tidak pernah di-hardcode — dibaca dari VITE_FONNTE_KEY.
+// Token dibaca dari settings DB (settings.notifications.fonnte_token).
 // Untuk production: SELALU melewati Edge Function /api/send-wa (token tidak pernah ke browser).
 
-// Token dibaca dari VITE_FONNTE_KEY (di-set via .env / deployment secrets)
-const getToken = () => {
-  const t = import.meta.env.VITE_FONNTE_KEY;
-  if (!t) {
-    console.warn("[Fonnte] VITE_FONNTE_KEY belum di-set — fallback ke mock");
-    return "__MOCK__";
-  }
-  return t;
-};
+import { getSettings } from "@/lib/settings-store";
+import { getSession } from "@/lib/auth";
+import { getWargaSession } from "@/lib/warga-auth";
 
 export type FonnteResult = { ok: boolean; message: string };
 
 /**
  * Kirim WA via Edge Function /api/send-wa.
- * Token Fonnte TIDAK PERNAH dikirim ke browser — selalu di-handle server-side.
- * Dev mode fallback: edge function akan menggunakan mock jika VITE_FONNTE_KEY tidak di-set.
+ * Token Fonnte dan Admin WA number dibaca dari settings DB, dikirim ke server.
+ * Server akan fallback ke env var jika settings kosong.
+ *
+ * Auth: Admin session (HMAC-signed) OR Warga session (NIK-based)
  */
 export async function sendWaNotification(target: string, message: string): Promise<FonnteResult> {
+  const settings = getSettings();
+  const token = settings.notifications.fonnte_token || "";
+  const adminCC = settings.village.whatsapp || "";
+
   try {
+    // Try admin session first, fallback to warga session
+    const adminSession = getSession();
+    const wargaSession = getWargaSession();
+
+    let authHeader = "";
+    if (adminSession) {
+      authHeader = `Bearer ${JSON.stringify(adminSession)}`;
+    } else if (wargaSession) {
+      authHeader = `Bearer ${JSON.stringify(wargaSession)}`;
+    }
+
     const res = await fetch("/api/send-wa", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ target, message }),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authHeader,
+      },
+      body: JSON.stringify({ target, message, token, adminCC }),
+      signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -32,7 +47,8 @@ export async function sendWaNotification(target: string, message: string): Promi
     }
     const data = await res.json().catch(() => ({}));
     return { ok: data.ok ?? true, message: data.message ?? `WA terkirim ke ${target}` };
-  } catch {
-    return { ok: false, message: "Gagal mengirim notifikasi" };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Gagal mengirim notifikasi";
+    return { ok: false, message: msg };
   }
 }

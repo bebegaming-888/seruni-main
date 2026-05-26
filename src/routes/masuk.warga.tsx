@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "@/components/Link";
 import {
   requestOtp,
@@ -10,6 +10,9 @@ import {
   logoutWarga,
   refreshWargaSession,
 } from "@/lib/warga-auth";
+import { initPendudukStore } from "@/lib/penduduk-store";
+import { searchWarga } from "@/lib/esurat-store";
+import type { Penduduk } from "@/data/penduduk";
 import { getSettings, useSettings } from "@/lib/settings-store";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
@@ -19,11 +22,13 @@ import {
   ShieldCheck,
   Loader2,
   CheckCircle2,
+  Check,
   XCircle,
   Eye,
   EyeOff,
   User,
   MessageSquare,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -58,9 +63,15 @@ function MasukWargaPage() {
   const [showOtp, setShowOtp] = useState(false);
   // Session expiry countdown
   const [sessionRemaining, setSessionRemaining] = useState<number>(0);
+  const [wargaResults, setWargaResults] = useState<Penduduk[]>([]);
+  const [selectedWarga, setSelectedWarga] = useState<Penduduk | null>(null);
+  const [searchingWarga, setSearchingWarga] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Refresh session on mount and periodically
   useEffect(() => {
+    initPendudukStore().catch(console.warn);
     refreshWargaSession().then((updated) => {
       if (updated) setSessionRemaining(updated.expires_at - Date.now());
     });
@@ -100,7 +111,7 @@ function MasukWargaPage() {
           description: "Abaikan jika Anda belum selesai menggunakan layanan.",
         });
       }
-      navigate({ to: "/pelayanan/e-surat" });
+      navigate({ to: "/masuk/pengajuan-saya" });
     }
   }, [navigate]);
 
@@ -208,27 +219,134 @@ function MasukWargaPage() {
               <label className="font-ui text-xs font-semibold text-foreground block">
                 Nomor Induk Kependudukan (NIK)
               </label>
+              {/* Searchable NIK input dengan dropdown hasil */}
               <div className="relative">
                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="tel"
                   inputMode="numeric"
                   value={nik}
-                  onChange={(e) => setNik(e.target.value.slice(0, 16))}
-                  placeholder="Masukkan 16 digit NIK"
+                  onChange={(e) => {
+                    const val = e.target.value.slice(0, 16);
+                    setNik(val);
+                    setSelectedWarga(null);
+
+                    if (debounceRef.current) clearTimeout(debounceRef.current);
+                    if (val.length < 4) {
+                      setWargaResults([]);
+                      setShowDropdown(false);
+                      return;
+                    }
+
+                    debounceRef.current = setTimeout(async () => {
+                      setSearchingWarga(true);
+                      const results = await searchWarga(val);
+                      setSearchingWarga(false);
+                      setWargaResults(results);
+                      setShowDropdown(results.length > 0);
+                    }, 400);
+                  }}
+                  onFocus={() => {
+                    if (wargaResults.length > 0) setShowDropdown(true);
+                  }}
+                  onBlur={() => {
+                    // Delay to allow click on dropdown item
+                    setTimeout(() => setShowDropdown(false), 200);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      const first = wargaResults[0];
+                      if (first && !selectedWarga) {
+                        setSelectedWarga(first);
+                        setNik(first.nik);
+                        setShowDropdown(false);
+                      }
+                    }
+                  }}
+                  placeholder="Ketik NIK atau nama..."
                   autoFocus
-                  className="w-full h-12 rounded-xl border border-border bg-background pl-10 pr-3 font-mono text-base text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                  className="w-full h-12 rounded-xl border border-border bg-background pl-10 pr-10 font-mono text-base text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
                 />
+                {searchingWarga && (
+                  <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />
+                )}
+                {selectedWarga && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setNik("");
+                      setSelectedWarga(null);
+                      setWargaResults([]);
+                    }}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
+
+              {/* Dropdown hasil pencarian */}
+              {showDropdown && wargaResults.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full max-w-sm rounded-xl border border-border bg-card shadow-elev overflow-hidden">
+                  <div className="px-3 py-2 border-b border-border bg-muted/50">
+                    <p className="font-ui text-[10px] text-muted-foreground">
+                      {wargaResults.length} hasil ditemukan
+                    </p>
+                  </div>
+                  {wargaResults.map((w) => (
+                    <button
+                      key={w.nik}
+                      type="button"
+                      onMouseDown={() => {
+                        setNik(w.nik);
+                        setSelectedWarga(w);
+                        setWargaResults([]);
+                        setShowDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-muted/50 border-b border-border last:border-b-0 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-display text-sm font-bold text-foreground truncate">
+                            {w.nama}
+                          </p>
+                          <p className="font-mono text-[11px] text-muted-foreground">
+                            NIK {w.nik.slice(0, 4)}****{w.nik.slice(-4)} · {w.dusun}
+                          </p>
+                        </div>
+                        <Check className="h-4 w-4 text-success shrink-0" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
               <p className="font-ui text-[11px] text-muted-foreground">
-                {nik.replace(/\D/g, "").length}/16 digit
+                {selectedWarga
+                  ? `Dipilih: ${selectedWarga.nama} · ${selectedWarga.dusun}`
+                  : `${nik.replace(/\D/g, "").length}/16 digit`}
               </p>
             </div>
+
+            {/* Nama warga yang dipilih */}
+            {selectedWarga && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-success/10 border border-success/20">
+                <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-ui text-xs font-semibold text-success">Warga ditemukan</p>
+                  <p className="font-display text-sm font-bold">{selectedWarga.nama}</p>
+                  <p className="font-ui text-[11px] text-muted-foreground">
+                    {selectedWarga.dusun} · {selectedWarga.jenis_kelamin}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <button
               onClick={handleRequestOtp}
               disabled={loading || nik.replace(/\D/g, "").length !== 16}
-              className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-ui text-sm font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+              className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-ui text-sm font-semibold hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               {loading ? (
                 <>
@@ -295,7 +413,7 @@ function MasukWargaPage() {
               <button
                 onClick={handleVerifyOtp}
                 disabled={loading || otp.replace(/\D/g, "").length !== 6}
-                className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-ui text-sm font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+                className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-ui text-sm font-semibold hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 {loading ? (
                   <>
@@ -317,14 +435,14 @@ function MasukWargaPage() {
                     setOtp("");
                     setDevOtp(null);
                   }}
-                  className="font-ui text-xs text-muted-foreground hover:text-foreground transition"
+                  className="font-ui text-xs text-muted-foreground hover:text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                 >
                   ← Gunakan NIK lain
                 </button>
                 <button
                   onClick={handleRequestOtp}
                   disabled={loading}
-                  className="font-ui text-xs text-primary font-semibold hover:underline disabled:opacity-50"
+                  className="font-ui text-xs text-primary font-semibold hover:underline disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                 >
                   Kirim Ulang OTP
                 </button>
@@ -401,7 +519,7 @@ function MasukWargaPage() {
               </div>
               <button
                 onClick={handleLogout}
-                className="h-8 px-3 rounded-lg border border-destructive/30 text-destructive font-ui text-xs font-semibold hover:bg-destructive/10 transition"
+                className="h-8 px-3 rounded-lg border border-destructive/30 text-destructive font-ui text-xs font-semibold hover:bg-destructive/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2"
               >
                 Keluar
               </button>

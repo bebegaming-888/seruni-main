@@ -40,7 +40,7 @@ import {
 } from "@/lib/penduduk-store";
 import { DUSUN_LIST, PEKERJAAN_LIST, PENDIDIKAN_LIST } from "@/data/penduduk";
 
-const DYNAMIC_DUSUN_LIST = getVillage("dusun_list");
+const DYNAMIC_DUSUN_LIST: string[] = getVillage("dusun_list") as unknown as string[];
 
 export const Route = createFileRoute("/pelayanan/penduduk")({
   head: () => {
@@ -146,8 +146,11 @@ export function PendudukPage() {
       }
       if (q) {
         const s = q.toLowerCase();
-        return [p.dusun, p.pekerjaan, p.agama, p.pendidikan, p.status_perkawinan].some((v) =>
-          (v ?? "").toLowerCase().includes(s),
+        return (
+          (p.nama ?? "").toLowerCase().includes(s) ||
+          [p.dusun, p.pekerjaan, p.agama, p.pendidikan, p.status_perkawinan].some((v) =>
+            (v ?? "").toLowerCase().includes(s),
+          )
         );
       }
       return true;
@@ -224,28 +227,28 @@ export function PendudukPage() {
               value={stat.total.toLocaleString("id-ID")}
               sub="Jiwa terdaftar"
               icon={Users}
-              color="#0f7a4a"
+              color="hsl(153,70%,31%)"
             />
             <StatCard
               title="Total KK"
               value={stat.total_kk.toLocaleString("id-ID")}
               sub="Kartu Keluarga"
               icon={UserCheck}
-              color="#0891b2"
+              color="hsl(180,77%,36%)"
             />
             <StatCard
               title="Rasio L:P"
               value={`${stat.laki}:${stat.perempuan}`}
               sub="Laki-laki : Perempuan"
               icon={Baby}
-              color="#7c3aed"
+              color="hsl(263,70%,50%)"
             />
             <StatCard
               title="Dependency"
               value={`${stat.dependency_ratio}%`}
               sub="Non-produktif per 100 produktif"
               icon={HeartHandshake}
-              color="#d97706"
+              color="hsl(38,93%,47%)"
             />
           </div>
         </section>
@@ -382,50 +385,60 @@ export function PendudukPage() {
                     className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>
-                {[
-                  {
-                    label: "Dusun",
-                    val: fDusun,
-                    set: setFDusun,
-                    opts: DYNAMIC_DUSUN_LIST.length ? DYNAMIC_DUSUN_LIST : DUSUN_LIST,
-                  },
-                  {
-                    label: "Jenis Kelamin",
-                    val: fJK,
-                    set: setFJK,
-                    opts: ["Laki-Laki", "Perempuan"],
-                  },
-                  {
-                    label: "Kelompok Umur",
-                    val: fUmur,
-                    set: setFUmur,
-                    opts: ["Anak (0-14)", "Produktif (15-64)", "Lansia (65+)"],
-                  },
-                  { label: "Pekerjaan", val: fPekerjaan, set: setFPekerjaan, opts: PEKERJAAN_LIST },
-                  {
-                    label: "Status Kawin",
-                    val: fStatusKawin,
-                    set: setFStatusKawin,
-                    opts: ["Belum Kawin", "Kawin", "Cerai Hidup", "Cerai Mati"],
-                  },
-                  {
-                    label: "Agama",
-                    val: fAgama,
-                    set: setFAgama,
-                    opts: ["Islam", "Kristen", "Katolik", "Hindu", "Budha"],
-                  },
-                  {
-                    label: "Pendidikan",
-                    val: fPendidikan,
-                    set: setFPendidikan,
-                    opts: PENDIDIKAN_LIST,
-                  },
-                ].map(({ label, val, set, opts }) => (
+                {(DYNAMIC_DUSUN_LIST.length ? DYNAMIC_DUSUN_LIST : DUSUN_LIST).map((dusun) => (
+                  <select
+                    key="Dusun"
+                    value={fDusun}
+                    onChange={(e) => {
+                      setFDusun(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">Dusun</option>
+                    {(Array.isArray(dusun) ? dusun : [dusun]).map((o) => (
+                      <option key={o}>{o}</option>
+                    ))}
+                  </select>
+                ))}
+                {(
+                  [
+                    { label: "Jenis Kelamin", opts: ["Laki-Laki", "Perempuan"] },
+                    {
+                      label: "Kelompok Umur",
+                      opts: ["Anak (0-14)", "Produktif (15-64)", "Lansia (65+)"],
+                    },
+                    { label: "Pekerjaan", opts: PEKERJAAN_LIST },
+                    {
+                      label: "Status Kawin",
+                      opts: ["Belum Kawin", "Kawin", "Cerai Hidup", "Cerai Mati"],
+                    },
+                    { label: "Agama", opts: ["Islam", "Kristen", "Katolik", "Hindu", "Budha"] },
+                    { label: "Pendidikan", opts: PENDIDIKAN_LIST },
+                  ] as { label: string; opts: string[] }[]
+                ).map(({ label, opts }) => (
                   <select
                     key={label}
-                    value={val}
+                    value={
+                      label === "Dusun"
+                        ? fDusun
+                        : label === "Jenis Kelamin"
+                          ? fJK
+                          : label === "Kelompok Umur"
+                            ? fUmur
+                            : label === "Pekerjaan"
+                              ? fPekerjaan
+                              : label === "Status Kawin"
+                                ? fStatusKawin
+                                : fAgama
+                    }
                     onChange={(e) => {
-                      set(e.target.value);
+                      if (label === "Jenis Kelamin") setFJK(e.target.value);
+                      else if (label === "Kelompok Umur") setFUmur(e.target.value);
+                      else if (label === "Pekerjaan") setFPekerjaan(e.target.value);
+                      else if (label === "Status Kawin") setFStatusKawin(e.target.value);
+                      else if (label === "Agama") setFAgama(e.target.value);
+                      else if (label === "Pendidikan") setFPendidikan(e.target.value);
                       setPage(1);
                     }}
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -459,7 +472,9 @@ export function PendudukPage() {
                     <p className="font-ui text-xs text-muted-foreground">Total</p>
                   </div>
                   <div className="rounded-xl bg-card border border-border p-3 text-center">
-                    <p className="font-display text-2xl font-bold text-[#078898]">{rekap.laki}</p>
+                    <p className="font-display text-2xl font-bold text-[hsl(190,75%,36%)]">
+                      {rekap.laki}
+                    </p>
                     <p className="font-ui text-xs text-muted-foreground">Laki-laki</p>
                   </div>
                   <div className="rounded-xl bg-card border border-border p-3 text-center">
@@ -607,7 +622,7 @@ export function PendudukPage() {
                             </td>
                             <td className="px-3 py-3">
                               <span
-                                className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${p.jenis_kelamin === "Laki-Laki" ? "bg-[#078898]/10 text-[#078898]" : "bg-[#E37222]/10 text-[#E37222]"}`}
+                                className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${p.jenis_kelamin === "Laki-Laki" ? "bg-[hsl(190,75%,36%_/_0.1)] text-[hsl(190,75%,36%)]" : "bg-[hsl(27,79%,52%_/_0.1)] text-[hsl(27,79%,52%)]"}`}
                               >
                                 {p.jenis_kelamin === "Laki-Laki" ? "L" : "P"}
                               </span>
@@ -615,7 +630,7 @@ export function PendudukPage() {
                             <td className="px-3 py-3 text-xs">{umur > 0 ? `${umur} th` : "-"}</td>
                             <td className="px-3 py-3 text-xs whitespace-nowrap">
                               <span
-                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${umur <= 14 ? "bg-[#078898]/10 text-[#078898]" : umur <= 64 ? "bg-[#66B9BF]/10 text-[#078898]" : "bg-[#EEAA78]/10 text-[#1a1918]"}`}
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${umur <= 14 ? "bg-[hsl(190,75%,36%_/_0.1)] text-[hsl(190,75%,36%)]" : umur <= 64 ? "bg-[hsl(183,50%,58%_/_0.1)] text-[hsl(190,75%,36%)]" : "bg-[hsl(27,55%,71%_/_0.1)] text-[hsl(30,5%,10%)]"}`}
                               >
                                 {umur <= 14 ? "Anak" : umur <= 64 ? "Produktif" : "Lansia"}
                               </span>

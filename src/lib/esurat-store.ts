@@ -17,6 +17,14 @@ export type SuratStatus =
   | "Disetujui"
   | "Ditolak";
 
+/** Riwayat perubahan status surat */
+export type StatusHistoryEntry = {
+  status: SuratStatus;
+  timestamp: string;
+  actor: string;
+  catatan?: string;
+};
+
 /** Lampiran: file yang diupload saat pengajuan surat */
 export type Lampiran = {
   name: string;
@@ -61,12 +69,16 @@ export type SuratRecord = {
   rejection_detail?: string;
   /** Riwayat koreksi warga — array of { timestamp, edited_by, correction_note } */
   edit_history?: EditHistoryEntry[];
+  /** Riwayat perubahan status surat */
+  status_history?: StatusHistoryEntry[];
   /** User yang terakhir mengubah record */
   updated_by?: string;
   created_at: string;
   updated_at?: string;
   /** Sync status dari operasi save terakhir. undefined = belum diketahui. */
   cloudSynced?: boolean;
+  /** Turnstile CAPTCHA token — wajib divalidasi SEBELUM submission (termasuk offline queue) */
+  captcha_token?: string;
 };
 
 /** Entry dalam edit_history tracking */
@@ -92,6 +104,7 @@ export function saveRecord(r: SuratRecord) {
     all.unshift(r);
   }
   setLocalRecords(all);
+  invalidateStatsCache();
 }
 
 export function getRecord(no: string): SuratRecord | null {
@@ -113,6 +126,7 @@ export function setStatus(no: string, status: SuratStatus, catatan?: string) {
     updated_at: new Date().toISOString(),
   };
   setLocalRecords(all);
+  invalidateStatsCache();
 }
 
 /** Pindahkan record ke arsip (setelah disetujui). */
@@ -124,6 +138,7 @@ export function archiveRecord(no: string) {
   setLocalArchive(arch);
   // Hapus dari daftar aktif agar tidak muncul dua kali di UI
   setLocalRecords(getLocalRecords().filter((rec) => rec.no !== no));
+  invalidateStatsCache();
 }
 
 export function listArchive(): SuratRecord[] {
@@ -134,10 +149,31 @@ export function getArchive(no: string): SuratRecord | null {
   return getLocalArchive().find((r) => r.no === no) ?? null;
 }
 
-/** Lookup penduduk — single source of truth dari penduduk-store.
- * penduduk-store sudah menangani: Supabase → IndexedDB → PENDUDUK_MOCK fallback. */
+/** Lookup penduduk — single source of truth from penduduk-store.
+ * penduduk-store handles: Supabase → IndexedDB → PENDUDUK_MOCK fallback.
+ * Always call initPendudukStore() first to ensure data is ready.
+ */
 export async function lookupPenduduk(nik: string): Promise<Penduduk | null> {
+  const { initPendudukStore } = await import("@/lib/penduduk-store");
+  await initPendudukStore();
   return getPendudukByNik(nik);
+}
+
+/** Smart search: cari warga berdasarkan NIK parsial atau nama.
+ * Mengembalikan max 8 hasil. Selalu init penduduk store duluan.
+ */
+export async function searchWarga(query: string): Promise<Penduduk[]> {
+  if (!query.trim() || query.trim().length < 2) return [];
+  const { initPendudukStore, listPenduduk } = await import("@/lib/penduduk-store");
+  await initPendudukStore();
+  const all = listPenduduk();
+  const q = query.toLowerCase().trim();
+  const results = all
+    .filter(
+      (p) => p.nik.includes(q) || p.nama.toLowerCase().includes(q) || (p.no_kk ?? "").includes(q),
+    )
+    .slice(0, 8);
+  return results;
 }
 
 /* ---- Status transition helpers ---- */
@@ -162,26 +198,96 @@ export function isActive(r: SuratRecord): boolean {
   return listRecords().some((rec) => rec.no === r.no);
 }
 
-/** Statistik ringkas per status */
-export function statsByStatus(): Record<SuratStatus, number> {
-  const counts: Record<SuratStatus, number> = {
-    "Menunggu Verifikasi": 0,
-    Diverifikasi: 0,
-    "Menunggu Approval": 0,
-    Disetujui: 0,
-    Ditolak: 0,
-  };
-  listRecords().forEach((r) => {
-    counts[r.status]++;
-  });
-  return counts;
+// ── Memoized stats (invalidated on record mutations) ────────────────────────
+// Tracks: records (active) + archive (finalized)
+// _statsComputing guard prevents concurrent recompute from silently overwriting
+// an in-flight invalidation (race between check and assignment).
+let _statsCache: Record<SuratStatus, number> | null = null;
+let _oldestCache: SuratRecord[] | null = null;
+let _statsDirty = true;
+let _statsComputing = false;
+
+/** Invalidate stats cache — call this whenever records or archive change */
+export function invalidateStatsCache() {
+  _statsDirty = true;
+  _statsCache = null;
+  _oldestCache = null;
 }
 
-/** Record yang paling lama belum diproses */
+/**
+ * Statistik ringkas per status (memoized).
+ * Combines both active records AND archive to match admin dashboard totals.
+ * - Active records: all 5 statuses tracked
+ * - Archive: only "Disetujui" counted (finalized); "Ditolak" ignored for stats
+ */
+export function statsByStatus(): Record<SuratStatus, number> {
+  if (!_statsDirty && _statsCache) return _statsCache;
+  // Guard: if a recompute is already in-flight, return stale cache rather than
+  // racing to overwrite it with an incomplete result.
+  if (_statsComputing)
+    return (
+      _statsCache ?? {
+        "Menunggu Verifikasi": 0,
+        Diverifikasi: 0,
+        "Menunggu Approval": 0,
+        Disetujui: 0,
+        Ditolak: 0,
+      }
+    );
+
+  _statsComputing = true;
+  try {
+    const counts: Record<SuratStatus, number> = {
+      "Menunggu Verifikasi": 0,
+      Diverifikasi: 0,
+      "Menunggu Approval": 0,
+      Disetujui: 0,
+      Ditolak: 0,
+    };
+    // Active records — count all statuses EXCEPT Disetujui (counted from archive)
+    listRecords().forEach((r) => {
+      if (r.status !== "Disetujui") {
+        counts[r.status]++;
+      }
+    });
+    // Archive — count only Disetujui (all Disetujui go to archive after signing)
+    listArchive().forEach((r) => {
+      if (r.status === "Disetujui") counts["Disetujui"]++;
+    });
+    _statsCache = counts;
+    _statsDirty = false;
+    return counts;
+  } finally {
+    _statsComputing = false;
+  }
+}
+
+/**
+ * Record yang paling lama belum diproses (memoized).
+ * Includes both active records AND pending items from archive
+ * (archive items that somehow weren't cleared — belt-and-suspenders).
+ */
 export function oldestPending(): SuratRecord[] {
-  return listRecords()
-    .filter((r) => r.status !== "Disetujui" && r.status !== "Ditolak")
-    .sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+  if (!_statsDirty && _oldestCache) return _oldestCache;
+  if (_statsComputing) return _oldestCache ?? [];
+
+  _statsComputing = true;
+  try {
+    const active = listRecords().filter((r) => r.status !== "Disetujui" && r.status !== "Ditolak");
+    // Belt-and-suspenders: also check archive for any non-final records
+    // (shouldn't happen in normal flow, but prevents stale pending items being hidden)
+    const staleArchive = listArchive().filter(
+      (r) => r.status !== "Disetujui" && r.status !== "Ditolak",
+    );
+
+    const combined = [...active, ...staleArchive].sort((a, b) =>
+      a.created_at < b.created_at ? -1 : 1,
+    );
+    _oldestCache = combined;
+    return combined;
+  } finally {
+    _statsComputing = false;
+  }
 }
 
 /* ---- Smart Estimasi Durasi Pemrosesan ---- */

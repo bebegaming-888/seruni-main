@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { useSettings, saveSettings } from "@/lib/settings-store";
 import type { WilayahConfig } from "@/lib/settings-store";
 import { MapPin, Plus, Trash2, Save } from "lucide-react";
-import { getDusunList } from "@/lib/wilayah-store";
 
 interface WilayahSettingsProps {
   villageName?: string;
@@ -50,11 +49,6 @@ export function WilayahSettings({ villageName, onVillageNameChange }: WilayahSet
   const handleSave = async () => {
     const updated = { ...s, wilayah: { ...wilayah, village: villageName ?? wilayah.village } };
     await saveSettings(updated);
-    // Also sync to village subdivisions via wilayah-store
-    const dusunList = wilayah.dusun_list ?? [];
-    if (dusunList.length > 0) {
-      getDusunList(wilayah.selected_kode);
-    }
     toast.success("Pengaturan wilayah berhasil disimpan", {
       description: "Dusun dan hierarki wilayah telah diperbarui.",
     });
@@ -216,7 +210,7 @@ export function WilayahSettings({ villageName, onVillageNameChange }: WilayahSet
         <Button
           onClick={handleSave}
           disabled={!hasChange}
-          className="bg-primary hover:bg-primary-hover text-primary-foreground"
+          className="bg-primary hover:bg-primary text-primary-foreground"
         >
           <Save className="h-4 w-4 mr-2" />
           Simpan Pengaturan Wilayah

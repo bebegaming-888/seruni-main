@@ -1,0 +1,194 @@
+{
+  "version": "3.0.0",
+  "scan_id": "scan-2026-05-24-iteration1",
+  "scan_date": "2026-05-24T00:00:00Z",
+  "mode": "large-codebase",
+  "target": "d:\\seruni-mumbul",
+  "files_scanned": 48,
+  "threat_model_loaded": false,
+  "confirmed": [
+    {
+      "id": "BUG-1",
+      "severity": "CRITICAL",
+      "category": "security",
+      "stride": "DoS",
+      "cwe": "CWE-476",
+      "file": "server/api/submit-surat.js",
+      "lines": "165-180",
+      "claim": "Storage upload returns undefined 'data' object, causing TypeError when accessing data.path",
+      "reachability": "EXTERNAL",
+      "exploitability": "EASY",
+      "cvss_vector": "N/A",
+      "cvss_score": 0,
+      "poc": {
+        "payload": "POST /api/submit-surat with attachments containing data_url",
+        "request": "POST /api/submit-surat with { record: { attachments: [{ name: 'test.pdf', data_url: 'data:application/pdf;base64,...' }] } }",
+        "expected": "Attachment uploaded to storage, storage_path returned",
+        "actual": "TypeError: Cannot read property 'path' of undefined → 500 error → submission fails"
+      }
+    },
+    {
+      "id": "BUG-4",
+      "severity": "MEDIUM",
+      "category": "logic",
+      "stride": "N/A",
+      "cwe": "N/A",
+      "file": "server/api/submit-surat.js",
+      "lines": "209-219",
+      "claim": "Rate limit increment failure is silently swallowed — allows unlimited submissions after DB error",
+      "reachability": "EXTERNAL",
+      "exploitability": "MEDIUM"
+    },
+    {
+      "id": "BUG-6",
+      "severity": "LOW",
+      "category": "logic",
+      "stride": "Tampering",
+      "cwe": "CWE-190",
+      "file": "server/api/keuangan/entries.js",
+      "lines": "123",
+      "claim": "BigInt conversion loses precision for amounts > Number.MAX_SAFE_INTEGER",
+      "reachability": "INTERNAL",
+      "exploitability": "HARD"
+    },
+    {
+      "id": "BUG-7",
+      "severity": "MEDIUM",
+      "category": "security",
+      "stride": "InfoDisclosure",
+      "cwe": "CWE-862",
+      "file": "server/api/wilayah.js",
+      "lines": "20",
+      "claim": "Missing role check on GET /api/wilayah — verifyAdmin allows all admin roles to read wilayah data",
+      "reachability": "INTERNAL",
+      "exploitability": "EASY"
+    },
+    {
+      "id": "BUG-8",
+      "severity": "MEDIUM",
+      "category": "error-handling",
+      "stride": "Repudiation",
+      "cwe": "CWE-778",
+      "file": "server/api/pengaduan/admin.js",
+      "lines": "227-232",
+      "claim": "Audit log insert failure is silently ignored — no record of admin actions if DB fails",
+      "reachability": "INTERNAL",
+      "exploitability": "MEDIUM"
+    },
+    {
+      "id": "BUG-9",
+      "severity": "CRITICAL",
+      "category": "security",
+      "stride": "ElevationOfPrivilege",
+      "cwe": "CWE-942",
+      "file": "server/index.js",
+      "lines": "48-54",
+      "claim": "Production server starts with wildcard CORS when ALLOWED_ORIGIN is empty string — allows any origin to make authenticated requests",
+      "reachability": "EXTERNAL",
+      "exploitability": "EASY",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N",
+      "cvss_score": 9.1,
+      "poc": {
+        "payload": "Set ALLOWED_ORIGIN='' in production .env",
+        "request": "curl -X POST https://production-domain.com/api/submit-surat -H 'Origin: https://attacker.com' -H 'Authorization: Bearer <stolen-token>' --data '{...}'",
+        "expected": "CORS error — origin not allowed",
+        "actual": "Request succeeds — wildcard CORS allows any origin"
+      }
+    },
+    {
+      "id": "BUG-14",
+      "severity": "LOW",
+      "category": "error-handling",
+      "stride": "N/A",
+      "cwe": "N/A",
+      "file": "src/lib/auth.ts",
+      "lines": "161-166",
+      "claim": "initUsersStore() sync failure silently falls back to empty cache — users cannot login after sync error",
+      "reachability": "INTERNAL",
+      "exploitability": "MEDIUM"
+    }
+  ],
+  "dismissed": [
+    {
+      "id": "BUG-2",
+      "severity": "Medium",
+      "category": "security",
+      "file": "server/api/verify-surat.js",
+      "claim": "NIK enumeration via timing attack",
+      "reason": "Rate limit is IP-based (5 per minute). No practical enumeration path without many IPs."
+    },
+    {
+      "id": "BUG-3",
+      "severity": "Medium",
+      "category": "security",
+      "file": "server/api/download-pdf.js",
+      "claim": "Warga ownership check uses loose string comparison",
+      "reason": "NIK stored as string in DB (character varying). No type coercion issue."
+    },
+    {
+      "id": "BUG-5",
+      "severity": "Medium",
+      "category": "security",
+      "file": "server/api/send-wa.js",
+      "claim": "Phone number normalization logic has edge case",
+      "reason": "Fonnte API validates format server-side. Errors are logged and returned. Intentional resilience design."
+    },
+    {
+      "id": "BUG-10",
+      "severity": "Medium",
+      "category": "security",
+      "file": "server/api/inventaris/index.js",
+      "claim": "Public GET /api/inventaris exposes internal asset data",
+      "reason": "Documented design: 'public for read'. Asset inventory is public per Indonesian village transparency requirements."
+    },
+    {
+      "id": "BUG-11",
+      "severity": "Medium",
+      "category": "security",
+      "file": "src/lib/auth.ts",
+      "claim": "Dev mode plaintext password bypass",
+      "reason": "Vite's import.meta.env.DEV is false in production builds. Security boundary enforced by build system."
+    },
+    {
+      "id": "BUG-12",
+      "severity": "Low",
+      "category": "logic",
+      "file": "src/lib/auth.ts",
+      "claim": "Unsigned sessions allowed in dev mode",
+      "reason": "Intentional for developer testing. Production enforces signed sessions. Server-side verification is the security boundary."
+    },
+    {
+      "id": "BUG-13",
+      "severity": "Medium",
+      "category": "security",
+      "file": "src/lib/warga-auth.ts",
+      "claim": "Dev OTP bypass accepts hardcoded '123456'",
+      "reason": "Requires both VITE_DEV_OTP_BYPASS and hostname check. Vite's DEV flag prevents production exploitation."
+    },
+    {
+      "id": "BUG-15",
+      "severity": "Low",
+      "category": "security",
+      "file": "src/lib/warga-auth.ts",
+      "claim": "OTP rate limit stored in sessionStorage",
+      "reason": "Client-side rate limit is UX only. Server-side RPC enforces authoritative rate limit (3 per NIK per 15 min)."
+    }
+  ],
+  "dependencies": [],
+  "summary": {
+    "total_reported": 15,
+    "confirmed": 7,
+    "dismissed": 8,
+    "by_severity": { "CRITICAL": 2, "HIGH": 0, "MEDIUM": 4, "LOW": 1 },
+    "by_stride": {
+      "DoS": 1,
+      "Tampering": 1,
+      "InfoDisclosure": 1,
+      "ElevationOfPrivilege": 1,
+      "Repudiation": 1,
+      "Spoofing": 0,
+      "N/A": 2
+    },
+    "by_category": { "security": 4, "logic": 1, "error-handling": 2 }
+  }
+}

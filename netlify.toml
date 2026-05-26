@@ -1,10 +1,16 @@
 [build]
-  command = "bun run build"
+  command = "npm run build"
   publish = "dist/client"
   functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "20"
+  NPM_FLAGS = "--prefix=false"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  included_files = ["dist/**"]
 
 [[headers]]
   for = "/*"
@@ -12,6 +18,7 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
 [[headers]]
   for = "/assets/*"
@@ -19,16 +26,12 @@
     Cache-Control = "public, max-age=31536000, immutable"
 
 [[redirects]]
-  from = "/api/auth/admin-login"
-  to = "/.netlify/functions/auth-admin-login"
-  status = 200
-
-# Serve netlify/functions at /api/* path
-[[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  to = "/.netlify/functions/server"
   status = 200
+  force = true
 
+# SPA fallback — must be LAST redirect (catch-all for client-side routes)
 [[redirects]]
   from = "/*"
   to = "/index.html"

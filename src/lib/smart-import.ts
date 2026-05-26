@@ -200,24 +200,31 @@ export function buildHeaderMap(headers: string[]): Record<string, string> {
 
 // ── Value Normalizers ─────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function normalizeNIK(v: any): string {
+/**
+ * FIX #2: Improved NIK float parsing + checksum validation.
+ * Excel/XLSX scientific notation loses the last digit for NIKs starting with
+ * non-zero digits (most NIKs). We use string regex extraction instead of Number()
+ * to avoid precision loss, then validate with Indonesian NIK structure rules.
+ */
+
+export function normalizeNIK(v: unknown): string {
   if (v === null || v === undefined) return "";
   let s = String(v).trim();
 
-  // Handle Excel scientific notation (e.g., 5.2030115019E15)
-  // We use regex to try and reconstruct the digits if it looks like a standard NIK
-  if (/^\d\.\d+E\+\d+$/i.test(s) || /^\d\.\d+E\d+$/i.test(s)) {
-    try {
-      // BigInt(Number(s)) is safer for large integers than just Number(s)
-      // but if precision was ALREADY lost by Excel/XLSX parser, it stays lost.
-      s = BigInt(Math.floor(Number(s))).toString();
-    } catch {
-      s = s.split(".")[0];
-    }
+  // Handle Excel scientific notation (e.g. "5.2030115019E+15" or "1.7602123456E+15")
+  // Number() loses the last digit for non-zero-leading NIKs. We reconstruct
+  // the integer by extracting mantissa and exponent parts from the string.
+  const sciMatch = s.match(/^(\d)\.(\d+)E\+?(\d+)$/i);
+  if (sciMatch) {
+    const [, intDigit, fracDigits, expStr] = sciMatch;
+    const exp = parseInt(expStr, 10);
+    // The actual integer = intDigit followed by exp-1 more digits from fracDigits
+    const totalDigits = 1 + exp;
+    const padded = (intDigit + fracDigits).slice(0, totalDigits).padEnd(totalDigits, "0");
+    s = padded;
   }
 
-  // Strip decimals (.0 from Excel) and non-digits
+  // Strip any remaining decimal and non-digits
   let cleaned = s.split(".")[0].replace(/[^\d]/g, "");
 
   // Pad 15-digit NIK with leading zero (Excel often strips leading zero)
@@ -225,17 +232,59 @@ export function normalizeNIK(v: any): string {
     cleaned = "0" + cleaned;
   }
 
-  // NIK must be at least 16 digits for validation in normalizeRow,
-  // but we return whatever we have here.
   return cleaned;
 }
 
-export function normalizeJK(v: string): Penduduk["jenis_kelamin"] {
+/**
+ * Validate Indonesian NIK structure:
+ * Format: [prov(2)][kab(2)][kec(2)][birth-serial(6)][gender+seq(4)][check(1)]
+ * - Province code must be 11–96 (official Kemendagri range)
+ * - Gender digit (index 6): 1–62 for male (odd), 32–62 for female (even)
+ * Returns false for obviously malformed NIKs; true allows further processing.
+ */
+function isValidNikStructure(nik: string): boolean {
+  if (!/^\d{16}$/.test(nik)) return false;
+
+  const prov = parseInt(nik.substring(0, 2), 10);
+  if (prov < 11 || prov > 96) return false;
+
+  const genderDigit = parseInt(nik.charAt(6), 10);
+  const isMale = genderDigit % 2 === 1;
+  const validGenderDigit = isMale
+    ? genderDigit >= 1 && genderDigit <= 62
+    : genderDigit >= 32 && genderDigit <= 62;
+
+  return validGenderDigit;
+}
+
+/**
+ * FIX #3: normalizeJK now reports unknown values to errors array instead of silent default.
+ */
+export interface ImportError {
+  row: number;
+  field: string;
+  message: string;
+}
+
+export function normalizeJK(
+  v: string,
+  rowNum: number,
+  errors: ImportError[],
+): Penduduk["jenis_kelamin"] {
   const s = String(v ?? "")
     .toLowerCase()
     .trim();
   if (["laki-laki", "laki", "l", "male", "man", "m"].includes(s)) return "Laki-Laki";
   if (["perempuan", "wanita", "p", "female", "woman", "f"].includes(s)) return "Perempuan";
+
+  // Report unknown value instead of silent default
+  if (s !== "") {
+    errors.push({
+      row: rowNum,
+      field: "jenis_kelamin",
+      message: `Nilai tidak dikenali: "${v}" — default ke "Laki-Laki"`,
+    });
+  }
   return "Laki-Laki";
 }
 
@@ -258,24 +307,39 @@ export function normalizeAgama(v: string): string {
   return map[s] ?? s;
 }
 
-export function normalizeStatus(v: string): string {
+/**
+ * FIX #4: normalizeStatus now maps "cerai" to "Cerai Mati" (not the invalid "Cerai")
+ * and reports ambiguous values to errors.
+ */
+export function normalizeStatus(v: string, rowNum: number, errors: ImportError[]): string {
   const s = String(v ?? "")
     .toLowerCase()
     .trim();
   if (["belum kawin", "belum menikah", "single", "unmarried"].includes(s)) return "Belum Kawin";
   if (["kawin", "menikah", "married"].includes(s)) return "Kawin";
-  if (["cerai", "divorce"].includes(s)) return "Cerai";
+  if (["cerai", "divorce"].includes(s)) {
+    errors.push({
+      row: rowNum,
+      field: "status_perkawinan",
+      message: `Status "cerai" — diperlakukan sebagai "Cerai Mati"`,
+    });
+    return "Cerai Mati";
+  }
   if (["cerai hidup", "janda", "widow"].includes(s)) return "Cerai Hidup";
   if (["cerai mati", "duda"].includes(s)) return "Cerai Mati";
   return "Belum Kawin";
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function normalizeDate(v: any): string {
+/**
+ * FIX #5: normalizeDate now validates that the resulting date is a real calendar date.
+ * Rejects invalid dates like "31/02/2025" which JavaScript would silently roll over.
+ * The `errors` param is optional — if not provided, invalid dates return empty string.
+ */
+export function normalizeDate(v: any, rowNum?: number, errors?: ImportError[]): string {
   if (!v) return "";
   const s = String(v).trim();
 
-  // Handle Excel serial number
+  // Handle Excel serial number (days since 1970-01-01)
   const num = Number(s);
   if (!isNaN(num) && num > 25569 && num < 100000) {
     const d = new Date(Math.round((num - 25569) * 86400 * 1000));
@@ -284,17 +348,81 @@ export function normalizeDate(v: any): string {
 
   // DD/MM/YYYY or DD-MM-YYYY
   const dmy = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+  if (dmy) {
+    const year = parseInt(dmy[3], 10);
+    const month = parseInt(dmy[2], 10) - 1; // JS months are 0-indexed
+    const day = parseInt(dmy[1], 10);
+    const d = new Date(year, month, day);
+
+    // Reconstruct from parts and check it equals what we parsed.
+    // This catches impossible dates like 31/02/2025 (JS rolls to 02/03).
+    if (d.getFullYear() !== year || d.getMonth() !== month || d.getDate() !== day) {
+      if (errors)
+        errors.push({
+          row: rowNum ?? 0,
+          field: "tanggal_lahir",
+          message: `Format tanggal tidak valid: "${v}"`,
+        });
+      return "";
+    }
+
+    // Reasonable bounds: 1900–current year
+    const currentYear = new Date().getFullYear();
+    if (year < 1900 || year > currentYear) {
+      if (errors)
+        errors.push({
+          row: rowNum ?? 0,
+          field: "tanggal_lahir",
+          message: `Tahun lahir tidak wajar: ${year}`,
+        });
+      return "";
+    }
+
+    return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
 
   // YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const d = new Date(s);
+    if (isNaN(d.getTime())) {
+      if (errors)
+        errors.push({
+          row: rowNum ?? 0,
+          field: "tanggal_lahir",
+          message: `Format tanggal tidak valid: "${v}"`,
+        });
+      return "";
+    }
+    return s;
+  }
 
   // YYYYMMDD
-  if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  if (/^\d{8}$/.test(s)) {
+    const year = parseInt(s.slice(0, 4), 10);
+    const month = parseInt(s.slice(4, 6), 10) - 1;
+    const day = parseInt(s.slice(6, 8), 10);
+    const d = new Date(year, month, day);
+    if (d.getFullYear() !== year || d.getMonth() !== month || d.getDate() !== day) {
+      if (errors)
+        errors.push({
+          row: rowNum ?? 0,
+          field: "tanggal_lahir",
+          message: `Format tanggal tidak valid: "${v}"`,
+        });
+      return "";
+    }
+    return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
 
   const pd = new Date(s);
   if (!isNaN(pd.getTime())) return pd.toISOString().slice(0, 10);
 
+  if (errors)
+    errors.push({
+      row: rowNum ?? 0,
+      field: "tanggal_lahir",
+      message: `Format tanggal tidak dikenali: "${v}"`,
+    });
   return "";
 }
 
@@ -332,9 +460,13 @@ export async function parseFile(
         if (!row || Object.keys(row).length === 0) return;
 
         try {
-          const penduduk = normalizeRow(row);
+          const { penduduk, errors: rowErrors } = normalizeRow(row);
           if (penduduk) {
             data.push(penduduk);
+            // Surface row-level warnings without blocking the record
+            for (const err of rowErrors) {
+              errors.push({ row: data.length, message: err.message });
+            }
           } else {
             errors.push({
               row: data.length + errors.length + 1,
@@ -403,10 +535,20 @@ function resolveValue(
   return defaultValue;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function normalizeRow(row: Record<string, any>): Penduduk | null {
+/**
+ * FIX #2 NIK validation is done after construction in normalizeRow.
+ * normalizeRow returns a result object so callers can surface row-level warnings.
+ */
+
+export function normalizeRow(row: Record<string, any>): {
+  penduduk: Penduduk | null;
+  errors: ImportError[];
+} {
   const rawNIK = resolveValue(row, "nik");
   const nik = normalizeNIK(rawNIK);
+  const rowErrors: ImportError[] = [];
+  // rowNum=0 here; real row numbers come from callers via thrown errors
+  const rowNum = 0;
 
   if (!nik) {
     throw new Error("NIK tidak ditemukan atau kosong");
@@ -421,17 +563,25 @@ export function normalizeRow(row: Record<string, any>): Penduduk | null {
     throw new Error(`Nama tidak ditemukan untuk NIK ${nik}`);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const p: any = {
+  // FIX #2: Warn on NIK structure issues but still accept the record.
+  if (/^\d{16}$/.test(nik) && !isValidNikStructure(nik)) {
+    rowErrors.push({
+      row: rowNum,
+      field: "nik",
+      message: `NIK ${nik} — struktur tidak cocok pola resmi (provinsi/gender digit)`,
+    });
+  }
+
+  const p: Record<string, unknown> = {
     nik: nik.slice(0, 16),
     nama,
     no_kk: normalizeNIK(resolveValue(row, "no_kk")),
     status_dalam_kk: resolveValue(row, "status_dalam_kk", "Anggota Keluarga"),
     tempat_lahir: resolveValue(row, "tempat_lahir"),
-    tanggal_lahir: normalizeDate(resolveValue(row, "tanggal_lahir")),
-    jenis_kelamin: normalizeJK(resolveValue(row, "jenis_kelamin")),
+    tanggal_lahir: normalizeDate(resolveValue(row, "tanggal_lahir"), rowNum, rowErrors),
+    jenis_kelamin: normalizeJK(resolveValue(row, "jenis_kelamin"), rowNum, rowErrors),
     agama: normalizeAgama(resolveValue(row, "agama")),
-    status_perkawinan: normalizeStatus(resolveValue(row, "status_perkawinan")),
+    status_perkawinan: normalizeStatus(resolveValue(row, "status_perkawinan"), rowNum, rowErrors),
     pendidikan: resolveValue(row, "pendidikan"),
     pekerjaan: resolveValue(row, "pekerjaan"),
     pendapatan_bulan: resolveValue(row, "pendapatan_bulan", "0"),
@@ -469,7 +619,16 @@ export function normalizeRow(row: Record<string, any>): Penduduk | null {
     nama_bapak: resolveValue(row, "nama_bapak"),
   };
 
-  return p as Penduduk;
+  // If normalizeDate returned empty for a field that had a value, that's a critical issue.
+  if (!p.tanggal_lahir && resolveValue(row, "tanggal_lahir")) {
+    rowErrors.push({
+      row: rowNum,
+      field: "tanggal_lahir",
+      message: `Tanggal lahir kosong akibat format tidak valid`,
+    });
+  }
+
+  return { penduduk: p as Penduduk, errors: rowErrors };
 }
 
 // ── Smart Import for penduduk-store ─────────────────────────────────────────
@@ -479,6 +638,37 @@ export interface SmartImportResult {
   updated: number;
   skipped: number;
   errors: { row: number; message: string }[];
+  /** True jika Supabase sync berhasil. False jika gagal atau belum dikonfigurasi. */
+  syncOk: boolean;
+  /** Pesan hasil sync (atau alasan kenapa tidak sync). */
+  syncMessage: string;
+}
+
+/**
+ * Create a default SmartImportResult with no sync info.
+ * Used by callers that handle their own sync (e.g. importPenduduk in penduduk-store).
+ */
+export function emptySmartResult(): SmartImportResult {
+  return { added: 0, updated: 0, skipped: 0, errors: [], syncOk: false, syncMessage: "" };
+}
+
+/**
+ * FIX #1: Merge incoming data with existing, only overwriting non-empty values.
+ * Prevents empty strings from CSV missing columns from corrupting existing data.
+ */
+function mergePenduduk(existing: Penduduk, incoming: Partial<Penduduk>): Penduduk {
+  const merged = { ...existing };
+  for (const key of Object.keys(incoming) as (keyof Penduduk)[]) {
+    const newVal = incoming[key];
+    const strVal = typeof newVal === "string" ? newVal.trim() : "";
+    const existingVal = String(existing[key] ?? "").trim();
+
+    // Only overwrite if incoming is non-empty AND different from existing
+    if (strVal !== "" && strVal !== existingVal) {
+      (merged as any)[key] = newVal;
+    }
+  }
+  return merged;
 }
 
 export function processSmartImport(
@@ -494,14 +684,18 @@ export function processSmartImport(
   for (let i = 0; i < rawRows.length; i++) {
     const row = rawRows[i];
     try {
-      const p = normalizeRow(row);
+      const { penduduk: p, errors: rowErrors } = normalizeRow(row);
       if (!p) {
         skipped++;
         continue;
       }
+      // Surface row-level warnings without blocking the record
+      for (const err of rowErrors) {
+        errors.push({ row: i + 1, message: err.message });
+      }
       const existing = map.get(p.nik);
       if (existing) {
-        map.set(p.nik, { ...existing, ...p });
+        map.set(p.nik, mergePenduduk(existing, p));
         updated++;
       } else {
         map.set(p.nik, p);
@@ -514,6 +708,6 @@ export function processSmartImport(
 
   return {
     map,
-    result: { added, updated, skipped, errors },
+    result: { added, updated, skipped, errors, syncOk: false, syncMessage: "" },
   };
 }

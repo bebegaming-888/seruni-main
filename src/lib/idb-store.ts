@@ -11,7 +11,7 @@
 
 // ── Konfigurasi DB ────────────────────────────────────────────────────────────
 export const IDB_NAME = "seruni_mumbul_db";
-export const IDB_VER = 6;
+export const IDB_VER = 7;
 
 /** Semua object store beserta keyPath-nya */
 export const IDB_STORES = {
@@ -40,7 +40,17 @@ export const IDB_STORES = {
   koperasi: "id", // Koprasi items
   marketplace_config: "id", // marketplace Shopee-style config
   orders: "id", // marketplace order records
+  page_content: "id", // static page content
+  kwt: "id", // KWT (Kelompok Wanita Tani)
+  produk_hukum: "id", // produk hukum desa
+  realisasi: "id", // APBDes realization
+  bumdes: "id", // BUMDes
+  pengaduan_kategori: "id", // complaint categories
+  destinasi: "id", // destinasi wisata
+  attachment_queue: "id", // per-attachment upload retry queue
 } as const;
+
+export type IDBValidKey = number | string | Date | IDBValidKey[];
 
 export type IDBStoreName = keyof typeof IDB_STORES;
 
@@ -87,7 +97,7 @@ export async function idbGet<T>(store: IDBStoreName, key: IDBValidKey): Promise<
   const db = await openIDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, "readonly");
-    const req = tx.objectStore(store).get(key);
+    const req = tx.objectStore(store).get(key as unknown as IDBValidKey);
     req.onsuccess = () => resolve(req.result as T | undefined);
     req.onerror = () => reject(req.error);
   });
@@ -136,7 +146,7 @@ export async function idbDelete(store: IDBStoreName, key: IDBValidKey): Promise<
   const db = await openIDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, "readwrite");
-    tx.objectStore(store).delete(key);
+    tx.objectStore(store).delete(key as unknown as IDBValidKey);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });

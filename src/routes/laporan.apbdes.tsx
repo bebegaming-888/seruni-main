@@ -67,15 +67,15 @@ export const Route = createFileRoute("/laporan/apbdes")({
 // ── Brand palette chart colors ────────────────────────────────────────────────
 // Brand: E37222 | 078898 | 66B9BF | EEAA78 | FFFFFF | F4F4F4 | D5D5D5
 const KATEGORI_COLOR: Record<string, string> = {
-  Penyelenggaraan: "#078898",
-  Pelaksanaan: "#66B9BF",
-  Pembinaan: "#EEAA78",
-  Pemberdayaan: "#E37222",
-  TidakTerduga: "#D5D5D5",
+  Penyelenggaraan: "hsl(190,75%,36%)", // #078898
+  Pelaksanaan: "hsl(183,50%,58%)", // #66B9BF
+  Pembinaan: "hsl(27,55%,71%)", // #EEAA78
+  Pemberdayaan: "hsl(27,79%,52%)", // #E37222
+  TidakTerduga: "hsl(0,0%,84%)", // #D5D5D5
 };
 
-const PENDAPATAN_COLOR = "#078898";
-const SPENDING_COLOR = "#E37222";
+const PENDAPATAN_COLOR = "hsl(190,75%,36%)"; // #078898
+const SPENDING_COLOR = "hsl(27,79%,52%)"; // #E37222
 
 function ProgressBar({ value, max = 100, color }: { value: number; max?: number; color?: string }) {
   const pct_val = Math.min(100, Math.round((value / max) * 100));
@@ -180,7 +180,7 @@ function SummaryCard({
           (trend === "up" ? (
             <TrendingUp className="h-3 w-3 text-primary" />
           ) : (
-            <TrendingDown className="h-3 w-3 text-[#E37222]" />
+            <TrendingDown className="h-3 w-3 text-[hsl(27,79%,52%)]" />
           ))}
         <span className="font-ui text-xs text-muted-foreground">{subtitle}</span>
       </div>
@@ -617,7 +617,7 @@ export function ApbdesPage() {
                 value={formatRupiah(total_pembiayaan)}
                 subtitle="Dana cadangan desa"
                 icon={PieChart}
-                color="#7c3aed"
+                color="hsl(263,70%,50%)"
                 trend="up"
               />
             </div>

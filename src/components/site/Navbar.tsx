@@ -19,12 +19,12 @@ function Brand() {
   const { village: villageName, district, regency } = useVillage();
   return (
     <Link to="/" className="flex items-center gap-2 shrink-0">
-      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-display text-sm font-bold">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-display text-sm font-bold shadow-md">
         {villageName[0]}
       </div>
       <div className="hidden sm:block leading-tight">
-        <div className="font-ui text-[13px] font-bold text-white">{villageName}</div>
-        <div className="font-ui text-[10px] text-white/70">
+        <div className="font-ui text-lg font-bold text-foreground">{villageName}</div>
+        <div className="font-ui text-sm text-muted-foreground">
           {district} · {regency}
         </div>
       </div>
@@ -40,15 +40,15 @@ function DesktopActions() {
       {session ? (
         <Link
           to="/admin"
-          className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary-hover px-3.5 py-1.5 font-ui text-[13px] font-semibold transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary px-3.5 py-1.5 font-ui text-sm font-semibold transition-colors"
         >
-          <LayoutDashboard className="h-3.5 w-3.5" />
+          <LayoutDashboard className="h-4 w-4" />
           Dashboard
         </Link>
       ) : (
         <Link
           to="/login"
-          className="inline-flex items-center gap-1 rounded-full bg-primary text-primary-foreground hover:bg-primary-hover px-3.5 py-1.5 font-ui text-[13px] font-semibold transition-colors"
+          className="inline-flex items-center gap-1 rounded-full bg-primary text-primary-foreground hover:bg-primary px-3.5 py-1.5 font-ui text-sm font-semibold transition-colors"
         >
           Login
         </Link>
@@ -103,20 +103,20 @@ function DesktopNav() {
           {item.children ? (
             <button
               type="button"
-              className="flex items-center gap-1 rounded-full px-2.5 py-1.5 font-ui text-[13px] font-medium text-white hover:text-primary transition-colors"
+              className="flex items-center gap-1 rounded-full px-3 py-2 font-ui text-base font-semibold text-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               aria-expanded={openMenu === item.label}
               aria-haspopup="true"
               onClick={() => setOpenMenu((prev) => (prev === item.label ? null : item.label))}
             >
               {item.label}
               <ChevronDown
-                className={`h-3 w-3 opacity-60 transition-transform ${openMenu === item.label ? "rotate-180" : ""}`}
+                className={`h-4 w-4 opacity-60 transition-transform ${openMenu === item.label ? "rotate-180" : ""}`}
               />
             </button>
           ) : (
             <Link
               to={item.to}
-              className="block rounded-full px-2.5 py-1.5 font-ui text-[13px] font-medium text-white hover:text-primary transition-colors"
+              className="block rounded-full px-3 py-2 font-ui text-base font-semibold text-foreground hover:text-primary transition-colors"
             >
               {item.label}
             </Link>
@@ -128,7 +128,7 @@ function DesktopNav() {
               onMouseEnter={() => handleEnter(item.label)}
               onMouseLeave={handleLeave}
             >
-              <div className="w-[340px] rounded-3xl bg-card p-3 shadow-elev border border-border">
+              <div className="w-[340px] rounded-lg bg-card/50 backdrop-blur-md p-3 shadow-lg border border-border/50">
                 {item.children.map((c) => (
                   <Link
                     key={c.to}
@@ -154,18 +154,20 @@ function DesktopNav() {
   );
 }
 
-// ─── Full-Screen Menu Overlay ──────────────────────────────────────────────────
+// ─── The Kraken-style Full-Screen Menu Overlay ────────────────────────────────
 function FullScreenMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   const session = useSession();
   const { district } = useVillage();
 
-  // Lock body scroll
+  // Lock body scroll when open
   useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.overflow = "";
     };
   }, [open]);
 
@@ -186,108 +188,107 @@ function FullScreenMenu({ open, onClose }: { open: boolean; onClose: () => void 
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-hidden"
+      className="fixed inset-0 z-50 flex flex-col px-6 sm:px-10 lg:px-16 pt-5 pb-4 safe-area-inset-top"
       role="dialog"
       aria-modal="true"
       aria-label="Menu navigasi"
     >
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-[#0d1017]/97 backdrop-blur-xl" />
+      {/* ── Header row ── */}
+      <div className="flex items-center justify-between mb-4 shrink-0">
+        <Brand />
+        <button
+          onClick={onClose}
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hamburger-btn is-open"
+          aria-label="Tutup menu navigasi"
+        >
+          <span className="flex flex-col justify-center gap-[5px] w-5">
+            <span className="hamburger-bar block h-0.5 w-full bg-white rounded-full translate-y-[-5px] rotate-45" />
+            <span className="hamburger-bar block h-0.5 w-full bg-white rounded-full scale-x-0 opacity-0" />
+            <span className="hamburger-bar block h-0.5 w-full bg-white rounded-full translate-y-[5px] -rotate-45" />
+          </span>
+        </button>
+      </div>
 
-      {/* Content — flex column, full height, no scroll */}
-      <div className="relative h-full flex flex-col px-5 sm:px-10 lg:px-16 pt-5 pb-4">
-        {/* ── Header row ── */}
-        <div className="flex items-center justify-between mb-4 shrink-0">
-          <Brand />
-          <button
-            onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
-            aria-label="Tutup menu"
-          >
-            <X className="h-5 w-5 text-white" />
-          </button>
+      {/* ── Standalone links (Beranda) ── */}
+      {standaloneItems.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3 shrink-0">
+          {standaloneItems.map((item, i) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              onClick={onClose}
+              className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-primary px-4 py-1.5 font-ui text-sm font-semibold text-white transition-all nav-link-anim"
+              style={{ transitionDelay: `${0.2 + i * 0.05}s` }}
+            >
+              {item.label}
+              <ArrowUpRight className="h-3.5 w-3.5 opacity-60" />
+            </Link>
+          ))}
         </div>
+      )}
 
-        {/* ── Standalone links (Beranda) ── */}
-        {standaloneItems.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3 shrink-0">
-            {standaloneItems.map((item) => (
+      <div className="w-full h-px bg-white/10 mb-3 shrink-0" />
+
+      {/* ── Category grid — fills remaining height ── */}
+      <div className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 nav-links">
+        {categoryItems.map((category) => (
+          <div key={category.label} className="overflow-hidden">
+            <div className="font-ui text-xs font-bold text-white/40 uppercase tracking-widest px-2 pt-2 pb-1">
+              {category.label}
+            </div>
+            {category.children?.map((child) => (
               <Link
-                key={item.to}
-                to={item.to}
+                key={child.to}
+                to={child.to}
                 onClick={onClose}
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-primary px-4 py-1.5 font-ui text-sm font-semibold text-white transition-all"
+                className="group flex items-center justify-between rounded-lg px-2 py-3.5 hover:bg-white/8 transition-colors nav-item"
               >
-                {item.label}
-                <ArrowUpRight className="h-3.5 w-3.5 opacity-60" />
+                <span className="nav-link-text font-ui text-sm font-medium text-white/80 group-hover:text-white truncate leading-none">
+                  {child.label}
+                </span>
+                <ArrowUpRight className="h-3.5 w-3.5 text-white/20 group-hover:text-primary transition-colors shrink-0 ml-2" />
               </Link>
             ))}
           </div>
-        )}
+        ))}
+      </div>
 
-        <div className="w-full h-px bg-white/10 mb-3 shrink-0" />
-
-        {/* ── Category grid — fills remaining height, single-line items, no desc ── */}
-        <div className="flex-1 min-h-0 grid grid-cols-2 lg:grid-cols-3 gap-x-4 overflow-hidden">
-          {categoryItems.map((category) => (
-            <div key={category.label} className="overflow-hidden">
-              {/* Category header */}
-              <div className="font-ui text-[11px] font-bold text-white/40 uppercase tracking-widest px-2 pt-2 pb-1">
-                {category.label}
-              </div>
-              {/* Items — label only, no description */}
-              {category.children?.map((child) => (
-                <Link
-                  key={child.to}
-                  to={child.to}
-                  onClick={onClose}
-                  className="group flex items-center justify-between rounded-lg px-2 py-[9px] hover:bg-white/8 transition-colors"
-                >
-                  <span className="font-ui text-[15px] font-medium text-white/80 group-hover:text-white transition-colors truncate leading-none">
-                    {child.label}
-                  </span>
-                  <ArrowUpRight className="h-3.5 w-3.5 text-white/20 group-hover:text-primary transition-colors shrink-0 ml-2" />
-                </Link>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        {/* ── Bottom auth bar ── */}
-        <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between gap-4 shrink-0">
-          <div className="font-body text-xs text-white/25 truncate">{district}</div>
-          <div className="flex items-center gap-2 shrink-0">
-            {session ? (
-              <>
-                <Link
-                  to="/admin"
-                  onClick={onClose}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary-hover px-4 py-2 font-ui text-sm font-semibold transition-colors"
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Link>
-                <button
-                  onClick={() => {
-                    import("@/lib/auth").then(({ logout }) => logout());
-                    onClose();
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white px-4 py-2 font-ui text-sm font-semibold transition-colors cursor-pointer"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </button>
-              </>
-            ) : (
+      {/* ── Bottom auth bar ── */}
+      <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between gap-4 shrink-0">
+        <div className="font-body text-xs text-white/25 truncate">{district}</div>
+        <div className="flex items-center gap-2 shrink-0">
+          {session ? (
+            <>
               <Link
-                to="/login"
+                to="/admin"
                 onClick={onClose}
-                className="inline-flex items-center gap-1 rounded-full bg-primary text-primary-foreground hover:bg-primary-hover px-4 py-2 font-ui text-sm font-semibold transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary px-4 py-2 font-ui text-sm font-semibold transition-colors"
               >
-                Login
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
               </Link>
-            )}
-          </div>
+              <button
+                onClick={() => {
+                  import("@/lib/auth").then(({ logout }) => {
+                    logout().catch(console.warn);
+                  });
+                  onClose();
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white px-4 py-2 font-ui text-sm font-semibold transition-colors cursor-pointer"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+            </>
+          ) : (
+            <Link
+              to="/login"
+              onClick={onClose}
+              className="inline-flex items-center gap-1 rounded-full bg-primary text-primary-foreground hover:bg-primary px-4 py-2 font-ui text-sm font-semibold transition-colors"
+            >
+              Login
+            </Link>
+          )}
         </div>
       </div>
     </div>
@@ -318,11 +319,11 @@ export function Navbar() {
     <>
       {/* ── Full navbar pill — HIDDEN when scrolled ── */}
       <header
-        className={`fixed inset-x-0 top-0 z-40 px-3 pt-3 sm:px-6 sm:pt-4 pointer-events-none transition-all duration-300 ${
+        className={`fixed inset-x-0 top-0 z-40 px-4 pt-3 sm:px-6 pointer-events-none transition-all duration-300 ${
           scrolled ? "opacity-0 -translate-y-3 pointer-events-none" : "opacity-100 translate-y-0"
         }`}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 pointer-events-auto backdrop-blur-xl border bg-white/15 border-white/20 shadow-[0_4px_20px_-8px_rgba(0,0,0,0.25)]">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 pointer-events-auto">
           <Brand />
 
           {/* Desktop nav links */}
@@ -333,12 +334,14 @@ export function Navbar() {
             <DesktopActions />
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="lg:hidden flex h-10 w-10 items-center justify-center rounded-full bg-ink/88 border border-black/20 shadow-md active:scale-95 cursor-pointer transition-colors"
-              aria-label="Buka menu"
+              className={`lg:hidden flex h-12 w-12 items-center justify-center rounded-full bg-ink/88 border border-black/20 shadow-md active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 hamburger-btn${menuOpen ? " is-open" : ""}`}
+              aria-label="Buka menu navigasi"
               aria-expanded={menuOpen}
             >
-              <span className="text-white">
-                {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              <span className="flex flex-col justify-center gap-[5px] w-5">
+                <span className="hamburger-bar block h-0.5 w-full bg-white rounded-full" />
+                <span className="hamburger-bar block h-0.5 w-full bg-white rounded-full" />
+                <span className="hamburger-bar block h-0.5 w-full bg-white rounded-full" />
               </span>
             </button>
           </div>
@@ -349,18 +352,35 @@ export function Navbar() {
       {scrolled && (
         <button
           onClick={() => setMenuOpen((v) => !v)}
-          className="fixed top-4 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-ink/95 backdrop-blur-md border border-white/10 shadow-xl active:scale-95 cursor-pointer transition-all hover:scale-105"
-          aria-label={menuOpen ? "Tutup menu" : "Buka menu"}
+          className={`fixed top-4 right-3 sm:right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-ink/95 backdrop-blur-md border border-white/10 shadow-xl active:scale-95 cursor-pointer transition-all hover:scale-105 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 hamburger-btn${menuOpen ? " is-open" : ""}`}
+          aria-label={menuOpen ? "Tutup menu" : "Buka menu navigasi"}
           aria-expanded={menuOpen}
         >
-          <span className="text-white">
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          <span className="flex flex-col justify-center gap-[5px] w-5">
+            <span
+              className="hamburger-bar block h-0.5 bg-white rounded-full transition-transform origin-center translate-y-[-5px]"
+              style={menuOpen ? { transform: "rotate(45deg) translateY(-5px)" } : {}}
+            />
+            <span
+              className={`hamburger-bar block h-0.5 bg-white rounded-full transition-all ${menuOpen ? "scale-x-0 opacity-0" : ""}`}
+            />
+            <span
+              className="hamburger-bar block h-0.5 bg-white rounded-full transition-transform origin-center translate-y-[5px]"
+              style={menuOpen ? { transform: "rotate(-45deg) translateY(5px)" } : {}}
+            />
           </span>
         </button>
       )}
 
-      {/* ── Full-screen menu overlay ── */}
-      <FullScreenMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
+      {/* ── Full-screen menu overlay (clip-path entrance) ── */}
+      {menuOpen && (
+        <div
+          className={`fixed inset-0 z-50 overflow-hidden menu-tile is-open bg-[hsl(var(--foreground))]`}
+          aria-hidden={!menuOpen}
+        >
+          <FullScreenMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
+        </div>
+      )}
     </>
   );
 }

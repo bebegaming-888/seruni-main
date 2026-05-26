@@ -253,7 +253,7 @@ function PengaduanPage() {
                     </button>
                     <button
                       onClick={() => setTab("lacak")}
-                      className="btn-pill bg-primary text-primary-foreground hover:bg-primary-hover"
+                      className="btn-pill bg-primary text-primary-foreground hover:bg-primary"
                     >
                       Lacak Status
                     </button>

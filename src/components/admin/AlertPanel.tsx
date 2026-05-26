@@ -149,6 +149,7 @@ export function AlertPanel() {
                 onClick={() => dismiss(alert.key)}
                 className="h-9 w-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 title="Abaikan"
+                aria-label="Abaikan notifikasi ini"
               >
                 <X className="h-4 w-4" />
               </button>

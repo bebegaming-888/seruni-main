@@ -1,0 +1,31 @@
+/*
+  # Security Headers for Cloudflare Pages
+  # Applied to all routes
+
+  # CSP: Content Security Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://api.fonnte.com https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src 'self' blob:;
+
+  # Prevent MIME type sniffing
+  X-Content-Type-Options: nosniff
+
+  # Prevent clickjacking
+  X-Frame-Options: DENY
+
+  # XSS Protection (legacy, but still useful)
+  X-XSS-Protection: 1; mode=block
+
+  # Referrer Policy
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # Permissions Policy (disable unused features)
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+  # HSTS (Strict Transport Security) - force HTTPS
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+
+/api/*
+  # API routes: allow CORS for configured origins only
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization
+  Access-Control-Max-Age: 86400

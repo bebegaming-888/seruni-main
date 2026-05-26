@@ -23,6 +23,117 @@ declare global {
   }
 }
 
+// IndexedDB native key type
+type IDBValidKey = number | string | Date | ArrayBuffer | DataView | IDBValidKey[];
+
+// Third-party module declarations
+declare module "papaparse" {
+  export interface ParseConfig<T = any> {
+    delimiter?: string;
+    newline?: string;
+    quoteChar?: string;
+    escapeChar?: string;
+    header?: boolean;
+    transformHeader?: (header: string) => string;
+    dynamicTyping?: boolean | { [key: string]: boolean };
+    preview?: number;
+    encoding?: string;
+    worker?: boolean;
+    comments?: boolean | string;
+    step?: (results: ParseResult<T>, parser: Parser) => void;
+    complete?: (results: ParseResult<T>, file?: File) => void;
+    error?: (error: ParseError, file?: File) => void;
+    download?: boolean;
+    downloadRequestHeaders?: { [key: string]: string };
+    skipEmptyLines?: boolean | "greedy";
+    chunk?: (results: ParseResult<T>, parser: Parser) => void;
+    fastMode?: boolean;
+    beforeFirstChunk?: (chunk: string) => string | void;
+    withCredentials?: boolean;
+    transform?: (value: string, field: string | number) => any;
+    delimitersToGuess?: string[];
+  }
+
+  export interface ParseResult<T> {
+    data: T[];
+    errors: ParseError[];
+    meta: ParseMeta;
+  }
+
+  export interface ParseError {
+    type: string;
+    code: string;
+    message: string;
+    row?: number;
+  }
+
+  export interface ParseMeta {
+    delimiter: string;
+    linebreak: string;
+    aborted: boolean;
+    truncated: boolean;
+    cursor: number;
+    fields?: string[];
+  }
+
+  export interface Parser {
+    abort: () => void;
+    pause: () => void;
+    resume: () => void;
+  }
+
+  export function parse<T = any>(input: string | File, config?: ParseConfig<T>): ParseResult<T>;
+  export function unparse(data: any[] | object, config?: object): string;
+}
+
+declare module "qrcode" {
+  export interface QRCodeToDataURLOptions {
+    errorCorrectionLevel?: "L" | "M" | "Q" | "H";
+    type?: "image/png" | "image/jpeg" | "image/webp";
+    quality?: number;
+    margin?: number;
+    scale?: number;
+    width?: number;
+    color?: {
+      dark?: string;
+      light?: string;
+    };
+  }
+
+  export interface QRCodeToStringOptions {
+    type?: "svg" | "terminal" | "utf8";
+    errorCorrectionLevel?: "L" | "M" | "Q" | "H";
+    margin?: number;
+    scale?: number;
+    width?: number;
+    color?: {
+      dark?: string;
+      light?: string;
+    };
+  }
+
+  export function toDataURL(text: string, options?: QRCodeToDataURLOptions): Promise<string>;
+
+  export function toDataURL(
+    text: string,
+    callback: (error: Error | null, url: string) => void,
+  ): void;
+
+  export function toDataURL(
+    text: string,
+    options: QRCodeToDataURLOptions,
+    callback: (error: Error | null, url: string) => void,
+  ): void;
+
+  export function toString(text: string, options?: QRCodeToStringOptions): Promise<string>;
+
+  export function toCanvas(
+    canvas: HTMLCanvasElement,
+    text: string,
+    options?: QRCodeToDataURLOptions,
+  ): Promise<void>;
+}
+
 // Supabase Database type (for use with typed supabase client)
 // Fill in with generated types from Supabase CLI:
 // npx supabase gen types typescript --project-id <your-project-id>

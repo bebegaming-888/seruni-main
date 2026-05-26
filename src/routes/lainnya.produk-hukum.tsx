@@ -4,8 +4,18 @@ import { Footer } from "@/components/site/Footer";
 import { getSettings, useSettings } from "@/lib/settings-store";
 import { PageHero } from "@/components/sections/PageHero";
 import { useProdukHukumStore } from "@/lib/content-store";
-import { Scale, FileText, Download, Search, Filter, BookOpen, AlertCircle } from "lucide-react";
+import {
+  Scale,
+  FileText,
+  Download,
+  Search,
+  BookOpen,
+  AlertCircle,
+  ExternalLink,
+} from "lucide-react";
+import { toast } from "sonner";
 import { useState } from "react";
+import type { ProdukHukumItem } from "@/lib/content-store";
 
 export const Route = createFileRoute("/lainnya/produk-hukum")({
   head: () => {
@@ -31,7 +41,7 @@ export function ProdukHukumPage() {
 
   const types = ["Semua", "Perdes", "Perkades", "Kepdes"];
 
-  const docsData = docsItems.length
+  const docsData: ProdukHukumItem[] = docsItems.length
     ? docsItems
     : [
         {
@@ -40,6 +50,8 @@ export function ProdukHukumPage() {
           title: "Perdes No. 4 Tahun 2024 tentang APBDes TA 2025",
           year: "2024",
           size: "1.2 MB",
+          url: "#",
+          description: "Mengatur anggaran pendapatan dan belanja desa tahun anggaran 2025",
         },
         {
           id: "2",
@@ -47,6 +59,8 @@ export function ProdukHukumPage() {
           title: "Perdes No. 3 Tahun 2024 tentang RKPDes 2025",
           year: "2024",
           size: "2.4 MB",
+          url: "#",
+          description: "Rencana kerja pembangunan desa tahun 2025",
         },
         {
           id: "3",
@@ -54,6 +68,8 @@ export function ProdukHukumPage() {
           title: "Perkades No. 8 Tahun 2024 tentang Penyaluran BLT Dana Desa",
           year: "2024",
           size: "0.8 MB",
+          url: "#",
+          description: "Pedoman penyaluran bantuan langsung tunai dana desa",
         },
         {
           id: "4",
@@ -61,6 +77,8 @@ export function ProdukHukumPage() {
           title: "Perdes No. 1 Tahun 2023 tentang Pelestarian Budaya Tenun",
           year: "2023",
           size: "3.1 MB",
+          url: "#",
+          description: "Pelestarian dan pengembangan warisan budaya tenun desa",
         },
         {
           id: "5",
@@ -68,6 +86,8 @@ export function ProdukHukumPage() {
           title: "Keputusan Kepala Desa No. 12 Tahun 2024 tentang Pengurus BUMDes",
           year: "2024",
           size: "1.1 MB",
+          url: "#",
+          description: "Pembentukan pengurus Badan Usaha Milik Desa",
         },
       ];
 
@@ -76,6 +96,16 @@ export function ProdukHukumPage() {
     const matchesSearch = d.title.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
   });
+
+  const handleDownload = (doc: ProdukHukumItem) => {
+    if (doc.url && doc.url !== "#") {
+      window.open(doc.url, "_blank", "noopener,noreferrer");
+    } else {
+      toast.info(
+        `PDF "${doc.title}" belum tersedia. Hubungi Sekretariat Desa untuk salinan resmi.`,
+      );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -164,6 +194,11 @@ export function ProdukHukumPage() {
                         <h3 className="font-display text-base font-bold text-ink leading-snug group-hover:text-primary transition-colors">
                           {doc.title}
                         </h3>
+                        {doc.description && (
+                          <p className="font-body text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                            {doc.description}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center justify-between sm:justify-end gap-6 sm:pl-10">
@@ -173,8 +208,16 @@ export function ProdukHukumPage() {
                         </div>
                         <div className="font-display text-sm font-bold text-ink">{doc.size}</div>
                       </div>
-                      <button className="h-12 w-12 rounded-2xl bg-ink text-white hover:bg-primary transition-colors flex items-center justify-center shrink-0">
-                        <Download className="h-5 w-5" />
+                      <button
+                        onClick={() => handleDownload(doc)}
+                        className="h-12 w-12 rounded-2xl bg-ink text-white hover:bg-primary transition-colors flex items-center justify-center shrink-0"
+                        title={doc.url && doc.url !== "#" ? "Unduh PDF" : "PDF belum tersedia"}
+                      >
+                        {doc.url && doc.url !== "#" ? (
+                          <Download className="h-5 w-5" />
+                        ) : (
+                          <ExternalLink className="h-5 w-5" />
+                        )}
                       </button>
                     </div>
                   </div>

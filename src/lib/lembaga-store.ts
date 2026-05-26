@@ -16,6 +16,7 @@ import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { logAudit } from "@/lib/settings-store";
 import { isStoreLocked } from "@/lib/settings-lock";
 import { getMediaUrl } from "@/lib/media-upload";
+import { broadcastLembagaChange } from "@/lib/idb-sync";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -234,7 +235,7 @@ export async function loadLembagaDetail(
 
   const [sRes, pRes] = await Promise.all([
     sb.from("struktur_lembaga").select("*").eq("lembaga_id", lembagaId).order("urutan"),
-    sb.from("pengurus_lembaga").select("*").eq("status", "aktif"),
+    sb.from("pengurus_lembaga").select("*"), // load ALL (aktif + non-aktif) untuk edit
   ]);
 
   const struktur = (sRes.data ?? []) as StrukturNode[];
@@ -318,6 +319,7 @@ export async function addLembaga(
         const idx = _cache!.findIndex((l) => l.slug === data.slug);
         if (idx >= 0) _cache![idx] = inserted as LembagaDesa;
         await idbReplaceAll(IDB_KEY, _cache!);
+        broadcastLembagaChange();
         logAudit("add_lembaga", inserted.nama, inserted.jenis);
         return {
           ok: true,
@@ -359,6 +361,7 @@ export async function updateLembaga(
 
   const l = updated.find((x) => x.id === id);
   if (l) logAudit("update_lembaga", l.nama, l.jenis);
+  broadcastLembagaChange();
   return { ok: true, message: "Berhasil diperbarui" };
 }
 
@@ -369,6 +372,7 @@ export async function deleteLembaga(id: number): Promise<{ ok: boolean; message:
   const updated = listLembaga().filter((l) => l.id !== id);
   _cache = updated;
   await idbReplaceAll(IDB_KEY, updated);
+  broadcastLembagaChange();
 
   if (isSupabaseConfigured) {
     const sb = getSupabase();
@@ -416,10 +420,12 @@ export async function addStruktur(
       created_at: new Date().toISOString(),
     };
     await idbPutDynamic(`struktur_${data.lembaga_id}`, tempItem);
+    broadcastLembagaChange();
     return { ok: true, message: "Jabatan ditambahkan (offline)" };
   }
 
   await idbPutDynamic(`struktur_${data.lembaga_id}`, inserted as StrukturNode);
+  broadcastLembagaChange();
   logAudit("add_struktur", data.nama_jabatan, `lembaga #${data.lembaga_id}`);
   return {
     ok: true,
@@ -443,6 +449,7 @@ export async function updateStruktur(
     }
   }
   await idbPutDynamic(`struktur_${lembagaId}`, { id, ...data } as StrukturNode);
+  broadcastLembagaChange();
   logAudit("update_struktur", `jabatan #${id}`, "");
   return { ok: true, message: "Jabatan diperbarui" };
 }
@@ -462,6 +469,7 @@ export async function deleteStruktur(
   const allStruktur = await idbGetAllDynamic<StrukturNode>(`struktur_${lembagaId}`);
   const remaining = allStruktur.filter((s) => s.id !== id);
   await idbReplaceAllDynamic(`struktur_${lembagaId}`, remaining);
+  broadcastLembagaChange();
   logAudit("delete_struktur", `jabatan #${id}`, "");
   return { ok: true, message: "Jabatan dihapus" };
 }
@@ -497,10 +505,12 @@ export async function addPengurus(
       created_at: new Date().toISOString(),
     };
     await idbPutDynamic(`pengurus_${lembagaId}`, tempItem);
+    broadcastLembagaChange();
     return { ok: true, message: "Pengurus ditambahkan (offline)" };
   }
 
   await idbPutDynamic(`pengurus_${lembagaId}`, inserted as TrusteesLembaga);
+  broadcastLembagaChange();
   logAudit("add_pengurus", data.nama, `struktur #${data.struktur_id}`);
   return { ok: true, message: `"${data.nama}" ditambahkan`, id: (inserted as { id: number }).id };
 }
@@ -520,6 +530,7 @@ export async function updatePengurus(
     }
   }
   await idbPutDynamic(`pengurus_${lembagaId}`, { id, ...data } as TrusteesLembaga);
+  broadcastLembagaChange();
   logAudit("update_pengurus", `pengurus #${id}`, "");
   return { ok: true, message: "Pengurus diperbarui" };
 }
@@ -540,6 +551,7 @@ export async function deletePengurus(
     `pengurus_${lembagaId}`,
     all.filter((p) => p.id !== id),
   );
+  broadcastLembagaChange();
   logAudit("delete_pengurus", `pengurus #${id}`, "");
   return { ok: true, message: "Pengurus dihapus" };
 }

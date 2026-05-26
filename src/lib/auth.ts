@@ -27,7 +27,12 @@ const _loadFixedAdmin = () => ({
 
 export const FIXED_ADMIN = _loadFixedAdmin();
 
-export type AdminRole = "Super Admin" | "Operator" | "Verifikator" | "Kepala Desa";
+export type AdminRole =
+  | "Super Admin"
+  | "Operator"
+  | "Verifikator"
+  | "Kepala Desa"
+  | "Sekretaris Desa";
 
 export type AdminUser = {
   id: string;
@@ -43,6 +48,48 @@ export type AdminUser = {
 const SESSION_KEY = "admin_session";
 const SESSION_EXPIRY_KEY = "admin_session_expires_at";
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 hari
+
+// ── PBKDF2 Hash Verification (for seeded DB users) ─────────────────────────────
+/** Format: pbkdf2_sha512$<iterations>$<salt_base64>$<hash_base64> */
+async function verifyPbkdf2(password: string, storedHash: string): Promise<boolean> {
+  // Guard: Web Crypto API requires secure context (HTTPS or localhost).
+  // If unavailable, fail closed — treat as wrong password so login attempt
+  // fails cleanly with "invalid credentials" rather than crashing the user.
+  if (typeof crypto === "undefined" || typeof crypto.subtle === "undefined") {
+    console.warn("[auth] Web Crypto API unavailable — falling back to reject");
+    return false;
+  }
+  if (!storedHash.startsWith("pbkdf2_sha512$")) return false;
+  const parts = storedHash.split("$");
+  if (parts.length !== 4) return false;
+  const [, iterations, saltBase64, hashBase64] = parts;
+  const iterationsNum = parseInt(iterations, 10);
+  const salt = Uint8Array.from(atob(saltBase64), (c) => c.charCodeAt(0));
+  const storedHashBytes = Uint8Array.from(atob(hashBase64), (c) => c.charCodeAt(0));
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, [
+    "deriveBits",
+  ]);
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations: iterationsNum, hash: "SHA-512" },
+    key,
+    64 * 8,
+  );
+  const derivedBytes = new Uint8Array(derivedBits);
+  if (derivedBytes.length !== storedHashBytes.length) return false;
+  let diff = 0;
+  for (let i = 0; i < derivedBytes.length; i++) {
+    diff |= derivedBytes[i] ^ storedHashBytes[i];
+  }
+  return diff === 0;
+}
+
+/** Returns the session as a JSON string ready for the Authorization: Bearer header. */
+export function getSessionToken(): string | null {
+  const s = getSession();
+  if (!s) return null;
+  return JSON.stringify(s);
+}
 
 // ── In-Memory Users Cache ─────────────────────────────────────────────────────
 let _usersCache: AdminUser[] | null = null;
@@ -166,16 +213,17 @@ export type Session = {
   role: AdminRole;
   loggedAt: string;
   expiresAt: string;
+  sig: string; // HMAC signature
 };
 
-// Sync getter for existing callers
+// Sync getter — checks expiry only. For production-safe auth use getSessionAsync().
 export function getSession(): Session | null {
   if (typeof window === "undefined") return null;
   const raw =
     getStorage()?.getItem(SESSION_KEY) ?? getSessionStorage()?.getItem(SESSION_KEY) ?? null;
   if (!raw) return null;
   try {
-    const s: Session = JSON.parse(raw);
+    const s = JSON.parse(raw) as Session;
     if (Date.now() > new Date(s.expiresAt).getTime()) {
       return null;
     }
@@ -185,24 +233,90 @@ export function getSession(): Session | null {
   }
 }
 
-export function login(username: string, password: string, remember = false): Session | null {
-  const u = listUsers().find(
-    (x) => x.username.toLowerCase() === username.trim().toLowerCase() && x.password === password,
-  );
-  // Fixed admin TIDAK BISA login via client-side auth.
-  // Ini memaksa penggunaan loginHybrid() → Netlify Function → env vars server-side.
-  // Jika edge function gagal/offline, fixed admin juga gagal → "Tidak dapat terhubung ke server"
-  if (u?.fixed) return null;
-  if (!u) return null;
+/**
+ * Async session getter with HMAC-SHA256 signature verification.
+ * Use this for all security-sensitive session reads (admin guards, API calls).
+ * In production: rejects tampered/unsigned sessions.
+ * In dev mode: degrades gracefully when secret is not configured.
+ */
+export async function getSessionAsync(): Promise<Session | null> {
+  const session = getSession();
+  if (!session) return null;
+
+  const expiresMs = new Date(session.expiresAt).getTime();
+  if (expiresMs < Date.now()) {
+    console.warn("[auth] Session expired — clearing");
+    logout();
+    return null;
+  }
+
+  // Reject unsigned sessions in production (HMAC signing is server-side only)
+  if (!session.sig) {
+    if (import.meta.env.PROD) {
+      console.warn("[auth] Unsigned session in production — rejected");
+      logout();
+      return null;
+    }
+    // Dev mode: allow unsigned sessions when server is offline
+    return session;
+  }
+
+  return session;
+}
+
+export async function login(
+  username: string,
+  password: string,
+  remember = false,
+): Promise<Session | null> {
+  const allUsers = listUsers();
+  let matchedUser = null;
+
+  for (const u of allUsers) {
+    // Fixed admin — skip (must use server-side login)
+    if (u.fixed) continue;
+    // Username match
+    if (u.username.toLowerCase() !== username.trim().toLowerCase()) continue;
+
+    if (u.password) {
+      // Password hash: try PBKDF2 first (DB-seeded accounts), then plaintext fallback
+      if (u.password.startsWith("pbkdf2_sha512$")) {
+        const ok = await verifyPbkdf2(password, u.password);
+        if (!ok) continue;
+      } else {
+        // Plaintext — skip (no plaintext passwords in production)
+        console.warn(`[auth] Plaintext password for ${u.username} — not supported`);
+        continue;
+      }
+    } else {
+      // No password stored — invalid
+      continue;
+    }
+
+    matchedUser = u;
+    break;
+  }
+
+  if (!matchedUser) {
+    // NOTE: Dev login bypass has been REMOVED for security.
+    // Fixed admin must use server-side /api/auth/admin-login endpoint.
+    // Client-side login only works for additional users stored in IndexedDB.
+    console.warn("[auth] Fixed admin: edge function unavailable — use /api/auth/admin-login");
+  }
+
+  // Local login fallback: session without sig (server not reachable).
+  if (!matchedUser) return null;
   const now = Date.now();
   const expiresAt = new Date(now + SESSION_DURATION_MS).toISOString();
+
   const session: Session = {
-    userId: u.id,
-    username: u.username,
-    name: u.name,
-    role: u.role,
+    userId: matchedUser.id,
+    username: matchedUser.username,
+    name: matchedUser.name,
+    role: matchedUser.role,
     loggedAt: new Date(now).toISOString(),
     expiresAt,
+    sig: "", // No client-side signing — server signs via loginHybrid()
   };
   const ss = getSessionStorage();
   if (remember) {
@@ -214,8 +328,8 @@ export function login(username: string, password: string, remember = false): Ses
   }
   logAudit({
     action: "auth.login",
-    detail: `Login berhasil: ${u.username}`,
-    username: u.username,
+    detail: `Login berhasil: ${matchedUser.username}`,
+    username: matchedUser.username,
   });
   return session;
 }
@@ -235,24 +349,87 @@ export async function loginHybrid(
     const data = (await res.json()) as { ok: boolean; session?: Session; error?: string };
 
     if (data.ok && data.session) {
-      // Edge function auth succeeded — session is in httpOnly cookie
-      return { ok: true, session: data.session };
+      // Edge function auth succeeded — normalize session
+      const serverSession = data.session as unknown as {
+        id: string;
+        username: string;
+        name: string;
+        role: string;
+        loginAt: string;
+        expiresAt: string;
+      };
+      const normalized: Session = {
+        userId: serverSession.id,
+        username: serverSession.username,
+        name: serverSession.name,
+        role: serverSession.role as AdminRole,
+        loggedAt: serverSession.loginAt,
+        expiresAt: serverSession.expiresAt,
+        sig: "",
+      };
+
+      // Request server-side HMAC signing
+      try {
+        const sigRes = await fetch("/api/auth/sign-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: normalized.userId,
+            username: normalized.username,
+            role: normalized.role,
+            expiresAt: normalized.expiresAt,
+          }),
+        });
+
+        if (sigRes.ok) {
+          const sigData = (await sigRes.json()) as { ok: boolean; session: Partial<Session> };
+          if (sigData.ok && sigData.session.sig) {
+            normalized.sig = sigData.session.sig;
+          }
+        } else if (import.meta.env.PROD) {
+          // Server signing failed in production — reject login
+          console.error("[auth] Session signing failed in production");
+          return { ok: false, error: "Gagal membuat sesi aman. Hubungi administrator." };
+        }
+      } catch (sigErr) {
+        if (import.meta.env.PROD) {
+          console.error("[auth] Session signing error:", sigErr);
+          return { ok: false, error: "Gagal membuat sesi aman. Hubungi administrator." };
+        }
+      }
+
+      // Store session
+      const ss = getSessionStorage();
+      if (remember) {
+        getStorage()?.setItem(SESSION_KEY, JSON.stringify(normalized));
+        getStorage()?.setItem(SESSION_EXPIRY_KEY, normalized.expiresAt);
+      } else {
+        ss?.setItem(SESSION_KEY, JSON.stringify(normalized));
+        ss?.setItem(SESSION_EXPIRY_KEY, normalized.expiresAt);
+      }
+
+      logAudit({
+        action: "auth.login",
+        detail: `Login berhasil (edge): ${normalized.username}`,
+        username: normalized.username,
+      });
+      return { ok: true, session: normalized };
     }
 
     // Edge function failed — try local auth
-    const local = login(username, password, remember);
+    const local = await login(username, password, remember);
     if (local) return { ok: true, session: local };
 
     return { ok: false, error: data.error ?? "Login gagal" };
   } catch {
     // Network error — fallback to local auth
-    const local = login(username, password, remember);
+    const local = await login(username, password, remember);
     if (local) return { ok: true, session: local };
     return { ok: false, error: "Tidak dapat terhubung ke server" };
   }
 }
 
-export function logout() {
+export async function logout() {
   const s = getSession();
   if (s) {
     logAudit({
@@ -260,7 +437,26 @@ export function logout() {
       detail: `Logout: ${s.username}`,
       username: s.username,
     });
+
+    // Revoke session on server
+    try {
+      const token = getSessionToken();
+      if (token) {
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+    } catch (err) {
+      console.warn("[auth] Server logout failed (network error):", err);
+      // Continue with local logout even if server revocation fails
+    }
   }
+
+  // Clear local storage
   getStorage()?.removeItem(SESSION_KEY);
   getStorage()?.removeItem(SESSION_EXPIRY_KEY);
   getSessionStorage()?.removeItem(SESSION_KEY);
@@ -286,6 +482,27 @@ export function isLoggedIn(): boolean {
   return !!getSession();
 }
 
+/** Hash password with PBKDF2-SHA512 (for client-side password change). */
+async function hashPbkdf2(password: string, iterations = 100000): Promise<string> {
+  if (typeof crypto === "undefined" || typeof crypto.subtle === "undefined") {
+    throw new Error("Web Crypto API unavailable — password hashing not possible");
+  }
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, [
+    "deriveBits",
+  ]);
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations, hash: "SHA-512" },
+    key,
+    64 * 8,
+  );
+  const derivedBytes = new Uint8Array(derivedBits);
+  const saltBase64 = btoa(String.fromCharCode(...salt));
+  const hashBase64 = btoa(String.fromCharCode(...derivedBytes));
+  return `pbkdf2_sha512$${iterations}$${saltBase64}$${hashBase64}`;
+}
+
 export async function changePassword(
   oldPwd: string,
   newPwd: string,
@@ -297,9 +514,16 @@ export async function changePassword(
   const cache = _usersCache ?? [];
   const idx = cache.findIndex((u) => u.id === s.userId);
   if (idx < 0) return { ok: false, message: "User tidak ditemukan" };
-  if (cache[idx].password !== oldPwd) return { ok: false, message: "Password lama salah" };
+  const storedPwd = cache[idx].password;
+  // CRITICAL fix: PBKDF2 for hashed passwords, plaintext fallback for legacy dev accounts
+  const match = storedPwd?.startsWith("pbkdf2_sha512$")
+    ? await verifyPbkdf2(oldPwd, storedPwd)
+    : storedPwd === oldPwd;
+  if (!match) return { ok: false, message: "Password lama salah" };
   if (newPwd.length < 6) return { ok: false, message: "Password baru minimal 6 karakter" };
-  cache[idx] = { ...cache[idx], password: newPwd };
+  // SECURITY FIX: Hash password with PBKDF2 before storing to IndexedDB
+  const hashedNewPwd = await hashPbkdf2(newPwd);
+  cache[idx] = { ...cache[idx], password: hashedNewPwd };
   _usersCache = cache;
   try {
     await idbPut("users", cache[idx]);

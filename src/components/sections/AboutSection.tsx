@@ -21,9 +21,12 @@ export function AboutSection() {
   const { content, village } = settings;
 
   return (
-    <section id="tentang" className="py-20 sm:py-28 px-4 sm:px-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+    <section
+      id="tentang"
+      className="min-h-screen flex flex-col justify-center py-12 px-4 sm:px-8 overflow-hidden"
+    >
+      <div className="mx-auto max-w-7xl w-full">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           <div>
             <p className="eyebrow text-primary mb-4">Tentang Desa</p>
             <SectionTitle first="Warisan" second="Budaya" className="text-ink mb-6" />
@@ -32,7 +35,7 @@ export function AboutSection() {
             </div>
 
             <blockquote className="mt-8 border-l-4 border-primary pl-5 py-1">
-              <p className="font-display italic text-xl text-ink leading-snug">
+              <p className="font-display italic text-xl text-foreground leading-snug">
                 "{content.vision}"
               </p>
               <cite className="block mt-3 font-ui text-sm text-muted-foreground not-italic">
@@ -40,7 +43,7 @@ export function AboutSection() {
               </cite>
             </blockquote>
 
-            <div className="mt-8 flex items-center gap-4 p-4 rounded-2xl bg-card">
+            <div className="mt-8 flex items-center gap-4 p-4 rounded-lg bg-card">
               <img
                 src={resolveImageUrl(village.logo_storage_path, village.logo_url) || kepalaImg}
                 alt={village.head}
@@ -77,13 +80,13 @@ export function AboutSection() {
               <img
                 src={aboutImg}
                 alt={`Wilayah ${village.name}`}
-                className="w-full h-[420px] object-cover hover:scale-105 transition-transform duration-700"
+                className="w-full max-h-[420px] h-auto object-cover hover:scale-105 transition-transform duration-700"
                 width={1280}
                 height={960}
                 loading="lazy"
               />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {content.stats.map((s) => {
                 const Icon = ICON_MAP[s.icon.toLowerCase()] || Users;
                 return (
