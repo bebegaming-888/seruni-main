@@ -29,27 +29,26 @@ function NotFoundPage() {
           </div>
         </div>
 
-        {/* 404 */}
-        <div>
-          <h1 className="font-display text-[120px] font-bold leading-none text-foreground/10 select-none">
-            404
+        {/* 404 - Decorative background element */}
+        <p className="font-display text-[120px] sm:text-[160px] font-bold leading-none text-foreground/10 select-none pointer-events-none">
+          404
+        </p>
+        {/* Actual content */}
+        <div className="relative -mt-8 sm:-mt-12">
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink mb-4">
+            Halaman Tidak Ditemukan
           </h1>
-          <div className="-mt-8">
-            <h2 className="font-display text-2xl font-bold text-ink mb-2">
-              Halaman Tidak Ditemukan
-            </h2>
-            <p className="font-body text-sm text-muted-foreground">
-              Halaman yang Anda cari tidak tersedia, telah dipindahkan, atau URL yang Anda masukkan
-              salah.
-            </p>
-          </div>
+          <p className="font-body text-base sm:text-lg text-muted-foreground mb-6 max-w-md mx-auto">
+            Maaf, halaman yang Anda cari tidak tersedia, telah dipindahkan, atau URL yang Anda masukkan
+            salah.
+          </p>
         </div>
 
         {/* Suggestions */}
         <div className="rounded-2xl border border-border bg-card p-5 text-left">
-          <p className="font-ui text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          <h2 className="font-ui text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             Yang bisa Anda lakukan:
-          </p>
+          </h2>
           <ul className="space-y-2 font-body text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="text-primary mt-0.5">•</span>
