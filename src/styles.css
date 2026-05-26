@@ -331,12 +331,24 @@
 
   /* ── Global focus-visible (Mei 2026) ──────────────────────────── */
   :focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 3px;
-    border-radius: 4px;
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
   }
   :focus:not(:focus-visible) {
     outline: none;
+  }
+
+  /* Ensure all interactive elements show visible focus */
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
   }
 
   /* ── Smooth scroll ────────────────────────────────────────────── */
