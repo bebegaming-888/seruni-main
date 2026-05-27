@@ -5,13 +5,13 @@
  * - Kiri: "Yang Bersangkutan," / kosong
  * - Kanan: Lokasi, Tanggal, Jabatan, ruang TTD, Nama Pejabat, QR Code
  */
-import React, { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import type { RenderedLetter } from "@/lib/letter-engine";
 import { getSettings } from "@/lib/settings-store";
 
 const BRAND_MUTED = "#5c5a56";
 
-export function LetterSignature({
+export const LetterSignature = memo(function LetterSignature({
   signature,
   namaPemohon,
 }: {
@@ -43,7 +43,12 @@ export function LetterSignature({
   return (
     <div
       className="flex justify-between gap-4 relative"
-      style={{ fontFamily: bodyFont, fontSize: bodyFontSize, marginTop: 32, pageBreakInside: "avoid" }}
+      style={{
+        fontFamily: bodyFont,
+        fontSize: bodyFontSize,
+        marginTop: 32,
+        pageBreakInside: "avoid",
+      }}
     >
       {/* Kolom kiri — pemohon */}
       <div className="flex-1 text-center pt-4">
@@ -77,9 +82,7 @@ export function LetterSignature({
             />
           )}
         </div>
-        <p className="m-0 font-bold underline">
-          {signature.namaPejabat}
-        </p>
+        <p className="m-0 font-bold underline">{signature.namaPejabat}</p>
 
         {/* QR Code */}
         {qrDataUrl && (
@@ -111,4 +114,4 @@ export function LetterSignature({
       )}
     </div>
   );
-}
+});

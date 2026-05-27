@@ -188,6 +188,7 @@ function TabButton({
   return (
     <button
       type="button"
+      aria-label={tab.label}
       className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-[72px] transition-colors cursor-pointer ${
         isActive ? "text-primary" : "text-muted-foreground hover:text-foreground active:scale-95"
       }`}

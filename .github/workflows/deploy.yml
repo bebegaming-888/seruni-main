@@ -1,3 +1,21 @@
+# =============================================================================
+# CI/CD Pipeline — Seruni Mumbul
+#
+# Flow:
+#   1. PR: lint + typecheck + build only (no deploy)
+#   2. Main branch: full build + deploy to Cloudflare Pages (frontend)
+#
+# Env secrets needed (GitHub repo → Settings → Secrets):
+#   CLOUDFLARE_API_TOKEN — dari https://dash.cloudflare.com/profile/api-tokens
+#   CLOUDFLARE_ACCOUNT_ID — dari Cloudflare dashboard
+#   RAILWAY_API_TOKEN — dari https://railway.railway.new
+#   RAILWAY_PROJECT_ID — dari Railway project URL
+#
+# Deployment targets:
+#   Frontend → Cloudflare Pages
+#   API      → Railway (auto-redeploy on push via Railway GitHub integration)
+# =============================================================================
+
 name: CI/CD Pipeline
 
 on:
@@ -10,93 +28,246 @@ env:
   NODE_VERSION: "20"
 
 jobs:
+  # ── Stage 1: Lint & Type Check ──────────────────────────────────────────────
   lint-and-type-check:
     name: Lint & Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-      - run: npm ci
-      - run: npm run lint
-      - run: npx tsc --noEmit
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_ADMIN_USER: ${{ secrets.VITE_ADMIN_USER }}
-          VITE_FONNTE_KEY: ${{ secrets.VITE_FONNTE_KEY }}
-          VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
-          VITE_QR_SECRET: ${{ secrets.VITE_QR_SECRET }}
 
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+  # ── Stage 2: Build ──────────────────────────────────────────────────────────
   build:
     name: Build
     runs-on: ubuntu-latest
     needs: lint-and-type-check
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
+
       - run: npm ci
-      - run: npm run build
+
+      - name: Build client
+        run: npm run build
         env:
-          NODE_ENV: production
-          ALLOWED_ORIGIN: ${{ secrets.ALLOWED_ORIGIN }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_ADMIN_USER: ${{ secrets.VITE_ADMIN_USER }}
+          VITE_ADMIN_SESSION_SECRET: ${{ secrets.VITE_ADMIN_SESSION_SECRET }}
           VITE_FONNTE_KEY: ${{ secrets.VITE_FONNTE_KEY }}
           VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
-          VITE_QR_SECRET: ${{ secrets.VITE_QR_SECRET }}
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
-          ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          ADMIN_USER: ${{ secrets.ADMIN_USER }}
-          ADMIN_PASS: ${{ secrets.ADMIN_PASS }}
 
-  deploy:
-    name: Deploy to Netlify
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-client
+          path: dist/client/
+          retention-days: 7
+
+  # ── Stage 2b: Bundle Analysis ───────────────────────────────────────────────
+  bundle-analysis:
+    name: Bundle Analysis
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/main'
-    environment:
-      name: production
-      url: https://seruni-mumbul.netlify.app
+    # Skip if PR has the skip-bundle-check label
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-bundle-check') }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
+
       - run: npm ci
-      - run: npm run build
+
+      - name: Build client
+        run: npm run build
         env:
-          NODE_ENV: production
-          ALLOWED_ORIGIN: ${{ secrets.ALLOWED_ORIGIN }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_ADMIN_USER: ${{ secrets.VITE_ADMIN_USER }}
+          VITE_ADMIN_SESSION_SECRET: ${{ secrets.VITE_ADMIN_SESSION_SECRET }}
           VITE_FONNTE_KEY: ${{ secrets.VITE_FONNTE_KEY }}
           VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
-          VITE_QR_SECRET: ${{ secrets.VITE_QR_SECRET }}
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
-          ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          ADMIN_USER: ${{ secrets.ADMIN_USER }}
-          ADMIN_PASS: ${{ secrets.ADMIN_PASS }}
-      - name: Deploy to Netlify
-        uses: nwtgck/actions-netlify@v3
+
+      # ── Step 1: Total JS bundle size gate (5 MB limit) ────────────────────────
+      - name: Check JS bundle size
+        id: bundle-size
+        run: |
+          # Calculate total JS bundle size in MB
+          TOTAL_SIZE=$(du -sm dist/client/assets/*.js 2>/dev/null | awk '{sum+=$1} END {print sum}')
+          echo "Total JS bundle: ${TOTAL_SIZE} MB (MAX: 5 MB)"
+          echo "size_mb=${TOTAL_SIZE}" >> $GITHUB_OUTPUT
+
+          if [ "$TOTAL_SIZE" -gt 5 ]; then
+            echo "::error::Bundle size exceeded limit: ${TOTAL_SIZE} MB > 5 MB"
+            exit 1
+          fi
+
+      # ── Step 2: Bundle stats report (gzip sizes from rollup-visualizer JSON) ─
+      - name: Parse bundle stats
+        run: |
+          node - << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          const statsPath = path.join(process.cwd(), 'dist-bundle', 'stats.html');
+          if (!fs.existsSync(statsPath)) {
+            console.log('stats.html not found — skipping bundle stats parse.');
+            process.exit(0);
+          }
+
+          const html = fs.readFileSync(statsPath, 'utf8');
+          const match = html.match(/^data=({.*})\s*;?\s*$/ms);
+          if (!match) {
+            console.log('Could not extract data from stats.html — skipping.');
+            process.exit(0);
+          }
+
+          let data;
+          try {
+            data = JSON.parse(match[1]);
+          } catch (e) {
+            console.log('JSON parse error in stats.html:', e.message);
+            process.exit(0);
+          }
+
+          const nodeParts = data.nodeParts || {};
+          const nodeMetas = data.nodeMetas || {};
+          const options   = data.options  || {};
+          const props     = ['gzipLength', 'brotliLength'].filter(p => p in (nodeParts[Object.keys(nodeParts)[0]] || {}));
+
+          console.log('\n=== Bundle Stats Report ===');
+          console.log('Gzip available:', props.includes('gzipLength'));
+          console.log('Brotli available:', props.includes('brotliLength'));
+          console.log('');
+
+          if (props.length === 0) {
+            console.log('No compression data — run with --gzip to enable.');
+            process.exit(0);
+          }
+
+          // Build file list
+          const files = Object.entries(nodeParts)
+            .filter(([, p]) => p.metaUid != null)
+            .map(([uid, part]) => {
+              const meta = nodeMetas[part.metaUid] || {};
+              const row  = { uid, id: meta.id || meta.label || uid };
+              for (const prop of props) {
+                row[prop] = part[prop] || 0;
+              }
+              return row;
+            })
+            .filter(f => f.id && !f.id.includes('node_modules'))
+            .sort((a, b) => (b.gzipLength || 0) - (a.gzipLength || 0))
+            .slice(0, 20);
+
+          const colGzip   = 'Gzip (KB)';
+          const colBrotli = 'Brotli (KB)';
+          const toKb = v => (v / 1024).toFixed(1);
+
+          const maxIdLen  = Math.max(8, ...files.map(f => f.id.length));
+          const idHeader  = 'File'.padEnd(maxIdLen);
+          const gzipHeader = colGzip.padStart(12);
+          const brotliHeader = colBrotli.padStart(14);
+
+          console.log(`${idHeader} ${gzipHeader} ${brotliHeader}`);
+          console.log(`${'─'.repeat(maxIdLen)} ${'─'.repeat(12)} ${'─'.repeat(14)}`);
+
+          for (const f of files) {
+            const id     = f.id.substring(f.id.lastIndexOf('/') + 1).padEnd(maxIdLen);
+            const gz     = (toKb(f.gzipLength || 0)).padStart(12);
+            const br     = (toKb(f.brotliLength || 0)).padStart(14);
+            console.log(`${id} ${gz} ${br}`);
+          }
+
+          const totalGzip   = files.reduce((s, f) => s + (f.gzipLength   || 0), 0);
+          const totalBrotli = files.reduce((s, f) => s + (f.brotliLength || 0), 0);
+          console.log(`${'─'.repeat(maxIdLen)} ${'─'.repeat(12)} ${'─'.repeat(14)}`);
+          console.log(`${'TOTAL'.padEnd(maxIdLen)} ${(totalGzip / 1024).toFixed(1).padStart(12)} KB ${(totalBrotli / 1024).toFixed(1).padStart(14)} KB`);
+          console.log('');
+          console.log('Full stats: dist-bundle/stats.html');
+          EOF
+
+      # ── Step 3: Web vitals — asset count & top-5 largest files ───────────────
+      - name: Web vitals — top assets
+        run: |
+          echo "=== Web Vitals: Asset Summary ==="
+
+          ASSET_COUNT=$(ls dist/client/assets/ 2>/dev/null | wc -l)
+          echo "Total assets: ${ASSET_COUNT}"
+
+          echo ""
+          echo "Top 5 largest files (by raw size):"
+          ls -laS dist/client/assets/ 2>/dev/null | head -n 6 | tail -n 5 | awk '{
+            size=$5;
+            if (size >= 1048576) printf "  %s (%.2f MB)\n", $9, size/1048576;
+            else if (size >= 1024) printf "  %s (%.2f KB)\n", $9, size/1024;
+            else printf "  %s (%d B)\n", $9, size;
+          }'
+
+          echo ""
+          echo "dist-bundle/stats.html → open in browser for interactive treemap."
+
+  # ── Stage 3: Deploy to Cloudflare Pages (main branch only) ─────────────────
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://seruni-mumbul.pages.dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
         with:
-          publish-dir: ./dist/client
-          production-deploy: true
-          enable-pull-request-comment: true
-          enable-commit-comment: true
-          overwrites-pull-request-comment: true
-        env:
-          NODE_ENV: production
-          ALLOWED_ORIGIN: ${{ secrets.ALLOWED_ORIGIN }}
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          name: dist-client
+          path: dist/client/
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: seruni-mumbul
+          directory: dist/client
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          wranglerVersion: "3"
+
+  # ── Stage 4: Notify Railway (optional — for API redeploy) ──────────────────
+  # Railway auto-redeploys when this repo gets a push to main.
+  # No extra step needed if Railway is connected via GitHub integration.
+  # Uncomment below only if Railway is NOT connected via GitHub:
+  #
+  # notify-railway:
+  #   name: Notify Railway
+  #   runs-on: ubuntu-latest
+  #   needs: deploy-frontend
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #     - name: Trigger Railway deploy
+  #       run: |
+  #         curl -X POST "https://webhook.railway.railway.new/project/${{ secrets.RAILWAY_PROJECT_ID }}/deploy" \
+  #           -H "Authorization: Bearer ${{ secrets.RAILWAY_API_TOKEN }}"

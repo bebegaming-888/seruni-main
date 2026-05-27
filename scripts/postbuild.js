@@ -97,26 +97,25 @@ if (manifest.dir !== path.join(distClient, "assets")) {
 
 // ── Step 5: Extract routes from manifest ──────────────────────────────────────
 console.info("[postbuild:step-5] Extracting routes from manifest...");
+// Safe approach: parse JSON subset from manifest content.
+// Manifest format: module.exports = { ..., routeTree: [...], ... }
+// We extract just the route array from a known-safe section.
 let routesJson = "null";
 try {
-  // Strip manifest wrapper: "const tsrStartManifest = ...export { routes, ... };"
-  const stripped = manifestContent
-    .replace(/^const tsrStartManifest = /, "")
-    .replace(/\nexport\s*\{[^}]*\};?\s*$/, "");
-
-  // Build safe JSON: wrap object literal so JSON.parse handles it
-  // e.g. '{"routes":{...},"components":{...}}'
-  const trimmed = stripped.trim().replace(/;$/, "");
-  if (trimmed.startsWith("{")) {
-    routesJson = trimmed;
+  const trimmed = manifestContent.trim();
+  // Extract the routeTree array — it always starts with "routeTree:" and
+  // contains only serializable values (strings, booleans, numbers).
+  // Use a regex to capture the balanced array so we can parse it safely.
+  const rtMatch = trimmed.match(/"routeTree"\s*:\s*(\[[\s\S]*?\])\s*[,}]/);
+  if (rtMatch) {
+    // Validate it's valid JSON before shipping to browser
+    const candidate = rtMatch[1];
+    JSON.parse(candidate); // throws if malformed → caught below
+    routesJson = candidate;
+    console.info(`[postbuild:step-5] Routes manifest extracted OK (${routesJson.length} bytes)`);
   } else {
-    // Manifest is a IIFE or function — use Function constructor (build-time only, no user input)
-    // eslint-disable-next-line no-new-func
-    const manifestFn = new Function(`return ${trimmed}`);
-    const data = manifestFn();
-    routesJson = JSON.stringify(data || {});
+    console.warn("[postbuild:step-5] routeTree not found in manifest, using null");
   }
-  console.info(`[postbuild:step-5] Routes manifest extracted OK (${(routesJson && routesJson.length) ? routesJson.length : 0} bytes)`);
 } catch (e) {
   console.warn("[postbuild:step-5] Could not extract routes from manifest:", e.message);
 }
@@ -158,7 +157,7 @@ const manifestMeta = {
   buildTime,
   clientEntry,
   manifestFile: manifest.file,
-  routerManifestSize: (routesJson && routesJson.length) ? routesJson.length : 0,
+  routerManifestSize: routesJson && routesJson.length ? routesJson.length : 0,
   htmlFileSize: html.length,
   nonce,
 };

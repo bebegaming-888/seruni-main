@@ -136,8 +136,12 @@ export function HeroSection() {
         />
 
         {/* Visible h1 — SEO + accessibility, positioned above marquee */}
-        <div className="absolute inset-x-0 z-10 flex flex-col items-center justify-center pointer-events-none" style={{ top: "30%" }}>
-          <h1 className="text-center font-display font-bold leading-tight tracking-tight drop-shadow-lg"
+        <div
+          className="absolute inset-x-0 z-10 flex flex-col items-center justify-center pointer-events-none"
+          style={{ top: "30%" }}
+        >
+          <h1
+            className="text-center font-display font-bold leading-tight tracking-tight drop-shadow-lg"
             style={{
               fontFamily: "var(--font-display, 'Playfair Display', Georgia, serif)",
               fontSize: "clamp(1.75rem, 5vw, 3.5rem)",
@@ -148,7 +152,8 @@ export function HeroSection() {
           >
             {v.village}
           </h1>
-          <p className="mt-2 text-center font-ui font-medium tracking-wide drop-shadow"
+          <p
+            className="mt-2 text-center font-ui font-medium tracking-wide drop-shadow"
             style={{
               fontSize: "clamp(0.75rem, 2vw, 1.125rem)",
               color: "hsl(var(--color-marquee-default) / 0.85)",

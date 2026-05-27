@@ -420,7 +420,7 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
               setFilterJK(e.target.value);
               setPage(1);
             }}
-            className="rounded-full border border-border bg-card px-3 py-1.5 text-sm font-ui focus:outline-none"
+            className="rounded-full border border-border bg-card px-3 py-1.5 text-sm font-ui focus-visible:outline-none"
           >
             <option value="">Semua JK</option>
             <option>Laki-Laki</option>
@@ -432,7 +432,7 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
               setFilterDusun(e.target.value);
               setPage(1);
             }}
-            className="rounded-full border border-border bg-card px-3 py-1.5 text-sm font-ui focus:outline-none"
+            className="rounded-full border border-border bg-card px-3 py-1.5 text-sm font-ui focus-visible:outline-none"
           >
             <option value="">Semua Dusun</option>
             {getSettings().wilayah.dusun_list.map((d) => (
@@ -771,7 +771,7 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
                     <select
                       value={F[k] ?? ""}
                       onChange={(e) => setF(k, e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                     >
                       {opts.map((o) => (
                         <option key={o}>{o}</option>
@@ -806,7 +806,7 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
                     <select
                       value={String(F[k] ?? opts[0].v)}
                       onChange={(e) => setF(k, e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                     >
                       {opts.map((o) => (
                         <option key={o.v} value={o.v}>
@@ -840,7 +840,7 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
                   <select
                     value={F["dusun"] ?? ""}
                     onChange={(e) => setF("dusun", e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                   >
                     {getSettings().wilayah.dusun_list.map((d) => (
                       <option key={d}>{d}</option>
@@ -899,7 +899,7 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
                     <select
                       value={F[k] ?? "-"}
                       onChange={(e) => setF(k, e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                     >
                       {opts.map((o) => (
                         <option key={o}>{o}</option>
@@ -942,7 +942,7 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
                     <select
                       value={F[k] ?? "-"}
                       onChange={(e) => setF(k, e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                     >
                       {opts.map((o) => (
                         <option key={o}>{o}</option>
@@ -970,7 +970,7 @@ export function PendudukManager({ username = "Admin" }: { username?: string }) {
                     <select
                       value={F[k] ?? "Tidak"}
                       onChange={(e) => setF(k, e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                     >
                       <option>Tidak</option>
                       <option>Ya</option>

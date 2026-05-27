@@ -64,7 +64,7 @@ const DB_COA = "keuangan_coa";
 
 async function idbGetEntries(): Promise<KeuanganEntry[]> {
   try {
-    const data = await idbGetAll<KeuanganEntry>(DB_ENTRIES as any);
+    const data = await idbGetAll<KeuanganEntry>(DB_ENTRIES as IDBObjectStore);
     return data ?? [];
   } catch {
     return [];
@@ -72,11 +72,11 @@ async function idbGetEntries(): Promise<KeuanganEntry[]> {
 }
 
 async function idbPutEntry(entry: KeuanganEntry): Promise<void> {
-  await idbPut(DB_ENTRIES as any, entry);
+  await idbPut(DB_ENTRIES as IDBObjectStore, entry);
 }
 
 async function idbReplaceAllEntries(entries: KeuanganEntry[]): Promise<void> {
-  await idbReplaceAll(DB_ENTRIES as any, entries);
+  await idbReplaceAll(DB_ENTRIES as IDBObjectStore, entries);
 }
 
 // ── API Helpers ──────────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ export async function initKeuanganCoaStore(): Promise<void> {
       _coa = new Map(data.items.map((c) => [c.code, c]));
       // Persist to IndexedDB
       for (const coa of data.items) {
-        await idbPut(DB_COA as any, coa);
+        await idbPut(DB_COA as IDBObjectStore, coa);
       }
     }
   } catch {

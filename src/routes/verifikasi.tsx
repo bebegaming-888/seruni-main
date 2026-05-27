@@ -44,7 +44,7 @@ function VerifikasiPage() {
   // placeholderExample sudah alphanumeric dari useVillage() — defense in depth.
   const raw = `474/0001/${inisial_jabatan}.${inisial_desa}/V/${new Date().getFullYear()}`;
   const placeholderExampleSafe = raw.replace(/[^a-zA-Z0-9/\s.,-]/g, "").slice(0, 120);
-  const placeholderText = `Contoh lengkap: <strong>${placeholderExampleSafe}</strong>`;
+  // placeholderExampleSafe is alphanumeric-only — direct JSX interpolation is safe
 
   return (
     <div className="min-h-screen bg-background">
@@ -128,7 +128,7 @@ function VerifikasiPage() {
             {[
               "Lihat di bagian atas dokumen surat — setelah logo desa",
               "Biasanya dimulai dengan kode klasifikasi (misal: 474/, 475/)",
-              `Contoh lengkap: <strong>${placeholderExampleSafe}</strong>`,
+              "Contoh lengkap: ",
               "Jika tidak menemukan, hubungi kantor desa untuk konfirmasi",
             ].map((item, i) => (
               <li
@@ -138,7 +138,8 @@ function VerifikasiPage() {
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 font-ui text-[10px] font-bold text-primary">
                   {i + 1}
                 </span>
-                <span dangerouslySetInnerHTML={{ __html: item }} />
+                {/* Safe: all items are plain text, no HTML needed */}
+                <span className="text-muted-foreground">{item}</span>
               </li>
             ))}
           </ol>

@@ -533,18 +533,18 @@ export const Route = createFileRoute("/informasi/berita/$slug")({
       ? {
           "@context": "https://schema.org",
           "@type": "Article",
-          "headline": article.title,
-          "image": article.cover_image,
-          "datePublished": article.published_at,
-          "dateModified": article.updated_at ?? article.published_at,
-          "author": {
+          headline: article.title,
+          image: article.cover_image,
+          datePublished: article.published_at,
+          dateModified: article.updated_at ?? article.published_at,
+          author: {
             "@type": "GovernmentOrganization",
-            "name": village.name,
+            name: village.name,
           },
-          "publisher": {
+          publisher: {
             "@type": "GovernmentOrganization",
-            "name": village.name,
-            "url": "https://serunimumbul.id",
+            name: village.name,
+            url: "https://serunimumbul.id",
           },
         }
       : null;
@@ -560,7 +560,9 @@ export const Route = createFileRoute("/informasi/berita/$slug")({
         },
         ...(article?.cover_image ? [{ property: "og:image", content: article.cover_image }] : []),
       ],
-      scripts: articleSchema ? [{ type: "application/ld+json", innerHTML: JSON.stringify(articleSchema) }] : [],
+      scripts: articleSchema
+        ? [{ type: "application/ld+json", innerHTML: JSON.stringify(articleSchema) }]
+        : [],
     };
   },
   component: ArticleDetailPage,

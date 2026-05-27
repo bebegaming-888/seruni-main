@@ -3,6 +3,7 @@
 
 # Ada Library Information
 *.ali
+*.adalib
 
 # Logs
 logs
@@ -42,6 +43,7 @@ dist-ssr
 # Deployment
 .vercel
 .netlify
+.cloudflare/
 
 # Python
 *.pyc

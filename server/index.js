@@ -157,6 +157,7 @@ app.use((req, res, next) => {
       "font-src 'self'",
       "connect-src 'self' https://*.supabase.co https://api.fonnte.com https://challenges.cloudflare.com",
       "frame-ancestors 'none'",
+      "worker-src 'self' blob:",
     ].join("; "),
   );
   next();

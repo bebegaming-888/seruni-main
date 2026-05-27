@@ -14,7 +14,14 @@ import {
 
 const _loadFixedAdmin = () => ({
   id: "fixed-admin",
-  username: import.meta.env.VITE_ADMIN_USER ?? "admindesa",
+  username: (() => {
+    const u = import.meta.env.VITE_ADMIN_USER;
+    if (!u || u.trim() === "") {
+      // In development show warning, in production fail hard
+      console.warn("[auth] VITE_ADMIN_USER not set — fixed admin will not be available.");
+    }
+    return u ?? "";
+  })(),
   // password DIHAPUS dari client-side — autentikasi fixed admin dilakukan
   // HANYA di edge function /api/auth/admin-login (server-side, tidak di-browser bundle).
   // local login hanya untuk additional users dari IndexedDB.

@@ -40,7 +40,7 @@ let jsonStr = match[1]
 
 let SURAT_MASTER;
 try {
-  SURAT_MASTER = eval("(" + jsonStr + ")");
+  SURAT_MASTER = JSON.parse(jsonStr);
 } catch (e) {
   console.error("Failed to parse SURAT_MASTER:", e.message);
   console.log("Trying alternative method...");

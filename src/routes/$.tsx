@@ -39,8 +39,8 @@ function NotFoundPage() {
             Halaman Tidak Ditemukan
           </h1>
           <p className="font-body text-base sm:text-lg text-muted-foreground mb-6 max-w-md mx-auto">
-            Maaf, halaman yang Anda cari tidak tersedia, telah dipindahkan, atau URL yang Anda masukkan
-            salah.
+            Maaf, halaman yang Anda cari tidak tersedia, telah dipindahkan, atau URL yang Anda
+            masukkan salah.
           </p>
         </div>
 

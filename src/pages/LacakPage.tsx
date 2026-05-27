@@ -303,7 +303,7 @@ export default function LacakPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Nomor tracking atau NIK..."
-                className="w-full h-16 rounded-2xl border-2 border-border bg-card pl-14 pr-14 text-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-mono tracking-wide"
+                className="w-full h-16 rounded-2xl border-2 border-border bg-card pl-14 pr-14 text-lg text-foreground placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/10 transition-all font-mono tracking-wide"
                 autoFocus
               />
               {loading && (

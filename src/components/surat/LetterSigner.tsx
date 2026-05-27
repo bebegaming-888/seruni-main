@@ -4,11 +4,15 @@
  * "Yang bertanda tangan di bawah ini, ..."
  * diikuti tabel identitas pejabat.
  */
-import React from "react";
+import { memo } from "react";
 import type { RenderedLetter } from "@/lib/letter-engine";
 import { getSettings } from "@/lib/settings-store";
 
-export function LetterSigner({ signer }: { signer: RenderedLetter["signer"] }) {
+export const LetterSigner = memo(function LetterSigner({
+  signer,
+}: {
+  signer: RenderedLetter["signer"];
+}) {
   const settings = getSettings();
   const bodyFont = settings.pdfLayout?.body_font || "Times New Roman, Times, serif";
   const bodyFontSize = settings.pdfLayout?.body_font_size || 12;
@@ -39,4 +43,4 @@ export function LetterSigner({ signer }: { signer: RenderedLetter["signer"] }) {
       </table>
     </div>
   );
-}
+});

@@ -1,0 +1,34 @@
+# =============================================================================
+# RAILWAY DEPLOYMENT — Seruni Mumbul
+#
+# API Server (Express) → Railway (port 3001)
+# Frontend (SPA)       → Cloudflare Pages (https://seruni-mumbul.pages.dev)
+#
+# PROXY: /api/* dari Cloudflare Pages → Railway API
+# Contoh rewrite rule di Cloudflare Pages:
+#   Source URL: /api/*
+#   Destination: https://<railway-app>.railway.app/*
+#
+# ALLOWED_ORIGIN harus diset ke https://seruni-mumbul.pages.dev
+# =============================================================================
+
+[railway]
+  max_files = 500
+
+[deployment]
+  region = "singapore"
+  num_replicas = 1
+
+[build]
+  builder = "nixpacks"
+  builder_version = "latest"
+
+[nixpacks]
+  # Node.js — auto-detect dari package.json "engines"
+  # Build: npm ci && npm run build && node server/index.js
+
+[vars]
+  NODE_ENV = "production"
+  PORT = "3001"
+  # ALLOWED_ORIGIN diset di Railway Dashboard → Variables
+  # Format: https://seruni-mumbul.pages.dev

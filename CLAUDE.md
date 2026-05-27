@@ -16,7 +16,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Data sync  | IndexedDB-first → Supabase write-behind (offline-capable)    |
 | Auth       | Custom HMAC-SHA256 session signing                           |
 | DB         | Supabase PostgreSQL + Supabase Storage                       |
-| API Server | Express.js (`server/index.js`)                               |
+| API Server | Express.js (`server/index.js`) — Railway                     |
+| Deploy     | Frontend: Netlify · API: Railway                             |
 | PDF        | `jspdf` + `pdf-lib` (client-side)                            |
 | Maps       | Leaflet + React-Leaflet                                      |
 
@@ -314,4 +315,46 @@ if (ADMIN_SESSION_SECRET && ADMIN_SESSION_SECRET.length >= 32) {
 
 ---
 
-_Versi: 4.0 · 22 Mei 2026_
+## Deployment
+
+### Frontend (Netlify)
+
+Netlify auto-deploys from `dist/client/` on every push to main.
+
+- Redirects `/api/*` → Railway API via proxy
+- Build: `npm run build`
+
+### API Server (Railway)
+
+Express.js API deployable ke Railway:
+
+```bash
+railway login
+railway init --service seruni-api
+railway up --service seruni-api
+```
+
+**Required env vars di Railway:**
+
+```
+NODE_ENV=production
+PORT=8080
+ALLOWED_ORIGIN=https://seruni-mumbul.netlify.app
+SUPABASE_URL=https://wrfraskmawmciiutwcpx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<secret>
+ADMIN_SESSION_SECRET=<min-32-chars>
+ADMIN_USER=<admin>
+ADMIN_PASS=<password>
+QR_SECRET=<min-32-chars>
+FONNTE_KEY=<fonnte-api-key>
+VITE_SUPABASE_URL=https://wrfraskmawmciiutwcpx.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon-key>
+VITE_FONNTE_KEY=<fonnte-api-key>
+VITE_QR_SECRET=<min-32-chars>
+```
+
+**Railway health check:** `GET /health` — cek `server/api/health-check.js`
+
+---
+
+_Versi: 4.1 · 27 Mei 2026_

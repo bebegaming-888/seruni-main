@@ -55,5 +55,26 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "off",
     },
   },
+  // scripts/ handles raw JSON/Excel — `any` unavoidable for dynamic data parsing.
+  {
+    files: ["scripts/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+  // LetterLayoutEditor parses dynamic layout data — `any` unavoidable.
+  {
+    files: ["src/components/admin/LetterLayoutEditor.tsx"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+  // PendudukManager handles raw warga data from Supabase — `any` unavoidable.
+  {
+    files: ["src/components/admin/PendudukManager.tsx"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
   eslintPluginPrettier,
 );

@@ -1,0 +1,34 @@
+# =============================================================================
+# Cloudflare Pages — Static Client Deployment
+# Frontend: https://seruni-mumbul.pages.dev (Cloudflare Pages)
+# API Server: Railway (https://seruni-api.up.railway.app)
+#
+# How it works:
+#   - Cloudflare Pages serves static build (dist/client/)
+#   - /api/* requests PROXY via Cloudflare Pages redirect to Railway API
+#   - Railway runs server/index.js (Express API server)
+#
+# CI/CD: GitHub Actions via .github/workflows/cloudflare-pages.yml
+#   Triggers on push to main / pull requests
+#   Builds client → deploys to Cloudflare Pages
+#
+# Env vars untuk Railway (di Railway dashboard):
+#   ALLOWED_ORIGIN = https://seruni-mumbul.pages.dev
+#   ADMIN_SESSION_SECRET = min 32 chars secret
+#   SUPABASE_SERVICE_ROLE_KEY
+#   QR_SECRET / ADMIN_USER / ADMIN_PASS / FONNTE_API_KEY
+# =============================================================================
+
+name = "Seruni Mumbul Static"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Static files output dari Vite build
+pages_build_output_dir = "dist/client"
+
+[env.production]
+# CF_PAGES, PAGES_COMMIT_SHA diset otomatis oleh Cloudflare Pages
+
+[env.preview]
+# Preview deployments: set RAILWAY_API_URL di Cloudflare dashboard
+# ke preview Railway service URL

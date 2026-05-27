@@ -12,32 +12,33 @@
 
 ## File Impact Map
 
-| File | Change Type | Responsibility |
-|------|-------------|----------------|
-| `src/styles.css` | Modify | Design tokens, font-face, focus-visible ring, CSS custom properties |
-| `src/routes/__root.tsx` | Modify | Dark mode inline script, font preconnect, SEO meta |
-| `src/routes/index.tsx` | Modify | Add `<h1>` to homepage |
-| `src/routes/$.tsx` | Modify | 404 page redesign (h1 size, layout) |
-| `src/routes/__root.tsx` | Modify | sitemap.xml + robots.txt meta |
-| `src/components/admin/CMSManager.tsx` | Modify | img alt attributes (2 instances) |
-| `src/components/admin/LembagaManager.tsx` | Modify | img alt attributes (3 instances) |
-| `src/components/admin/PerangkatDesaManager.tsx` | Modify | img alt attribute (1 instance) |
-| `src/components/admin/monitoring/PreviewModal.tsx` | Modify | img alt attributes (4 instances) |
-| `src/components/admin/AlertPanel.tsx` | Modify | Icon button aria-label (1 instance) |
-| `src/components/admin/bantuan/BantuanDashboard.tsx` | Modify | Icon button aria-labels + outline:none removal |
-| `src/components/admin/inventaris/InventarisDashboard.tsx` | Modify | outline:none removal (2 instances) |
-| `src/components/admin/CMSManager.tsx` | Modify | outline:none removal (1 instance) |
-| Various `.tsx` files | Modify | Remove console.log statements |
-| `public/sitemap.xml` | Create | SEO sitemap |
-| `public/robots.txt` | Create | SEO crawler directive |
-| `src/lib/skeleton.tsx` | Create | Reusable Skeleton + EmptyState + ErrorState components |
-| `package.json` | Modify | Fix BOM + trailing comma |
+| File                                                      | Change Type | Responsibility                                                      |
+| --------------------------------------------------------- | ----------- | ------------------------------------------------------------------- |
+| `src/styles.css`                                          | Modify      | Design tokens, font-face, focus-visible ring, CSS custom properties |
+| `src/routes/__root.tsx`                                   | Modify      | Dark mode inline script, font preconnect, SEO meta                  |
+| `src/routes/index.tsx`                                    | Modify      | Add `<h1>` to homepage                                              |
+| `src/routes/$.tsx`                                        | Modify      | 404 page redesign (h1 size, layout)                                 |
+| `src/routes/__root.tsx`                                   | Modify      | sitemap.xml + robots.txt meta                                       |
+| `src/components/admin/CMSManager.tsx`                     | Modify      | img alt attributes (2 instances)                                    |
+| `src/components/admin/LembagaManager.tsx`                 | Modify      | img alt attributes (3 instances)                                    |
+| `src/components/admin/PerangkatDesaManager.tsx`           | Modify      | img alt attribute (1 instance)                                      |
+| `src/components/admin/monitoring/PreviewModal.tsx`        | Modify      | img alt attributes (4 instances)                                    |
+| `src/components/admin/AlertPanel.tsx`                     | Modify      | Icon button aria-label (1 instance)                                 |
+| `src/components/admin/bantuan/BantuanDashboard.tsx`       | Modify      | Icon button aria-labels + outline:none removal                      |
+| `src/components/admin/inventaris/InventarisDashboard.tsx` | Modify      | outline:none removal (2 instances)                                  |
+| `src/components/admin/CMSManager.tsx`                     | Modify      | outline:none removal (1 instance)                                   |
+| Various `.tsx` files                                      | Modify      | Remove console.log statements                                       |
+| `public/sitemap.xml`                                      | Create      | SEO sitemap                                                         |
+| `public/robots.txt`                                       | Create      | SEO crawler directive                                               |
+| `src/lib/skeleton.tsx`                                    | Create      | Reusable Skeleton + EmptyState + ErrorState components              |
+| `package.json`                                            | Modify      | Fix BOM + trailing comma                                            |
 
 ---
 
 ## Task 1: Fix package.json BOM + Trailing Comma
 
 **Files:**
+
 - Modify: `package.json:1`
 
 - [ ] **Step 1: Read current package.json first 3 lines to see the BOM**
@@ -59,6 +60,7 @@ Expected: Trailing comma before closing `}` on the last dependency entry.
 - [ ] **Step 3: Fix package.json — remove BOM and trailing comma**
 
 Open `package.json` in VSCode or use a clean rewrite:
+
 1. Remove the UTF-8 BOM (byte order mark) at position 0 — the file must start with `{` directly.
 2. Remove the trailing comma after the last entry in the `dependencies` block.
 
@@ -84,13 +86,14 @@ git add package.json && git commit -m "fix: remove BOM and trailing comma from p
 
 ---
 
-## Task 2: Dark Mode FOUC Prevention — Inline Script in __root.tsx
+## Task 2: Dark Mode FOUC Prevention — Inline Script in \_\_root.tsx
 
 **Files:**
+
 - Modify: `src/routes/__root.tsx` (add script in `<head>` before React hydrates)
 - Read first: `src/routes/__root.tsx:140-165`
 
-- [ ] **Step 1: Read the current __root.tsx around the script tag area**
+- [ ] **Step 1: Read the current \_\_root.tsx around the script tag area**
 
 ```bash
 grep -n "preconnect\|stylesheet\|fonts.googleapis\|document.documentElement" src/routes/__root.tsx | head -20
@@ -101,13 +104,15 @@ grep -n "preconnect\|stylesheet\|fonts.googleapis\|document.documentElement" src
 Find where `<Scripts />` is rendered (usually last in `<head>`). Add this immediately after the opening `<head>` tag:
 
 ```tsx
-{/* Anti-FOUC: apply dark class before React hydrates */}
+{
+  /* Anti-FOUC: apply dark class before React hydrates */
+}
 <script
   suppressHydrationWarning
   dangerouslySetInnerHTML={{
     __html: `(function(){try{var t=localStorage.getItem('theme');var d=document.documentElement.classList;if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))d.add('dark')}catch(e){}})()`,
   }}
-/>
+/>;
 ```
 
 This script runs in `<head>` before CSS is parsed — no flash because the class is already applied when stylesheets load.
@@ -138,6 +143,7 @@ git add src/routes/__root.tsx && git commit -m "fix: prevent dark mode FOUC with
 ## Task 3: Font System Upgrade — Inter → DM Sans + Bricolage Grotesque
 
 **Files:**
+
 - Modify: `src/styles.css:9` — font-face import
 - Modify: `src/routes/__root.tsx:138-139` — font preconnect + preload
 - Modify: `src/routes/__root.tsx` — Google Fonts link update
@@ -162,14 +168,14 @@ Add inside `:root {}` or as CSS custom properties:
 ```css
 /* Font system — replace Inter with Bricolage Grotesque (UI/headings) + DM Sans (body) */
 :root {
-  --font-display: 'Bricolage Grotesque', 'DM Sans', system-ui, sans-serif;
-  --font-body: 'DM Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  --font-ui: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "DM Sans", system-ui, sans-serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+  --font-ui: "Bricolage Grotesque", system-ui, sans-serif;
 }
 ```
 
-- [ ] **Step 4: Update font preconnect + preload in __root.tsx**
+- [ ] **Step 4: Update font preconnect + preload in \_\_root.tsx**
 
 ```tsx
 {/* Preconnect to Google Fonts */}
@@ -201,10 +207,10 @@ Add to `src/styles.css` (Tailwind v4 config):
 ```css
 /* Tailwind font variables — maps to CSS custom properties */
 @theme inline {
-  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
-  --font-body: 'DM Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-ui: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-ui: "Bricolage Grotesque", system-ui, sans-serif;
 }
 ```
 
@@ -227,6 +233,7 @@ git add src/styles.css src/routes/__root.tsx && git commit -m "feat: upgrade fon
 ## Task 4: Add Global Focus-Visible Ring CSS
 
 **Files:**
+
 - Modify: `src/styles.css` — add focus-visible rules
 - Read first: `src/styles.css:160-200` (near end of file)
 
@@ -316,6 +323,7 @@ git add src/styles.css && git commit -m "feat: add global focus-visible ring CSS
 ## Task 5: Fix 10+ img Alt Attributes in Admin Components
 
 **Files:**
+
 - Modify: `src/components/admin/CMSManager.tsx:815,1027`
 - Modify: `src/components/admin/LembagaManager.tsx:256,460,1109`
 - Modify: `src/components/admin/PerangkatDesaManager.tsx:194`
@@ -328,6 +336,7 @@ grep -n "<img" src/components/admin/CMSManager.tsx | grep -v "alt="
 ```
 
 Expected output:
+
 ```
 815:        <img
 1027:        <img
@@ -336,6 +345,7 @@ Expected output:
 - [ ] **Step 2: Fix CMSManager.tsx img tags**
 
 Line 815 — cover image:
+
 ```tsx
 <img
   src={formData.cover_image}
@@ -346,12 +356,9 @@ Line 815 — cover image:
 ```
 
 Line 1027 — content image (rich text image upload preview):
+
 ```tsx
-<img
-  src={url}
-  alt={`Gambar artikel ${formData.title || ''}`}
-  className="max-w-full rounded-lg"
-/>
+<img src={url} alt={`Gambar artikel ${formData.title || ""}`} className="max-w-full rounded-lg" />
 ```
 
 - [ ] **Step 3: Fix LembagaManager.tsx img tags**
@@ -361,6 +368,7 @@ grep -n "<img" src/components/admin/LembagaManager.tsx | head -10
 ```
 
 Line 256 — logo preview (in form):
+
 ```tsx
 <img
   src={previewUrl}
@@ -371,6 +379,7 @@ Line 256 — logo preview (in form):
 ```
 
 Line 460 — card image:
+
 ```tsx
 <img
   src={item.logo}
@@ -380,6 +389,7 @@ Line 460 — card image:
 ```
 
 Line 1109 — detail view:
+
 ```tsx
 <img
   src={item.logo}
@@ -395,10 +405,11 @@ grep -n "<img" src/components/admin/PerangkatDesaManager.tsx
 ```
 
 Line 194 — perangkat photo:
+
 ```tsx
 <img
   src={preview}
-  alt={`Foto ${formData.name || 'Perangkat Desa'}`}
+  alt={`Foto ${formData.name || "Perangkat Desa"}`}
   className="h-full w-full object-cover"
   onError={() => setImgError(true)}
 />
@@ -411,15 +422,13 @@ grep -n "<img" src/components/admin/monitoring/PreviewModal.tsx
 ```
 
 Line 148 — KTP foto:
+
 ```tsx
-<img
-  src={fotoKtp}
-  alt="Foto KTP Pemohon"
-  className="w-full max-h-64 object-contain bg-slate-100"
-/>
+<img src={fotoKtp} alt="Foto KTP Pemohon" className="w-full max-h-64 object-contain bg-slate-100" />
 ```
 
 Line 154 — signature image:
+
 ```tsx
 <img
   src={signatureImage}
@@ -429,15 +438,13 @@ Line 154 — signature image:
 ```
 
 Line 160 — stamp image:
+
 ```tsx
-<img
-  src={stampImage}
-  alt="Stempel Desa"
-  className="w-full max-h-64 object-contain bg-slate-100"
-/>
+<img src={stampImage} alt="Stempel Desa" className="w-full max-h-64 object-contain bg-slate-100" />
 ```
 
 Line 187 — attachment:
+
 ```tsx
 <img
   src={att.data_url ?? (att.storage_path ? getMediaUrl(att.storage_path, "surat-attachments") : "")}
@@ -465,6 +472,7 @@ git add src/components/admin/CMSManager.tsx src/components/admin/LembagaManager.
 ## Task 6: Fix outline:none Instances + Add Button aria-labels
 
 **Files:**
+
 - Modify: `src/components/admin/CMSManager.tsx:905`
 - Modify: `src/components/admin/bantuan/BantuanDashboard.tsx:284,293`
 - Modify: `src/components/admin/inventaris/InventarisDashboard.tsx:583,592`
@@ -477,6 +485,7 @@ grep -n "focus:outline-none\|focus:outline: none\|focus-visible:outline-none" sr
 ```
 
 Expected output:
+
 ```
 CMSManager.tsx:905: className="...focus:outline-none focus:ring-2..."
 BantuanDashboard.tsx:284,293: className="...focus-visible:outline-none..."
@@ -497,10 +506,13 @@ The `focus-visible:outline-none` pattern is problematic — it removes the focus
 ```
 
 Specifically, change:
+
 ```
 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1
 ```
+
 to:
+
 ```
 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1
 ```
@@ -552,6 +564,7 @@ git add src/components/admin/bantuan/BantuanDashboard.tsx src/components/admin/i
 ## Task 7: Add Homepage `<h1>` for SEO
 
 **Files:**
+
 - Modify: `src/routes/index.tsx` — add visible or aria-hidden h1
 - Read first: `src/routes/index.tsx` — find all section headings
 
@@ -582,6 +595,7 @@ If HeroSection doesn't have an `<h1>`, add one to the Hero section in index.tsx:
 ```
 
 Or if you want visible h1 (better for SEO):
+
 ```tsx
 <div className="absolute inset-0 flex items-center justify-center z-10">
   <h1 className="sr-only">Desa Seruni Mumbul</h1>
@@ -608,6 +622,7 @@ git add src/routes/index.tsx && git commit -m "feat: add sr-only h1 to homepage 
 ## Task 8: Remove Debug console.log Statements
 
 **Files:**
+
 - Modify: Various `.tsx` files (per findings from scan)
 - Read first: `src/routes/index.tsx:39` (IndexErrorBoundary console.error)
 
@@ -622,11 +637,13 @@ Expected output: List of files + line numbers + the log statement.
 - [ ] **Step 2: Prioritize removal — only keep necessary logs**
 
 Rules for what to KEEP:
+
 - Error logging in ErrorBoundary (useful for debugging production crashes)
 - API error logging (network failures)
 - Auth/security events (login/logout)
 
 Rules for what to REMOVE:
+
 - Development-only data inspection (`console.log(data)`, `console.log(result)`)
 - Variable dumps (`console.log("value:", value)`)
 - Fetch response dumps
@@ -634,6 +651,7 @@ Rules for what to REMOVE:
 - [ ] **Step 3: Remove debug logs from each file**
 
 For each file found in Step 1, open and remove the debug console.log lines. Example patterns to remove:
+
 ```tsx
 // Remove entirely:
 console.log(userData);
@@ -664,6 +682,7 @@ git add -A && git commit -m "chore: remove debug console.log statements from src
 ## Task 9: Create sitemap.xml + robots.txt for SEO
 
 **Files:**
+
 - Create: `public/sitemap.xml`
 - Create: `public/robots.txt`
 
@@ -789,6 +808,7 @@ git add public/robots.txt public/sitemap.xml && git commit -m "feat: add robots.
 ## Task 10: Upgrade 404 Page — Fix h1 text-[120px]
 
 **Files:**
+
 - Modify: `src/routes/$.tsx:34`
 - Read first: `src/routes/$.tsx:25-45`
 
@@ -854,21 +874,24 @@ git add src/routes/$.tsx && git commit -m "fix: redesign 404 page — remove ove
 ## Task 11: Add JSON-LD Structured Data
 
 **Files:**
+
 - Modify: `src/routes/__root.tsx` — add Organization JSON-LD
 - Modify: `src/routes/informasi.berita.$slug.tsx` — add Article JSON-LD
 
-- [ ] **Step 1: Read __root.tsx around the meta tags area**
+- [ ] **Step 1: Read \_\_root.tsx around the meta tags area**
 
 ```bash
 grep -n "JsonLd\|script type\|application/ld\|metadata" src/routes/__root.tsx | head -10
 ```
 
-- [ ] **Step 2: Add Organization JSON-LD to __root.tsx**
+- [ ] **Step 2: Add Organization JSON-LD to \_\_root.tsx**
 
 Find where the `<head>` section renders meta tags. Add this before the closing `</head>`:
 
 ```tsx
-{/* JSON-LD Structured Data — Organization */}
+{
+  /* JSON-LD Structured Data — Organization */
+}
 <script
   type="application/ld+json"
   dangerouslySetInnerHTML={{
@@ -876,25 +899,30 @@ Find where the `<head>` section renders meta tags. Add this before the closing `
       "@context": "https://schema.org",
       "@type": "GovernmentOrganization",
       name: "Desa Seruni Mumbul",
-      description: "Portal resmi Pemerintah Desa Seruni Mumbul — informasi layanan, pemerintahan, dan potensi desa.",
+      description:
+        "Portal resmi Pemerintah Desa Seruni Mumbul — informasi layanan, pemerintahan, dan potensi desa.",
       url: "https://serunimumbul.desa.id",
       areaServed: {
         "@type": "AdministrativeArea",
         name: "Desa Seruni Mumbul",
         containedInPlace: "Kecamatan [Nama Kecamatan]",
-        containedIn: "Kabupaten [Nama Kabupaten]"
+        containedIn: "Kabupaten [Nama Kabupaten]",
       },
       hasOfferCatalog: {
         "@type": "OfferCatalog",
         name: "Layanan Desa",
         itemListElement: [
           { "@type": "Offer", name: "E-Surat", description: "Pengajuan surat在线" },
-          { "@type": "Offer", name: "Pelayanan Penduduk", description: "Data penduduk dan layanan" }
-        ]
-      }
+          {
+            "@type": "Offer",
+            name: "Pelayanan Penduduk",
+            description: "Data penduduk dan layanan",
+          },
+        ],
+      },
     }),
   }}
-/>
+/>;
 ```
 
 Adjust the kecamatan and kabupaten names based on actual location data.
@@ -903,35 +931,37 @@ Adjust the kecamatan and kabupaten names based on actual location data.
 
 ```tsx
 // In informasi.berita.$slug.tsx, add in the metadata or article rendering section:
-{article && (
-  <script
-    type="application/ld+json"
-    dangerouslySetInnerHTML={{
-      __html: JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "Article",
-        headline: article.title,
-        description: article.excerpt,
-        image: article.cover_image,
-        datePublished: article.created_at,
-        dateModified: article.updated_at,
-        author: {
-          "@type": "Person",
-          name: article.author_name ?? "Pemerintah Desa Seruni Mumbul"
-        },
-        publisher: {
-          "@type": "GovernmentOrganization",
-          name: "Desa Seruni Mumbul",
-          url: "https://serunimumbul.desa.id"
-        },
-        mainEntityOfPage: {
-          "@type": "WebPage",
-          "@id": `https://serunimumbul.desa.id/informasi/berita/${article.slug}`
-        }
-      }),
-    }}
-  />
-)}
+{
+  article && (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Article",
+          headline: article.title,
+          description: article.excerpt,
+          image: article.cover_image,
+          datePublished: article.created_at,
+          dateModified: article.updated_at,
+          author: {
+            "@type": "Person",
+            name: article.author_name ?? "Pemerintah Desa Seruni Mumbul",
+          },
+          publisher: {
+            "@type": "GovernmentOrganization",
+            name: "Desa Seruni Mumbul",
+            url: "https://serunimumbul.desa.id",
+          },
+          mainEntityOfPage: {
+            "@type": "WebPage",
+            "@id": `https://serunimumbul.desa.id/informasi/berita/${article.slug}`,
+          },
+        }),
+      }}
+    />
+  );
+}
 ```
 
 - [ ] **Step 4: Run build**
@@ -953,6 +983,7 @@ git add src/routes/__root.tsx src/routes/informasi.berita.\$slug.tsx && git comm
 ## Task 12: Create Skeleton + EmptyState + ErrorState Components
 
 **Files:**
+
 - Create: `src/components/ui/skeleton.tsx`
 - Modify: `src/routes/__root.tsx` — export the components globally (or use inline)
 
@@ -968,17 +999,15 @@ import { cn } from "@/lib/utils";
    ───────────────────────────────────────────────────────────── */
 
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn("animate-pulse rounded-md bg-muted", className)}
-      {...props}
-    />
-  );
+  return <div className={cn("animate-pulse rounded-md bg-muted", className)} {...props} />;
 }
 
 export function SkeletonCard({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("rounded-xl border border-border bg-card p-6 space-y-4", className)} {...props}>
+    <div
+      className={cn("rounded-xl border border-border bg-card p-6 space-y-4", className)}
+      {...props}
+    >
       <Skeleton className="h-4 w-3/4" />
       <Skeleton className="h-4 w-1/2" />
       <Skeleton className="h-4 w-5/6" />
@@ -986,7 +1015,12 @@ export function SkeletonCard({ className, ...props }: React.HTMLAttributes<HTMLD
   );
 }
 
-export function SkeletonTable({ rows = 5, cols = 4, className, ...props }: { rows?: number; cols?: number } & React.HTMLAttributes<HTMLDivElement>) {
+export function SkeletonTable({
+  rows = 5,
+  cols = 4,
+  className,
+  ...props
+}: { rows?: number; cols?: number } & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div className={cn("rounded-xl border border-border overflow-hidden", className)} {...props}>
       {/* Header row */}
@@ -1021,7 +1055,9 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon: Icon, title, description, action, className }: EmptyStateProps) {
   return (
-    <div className={cn("flex flex-col items-center justify-center py-16 px-8 text-center", className)}>
+    <div
+      className={cn("flex flex-col items-center justify-center py-16 px-8 text-center", className)}
+    >
       {Icon && (
         <div className="w-16 h-16 mb-4 rounded-full bg-primary/10 flex items-center justify-center">
           <Icon className="w-8 h-8 text-primary/60" />
@@ -1054,12 +1090,27 @@ interface ErrorStateProps {
   className?: string;
 }
 
-export function ErrorState({ title = "Gagal Memuat", description = "Terjadi kesalahan saat memuat data. Periksa koneksi internet Anda.", onRetry, className }: ErrorStateProps) {
+export function ErrorState({
+  title = "Gagal Memuat",
+  description = "Terjadi kesalahan saat memuat data. Periksa koneksi internet Anda.",
+  onRetry,
+  className,
+}: ErrorStateProps) {
   return (
     <div className={cn("rounded-xl border border-destructive/30 bg-destructive/5 p-6", className)}>
       <div className="flex items-start gap-3">
-        <svg className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        <svg
+          className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+          />
         </svg>
         <div className="flex-1">
           <h4 className="font-ui text-sm font-semibold text-destructive">{title}</h4>
@@ -1099,7 +1150,11 @@ export function Spinner({ size = "md", className }: SpinnerProps) {
       aria-label="Memuat..."
     >
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
     </svg>
   );
 }
@@ -1124,6 +1179,7 @@ git add src/components/ui/skeleton.tsx && git commit -m "feat: add Skeleton + Em
 ## Task 13: Global Build Verification
 
 **Files:**
+
 - All modified files
 
 - [ ] **Step 1: Run full build**

@@ -1208,7 +1208,7 @@ function StrukturTab({ refreshList }: { refreshList: () => void }) {
                         parent_id: e.target.value ? Number(e.target.value) : null,
                       }))
                     }
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary transition"
                   >
                     <option value="">— Tanpa Induk (Akar) —</option>
                     {tree.map((node) => (
@@ -1223,7 +1223,7 @@ function StrukturTab({ refreshList }: { refreshList: () => void }) {
                   <select
                     value={nodeForm.level}
                     onChange={(e) => setNodeForm((f) => ({ ...f, level: Number(e.target.value) }))}
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary transition"
                   >
                     <option value={1}>1 — Jabatan Utama</option>
                     <option value={2}>2 — Jabatan Bawah 1</option>

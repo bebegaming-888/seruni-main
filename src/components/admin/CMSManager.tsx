@@ -262,12 +262,14 @@ export function CMSManager() {
                     <button
                       onClick={() => handleEdit(item)}
                       className="p-2 rounded-lg bg-muted text-muted-foreground hover:text-primary transition-colors"
+                      aria-label={`Edit ${item.name ?? item.title ?? "item"}`}
                     >
                       <Edit2 className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => handleDelete(item.id)}
                       className="p-2 rounded-lg bg-muted text-muted-foreground hover:text-destructive transition-colors"
+                      aria-label={`Hapus ${item.name ?? item.title ?? "item"}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -482,7 +484,12 @@ function CMSForm({
         <h3 className="font-display text-lg font-bold">
           {editingId ? "Edit" : "Tambah"} {type.charAt(0).toUpperCase() + type.slice(1)}
         </h3>
-        <button type="button" onClick={onClose} className="p-2 hover:bg-muted rounded-full" aria-label="Tutup dialog">
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-2 hover:bg-muted rounded-full"
+          aria-label="Tutup dialog"
+        >
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -814,7 +821,7 @@ function CMSForm({
                   <div className="relative aspect-[16/9] bg-muted/30">
                     <img
                       src={formData.cover_image}
-                      alt={formData.title || "Gambar Cover Artikel"}
+                      alt={formData.title ? `Cover: ${formData.title}` : "Gambar Cover Artikel"}
                       className="w-full h-full object-cover"
                       onError={() => setFormData((f) => ({ ...f, cover_image: "" }))}
                     />
@@ -902,7 +909,7 @@ function CMSForm({
                   }))
                 }
                 placeholder="desa, kegiatan, pertanian (pisahkan dengan koma)"
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 font-ui text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 font-ui text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary transition"
               />
               {(formData.tags as string[])?.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">

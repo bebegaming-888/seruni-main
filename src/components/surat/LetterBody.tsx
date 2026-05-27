@@ -4,10 +4,10 @@
  * Merender array paragraf DNA clauses yang sudah disubstitusi variabel.
  * Klause bertipe kisi (multi-baris dengan \n) dirender sebagai blok indent.
  */
-import React from "react";
+import { memo } from "react";
 import { getSettings } from "@/lib/settings-store";
 
-export function LetterBody({ body }: { body: string[] }) {
+export const LetterBody = memo(function LetterBody({ body }: { body: string[] }) {
   const settings = getSettings();
   const bodyFont = settings.pdfLayout?.body_font || "Times New Roman, Times, serif";
   const bodyFontSize = settings.pdfLayout?.body_font_size || 12;
@@ -53,4 +53,4 @@ export function LetterBody({ body }: { body: string[] }) {
       })}
     </div>
   );
-}
+});

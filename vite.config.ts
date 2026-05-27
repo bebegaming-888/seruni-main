@@ -51,8 +51,21 @@ export default defineConfig({
               if (id.includes("leaflet") || id.includes("react-leaflet")) return "maps";
               if (id.includes("@supabase")) return "supabase";
               if (id.includes("zod")) return "zod";
+              // Heavy deps that grow the initial bundle: split to own chunk
+              if (id.includes("xlsx") || id.includes("xlsx/")) return "xlsx";
+              if (id.includes("papaparse") || id.includes("papaparse/")) return "papaparse";
+              if (id.includes("quill") || id.includes("quill/")) return "quill";
+              if (id.includes("jspdf") || id.includes("jspdf/")) return "pdf";
+              if (id.includes("react-day-picker")) return "datepicker";
+              if (id.includes("embla-carousel") || id.includes("@embla")) return "carousel";
               return "vendor";
             }
+            // Route-level code splitting: Admin + ESurat pages are heavy
+            // and only needed after login → split to async chunks
+            if (id.includes("/pages/Admin.") || id.includes("/pages/Admin/")) return "admin";
+            if (id.includes("/pages/ESurat.") || id.includes("/pages/ESurat/")) return "esurat";
+            if (id.includes("/components/admin/LetterLayoutEditor.")) return "letter-editor";
+            if (id.includes("/components/admin/LembagaManager.")) return "lembaga";
           },
         },
       },

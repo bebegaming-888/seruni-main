@@ -1074,7 +1074,7 @@ function FormView({
                 aria-haspopup="listbox"
                 aria-expanded={showDropdown && wargaResults.length > 0}
                 placeholder="Ketik NIK atau nama lengkap..."
-                className="w-full h-16 rounded-2xl border-2 border-border bg-background pl-14 pr-14 text-lg font-mono tracking-wider placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                className="w-full h-16 rounded-2xl border-2 border-border bg-background pl-14 pr-14 text-lg font-mono tracking-wider placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/10 transition-all"
               />
               {searchLoading && (
                 <Loader2 className="absolute right-14 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-primary" />

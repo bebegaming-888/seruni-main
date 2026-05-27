@@ -5,6 +5,7 @@
  * Recharts bundle is ~379 KB — only load when dashboard is viewed.
  */
 
+import { memo } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -35,7 +36,10 @@ interface DashboardChartsProps {
   monthlyData: Array<{ month: string; count: number }>;
 }
 
-export function DashboardCharts({ statusData, monthlyData }: DashboardChartsProps) {
+export const DashboardCharts = memo(function DashboardCharts({
+  statusData,
+  monthlyData,
+}: DashboardChartsProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Status Distribution Pie Chart */}
@@ -87,4 +91,4 @@ export function DashboardCharts({ statusData, monthlyData }: DashboardChartsProp
       </div>
     </div>
   );
-}
+});

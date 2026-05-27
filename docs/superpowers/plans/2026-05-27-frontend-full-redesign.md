@@ -12,30 +12,31 @@
 
 ## File Map
 
-| File | Responsibility |
-|------|----------------|
-| `src/styles.css` | Font tokens, dark mode vars, global focus ring |
-| `src/routes/__root.tsx` | FOUC inline script injection point |
-| `scripts/postbuild.js` | OG meta + font preconnect in generated `index.html` |
-| `public/sitemap.xml` | SEO sitemap |
-| `src/routes/$.tsx` | 404 page redesign |
-| `src/components/admin/CMSManager.tsx` | Fix img alt attributes |
-| `src/components/admin/LembagaManager.tsx` | Fix img alt attributes |
-| `src/components/admin/PerangkatDesaManager.tsx` | Fix img alt attributes |
-| `src/components/admin/AlertPanel.tsx` | Fix button aria-label missing |
-| `src/components/admin/AuditLogManager.tsx` | Fix button aria-label missing + console.log |
-| `src/components/admin/monitoring/PreviewModal.tsx` | Fix img alt attributes |
-| `src/components/surat/LetterRenderer.tsx` | Fix dangerouslySetInnerHTML + console.log |
-| `src/components/admin/SuratPreviewPanel.tsx` | Remove console.log |
-| `src/pages/Admin.tsx` | Remove console.log |
-| `src/hooks/use-skeleton.ts` | Create: skeleton loading hook for admin |
-| `src/components/ui/skeleton-card.tsx` | Create: reusable skeleton card component |
+| File                                               | Responsibility                                      |
+| -------------------------------------------------- | --------------------------------------------------- |
+| `src/styles.css`                                   | Font tokens, dark mode vars, global focus ring      |
+| `src/routes/__root.tsx`                            | FOUC inline script injection point                  |
+| `scripts/postbuild.js`                             | OG meta + font preconnect in generated `index.html` |
+| `public/sitemap.xml`                               | SEO sitemap                                         |
+| `src/routes/$.tsx`                                 | 404 page redesign                                   |
+| `src/components/admin/CMSManager.tsx`              | Fix img alt attributes                              |
+| `src/components/admin/LembagaManager.tsx`          | Fix img alt attributes                              |
+| `src/components/admin/PerangkatDesaManager.tsx`    | Fix img alt attributes                              |
+| `src/components/admin/AlertPanel.tsx`              | Fix button aria-label missing                       |
+| `src/components/admin/AuditLogManager.tsx`         | Fix button aria-label missing + console.log         |
+| `src/components/admin/monitoring/PreviewModal.tsx` | Fix img alt attributes                              |
+| `src/components/surat/LetterRenderer.tsx`          | Fix dangerouslySetInnerHTML + console.log           |
+| `src/components/admin/SuratPreviewPanel.tsx`       | Remove console.log                                  |
+| `src/pages/Admin.tsx`                              | Remove console.log                                  |
+| `src/hooks/use-skeleton.ts`                        | Create: skeleton loading hook for admin             |
+| `src/components/ui/skeleton-card.tsx`              | Create: reusable skeleton card component            |
 
 ---
 
 ### Task 1: Upgrade Fonts — Inter → Bricolage Grotesque + DM Sans
 
 **Files:**
+
 - Modify: `src/styles.css:93-97`
 - Modify: `scripts/postbuild.js:133-148`
 
@@ -44,19 +45,19 @@
 Locate lines 93-97 in `src/styles.css`:
 
 ```css
-  /* ── Fonts ───────────────────────────────────────────────────────── */
-  --font-display: "Inter", "Helvetica Neue", sans-serif;
-  --font-body:    "Inter", "Helvetica Neue", sans-serif;
-  --font-ui:      "Inter", "Helvetica Neue", sans-serif;
+/* ── Fonts ───────────────────────────────────────────────────────── */
+--font-display: "Inter", "Helvetica Neue", sans-serif;
+--font-body: "Inter", "Helvetica Neue", sans-serif;
+--font-ui: "Inter", "Helvetica Neue", sans-serif;
 ```
 
 Replace with:
 
 ```css
-  /* ── Fonts ───────────────────────────────────────────────────────── */
-  --font-display: "Bricolage Grotesque", "Inter", "Helvetica Neue", sans-serif;
-  --font-body:    "DM Sans", "Inter", "Helvetica Neue", sans-serif;
-  --font-ui:      "DM Sans", "Inter", "Helvetica Neue", sans-serif;
+/* ── Fonts ───────────────────────────────────────────────────────── */
+--font-display: "Bricolage Grotesque", "Inter", "Helvetica Neue", sans-serif;
+--font-body: "DM Sans", "Inter", "Helvetica Neue", sans-serif;
+--font-ui: "DM Sans", "Inter", "Helvetica Neue", sans-serif;
 ```
 
 > **Why keep Inter as fallback?** Bricolage Grotesque and DM Sans may not load immediately (FOUT), so Inter as final fallback prevents invisible text. We use `display=swap` in Google Fonts URL for fast FOUT→swap.
@@ -64,11 +65,13 @@ Replace with:
 - [ ] **Step 2: Update Google Fonts URL in styles.css**
 
 Locate line 9 in `src/styles.css`:
+
 ```css
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
 ```
 
 Replace with:
+
 ```css
 @import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap");
 ```
@@ -118,12 +121,15 @@ const fontPreconnect = `
 ```
 
 Then in the `html` template string, change:
+
 ```
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
 ```
+
 To:
+
 ```
 <html lang="id">
   <head>
@@ -141,11 +147,13 @@ Expected: Build passes, index.html contains `Bricolage` and `DM+Sans` strings
 ### Task 2: Fix Dark Mode FOUC
 
 **Files:**
+
 - Modify: `src/routes/__root.tsx`
 
-- [ ] **Step 1: Read __root.tsx to understand current head structure**
+- [ ] **Step 1: Read \_\_root.tsx to understand current head structure**
 
 Find where `<HeadContent>` is used in `src/routes/__root.tsx`. Need to add an inline `<script>` BEFORE any React render that:
+
 1. Reads `localStorage.getItem('theme')`
 2. Falls back to `prefers-color-scheme`
 3. Toggles `dark` class on `<html>`
@@ -188,6 +196,7 @@ Then add `<RootHead />` inside the `<HeadContent>` component, as the first child
 ### Task 3: Fix 10+ img Alt Attributes in Admin Components
 
 **Files:**
+
 - Modify: `src/components/admin/CMSManager.tsx` (lines 815, 1027)
 - Modify: `src/components/admin/LembagaManager.tsx` (lines 256, 460, 1109)
 - Modify: `src/components/admin/PerangkatDesaManager.tsx` (line 194)
@@ -196,15 +205,18 @@ Then add `<RootHead />` inside the `<HeadContent>` component, as the first child
 - [ ] **Step 1: Fix CMSManager.tsx img alt at line 815**
 
 Read the exact line context. Search for the img at line 815:
+
 ```bash
 grep -n "img" src/components/admin/CMSManager.tsx | head -20
 ```
 
 For each `<img>` tag, add a descriptive `alt` attribute. Common patterns in this codebase:
+
 - Images from Supabase storage: use the filename or a descriptive label
 - Static images: describe what's in the image
 
 If the img has no alt and isn't decorative, add `alt="Gambar"` or a more descriptive name:
+
 ```tsx
 <img src={imageUrl} alt={`Gambar ${title}`} className="..." />
 ```
@@ -214,6 +226,7 @@ If the img has no alt and isn't decorative, add `alt="Gambar"` or a more descrip
 - [ ] **Step 3: Fix LembagaManager.tsx img alt at lines 256, 460, 1109**
 
 Read each context:
+
 ```bash
 sed -n '250,265p' src/components/admin/LembagaManager.tsx
 sed -n '455,465p' src/components/admin/LembagaManager.tsx
@@ -221,6 +234,7 @@ sed -n '1105,1115p' src/components/admin/LembagaManager.tsx
 ```
 
 Add descriptive alt text for each — examples:
+
 - Profil lembaga: `alt="Logo {namaLembaga}"`
 - Perangkat foto: `alt={`Foto ${nama}`}`
 
@@ -229,6 +243,7 @@ Add descriptive alt text for each — examples:
 - [ ] **Step 5: Fix PreviewModal.tsx img alt at lines 148, 154, 160, 187**
 
 Read each context to determine if decorative or meaningful:
+
 ```bash
 sed -n '145,165p' src/components/admin/monitoring/PreviewModal.tsx
 sed -n '184,192p' src/components/admin/monitoring/PreviewModal.tsx
@@ -242,25 +257,30 @@ For meaningful images: descriptive alt text
 ### Task 4: Fix 4+ Button aria-label Missing in Admin Components
 
 **Files:**
+
 - Modify: `src/components/admin/AlertPanel.tsx:148`
 - Modify: `src/components/admin/AuditLogManager.tsx:58`
 
 - [ ] **Step 1: Fix AlertPanel.tsx button at line 148**
 
 Read the context:
+
 ```bash
 sed -n '143,160p' src/components/admin/AlertPanel.tsx
 ```
 
 The button likely has only an icon with no text label. Add:
+
 ```tsx
 <button aria-label="Close alert" ...>
 ```
+
 Or a more descriptive label like "Tutup notifikasi" or "Hapus alert"
 
 - [ ] **Step 2: Fix AuditLogManager.tsx button at line 58**
 
 Read the context:
+
 ```bash
 sed -n '55,70p' src/components/admin/AuditLogManager.tsx
 ```
@@ -272,6 +292,7 @@ Add appropriate `aria-label` based on what the button does.
 ### Task 5: Add Global focus-visible Ring CSS
 
 **Files:**
+
 - Modify: `src/styles.css`
 
 - [ ] **Step 1: Find insertion point**
@@ -318,8 +339,11 @@ Add after the `--z-toast: 200;` line (around line 121) or at the end of the `@th
 ```
 
 Also add the skip link to `src/routes/__root.tsx` as the first element inside the `<body>`:
+
 ```tsx
-<a href="#main-content" className="skip-link">Lewati navigasi</a>
+<a href="#main-content" className="skip-link">
+  Lewati navigasi
+</a>
 ```
 
 And add `id="main-content"` to the main layout container (usually the `<main>` or first `<div>` after navbar).
@@ -329,6 +353,7 @@ And add `id="main-content"` to the main layout container (usually the `<main>` o
 ### Task 6: Remove console.log Debug Statements
 
 **Files:**
+
 - Modify: `src/components/admin/AuditLogManager.tsx`
 - Modify: `src/components/surat/LetterRenderer.tsx`
 - Modify: `src/components/admin/SuratPreviewPanel.tsx`
@@ -343,6 +368,7 @@ grep -rn "console\.log" src --include="*.tsx" | head -10
 - [ ] **Step 2: Remove or replace with console.debug for each file**
 
 Found locations (verify with exact grep):
+
 1. `src/components/admin/AuditLogManager.tsx` — find line with console.log
 2. `src/components/surat/LetterRenderer.tsx` — find line with console.log
 3. `src/components/admin/SuratPreviewPanel.tsx` — find line with console.log
@@ -355,6 +381,7 @@ For each: either delete the line entirely OR replace `console.log` with `console
 ### Task 7: Add sitemap.xml for SEO
 
 **Files:**
+
 - Create: `public/sitemap.xml`
 
 - [ ] **Step 1: Create public/sitemap.xml**
@@ -399,6 +426,7 @@ Run: `npm run build` and verify `dist/client/sitemap.xml` is copied (if not, che
 ### Task 8: Enhance postbuild.js with OG Meta Tags + Font Preconnect
 
 **Files:**
+
 - Modify: `scripts/postbuild.js`
 
 - [ ] **Step 1: Add Open Graph meta tags in generated HTML**
@@ -433,6 +461,7 @@ Expected: `dist/client/index.html` contains all og: meta tags
 ### Task 9: Upgrade 404 Page in $.tsx
 
 **Files:**
+
 - Modify: `src/routes/$.tsx`
 
 - [ ] **Step 1: Read $.tsx to understand current structure**
@@ -512,6 +541,7 @@ Expected: No errors related to $.tsx
 ### Task 10: Add Skeleton Loading States to Admin Pages
 
 **Files:**
+
 - Create: `src/hooks/use-skeleton.ts`
 - Create: `src/components/ui/skeleton-card.tsx`
 - Modify: `src/components/admin/TemplateSuratManager.tsx` (choose one representative admin page)
@@ -527,10 +557,7 @@ interface UseSkeletonOptions {
   minDuration?: number;
 }
 
-export function useSkeleton<T>(
-  loader: () => Promise<T>,
-  options: UseSkeletonOptions = {}
-) {
+export function useSkeleton<T>(loader: () => Promise<T>, options: UseSkeletonOptions = {}) {
   const { delay = 0, minDuration = 300 } = options;
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
@@ -588,7 +615,7 @@ export function SkeletonCard({
     <div
       className={cn(
         "rounded-xl border border-border bg-card p-4 space-y-3 animate-pulse",
-        className
+        className,
       )}
       aria-hidden="true"
     >
@@ -624,11 +651,13 @@ export function SkeletonCard({
 Read `src/components/admin/TemplateSuratManager.tsx` to find where data is fetched. Replace loading state with `<SkeletonCard>` components.
 
 Find the loading state pattern:
+
 ```bash
 grep -n "isLoading\|loading" src/components/admin/TemplateSuratManager.tsx | head -15
 ```
 
 Replace any inline spinner with:
+
 ```tsx
 <div className="space-y-4">
   <SkeletonCard avatar />
@@ -649,11 +678,11 @@ Expected: Build passes
 - [ ] Font tokens updated in styles.css
 - [ ] Google Fonts URL updated with Bricolage Grotesque + DM Sans
 - [ ] Font preconnect added in postbuild.js html template
-- [ ] Dark mode FOUC inline script added in __root.tsx
+- [ ] Dark mode FOUC inline script added in \_\_root.tsx
 - [ ] All 10+ img alt attributes fixed with descriptive text
 - [ ] All 4+ button aria-label attributes added
 - [ ] Global focus-visible ring CSS added to styles.css
-- [ ] Skip link added to __root.tsx + id="main-content" anchor added
+- [ ] Skip link added to \_\_root.tsx + id="main-content" anchor added
 - [ ] All console.log statements removed/replaced
 - [ ] sitemap.xml created in public/
 - [ ] OG meta tags added in postbuild.js

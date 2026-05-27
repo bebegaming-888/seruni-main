@@ -58,6 +58,7 @@ export function AuditLogManager() {
         <button
           onClick={fetchLogs}
           disabled={loading}
+          aria-label="Segarkan log audit"
           className="btn-pill bg-muted hover:bg-accent text-foreground flex items-center gap-2 px-4 py-2 text-sm transition-all"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />

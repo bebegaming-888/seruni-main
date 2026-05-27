@@ -144,17 +144,17 @@ export const Route = createRootRoute({
           innerHTML: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "GovernmentOrganization",
-            "name": vName,
-            "alternateName": `${vName} Village`,
-            "url": "https://serunimumbul.id",
-            "description": `Portal resmi ${vName} — layanan informasi dan pemerintahan desa`,
-            "areaServed": {
+            name: vName,
+            alternateName: `${vName} Village`,
+            url: "https://serunimumbul.id",
+            description: `Portal resmi ${vName} — layanan informasi dan pemerintahan desa`,
+            areaServed: {
               "@type": "Place",
-              "name": villageName,
+              name: villageName,
             },
-            "parentOrganization": {
+            parentOrganization: {
               "@type": "GovernmentOrganization",
-              "name": "Kecamatan Bersama",
+              name: "Kecamatan Bersama",
             },
           }),
         },

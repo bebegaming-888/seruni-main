@@ -1,0 +1,57 @@
+name: Deploy API to Railway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - "bun.lockb"
+      - "railway.json"
+      - "railway.toml"
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy-api:
+    name: Build & Deploy API to Railway
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.RAILWAY_PUBLIC_DOMAIN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build client (needed for dist/client/)
+        run: bun run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_FONNTE_KEY: ${{ secrets.VITE_FONNTE_KEY }}
+          VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
+
+      - name: Deploy to Railway
+        run: |
+          npm install -g @railway/cli
+          railway up --service seruni-api --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          ALLOWED_ORIGIN: ${{ vars.ALLOWED_ORIGIN }}
+          ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          FONNTE_KEY: ${{ secrets.FONNTE_KEY }}
+          QR_SECRET: ${{ secrets.QR_SECRET }}
+          NODE_ENV: production
+          PORT: 3001

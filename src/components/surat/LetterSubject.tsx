@@ -3,11 +3,15 @@
  *
  * Menampilkan tabel field identitas dinamis berdasarkan subject_fields dari template.
  */
-import React from "react";
+import { memo } from "react";
 import type { RenderedLetter } from "@/lib/letter-engine";
 import { getSettings } from "@/lib/settings-store";
 
-export function LetterSubject({ subject }: { subject: RenderedLetter["subject"] }) {
+export const LetterSubject = memo(function LetterSubject({
+  subject,
+}: {
+  subject: RenderedLetter["subject"];
+}) {
   const settings = getSettings();
   const bodyFont = settings.pdfLayout?.body_font || "Times New Roman, Times, serif";
   const bodyFontSize = settings.pdfLayout?.body_font_size || 12;
@@ -46,4 +50,4 @@ export function LetterSubject({ subject }: { subject: RenderedLetter["subject"] 
       </table>
     </div>
   );
-}
+});

@@ -1,11 +1,15 @@
 /**
  * LetterTitle — Nama Surat + Nomor Surat
  */
-import React from "react";
+import { memo } from "react";
 import type { RenderedLetter } from "@/lib/letter-engine";
 import { getSettings } from "@/lib/settings-store";
 
-export function LetterTitle({ title }: { title: RenderedLetter["title"] }) {
+export const LetterTitle = memo(function LetterTitle({
+  title,
+}: {
+  title: RenderedLetter["title"];
+}) {
   const settings = getSettings();
   const bodyFont = settings.pdfLayout?.body_font || "Times New Roman, Times, serif";
   const bodyFontSize = settings.pdfLayout?.body_font_size || 12;
@@ -32,4 +36,4 @@ export function LetterTitle({ title }: { title: RenderedLetter["title"] }) {
       <div style={{ fontSize: bodyFontSize, marginTop: 4 }}>{title.nomorSurat}</div>
     </div>
   );
-}
+});

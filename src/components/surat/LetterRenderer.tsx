@@ -5,7 +5,7 @@
  * Now reads from `letter_layouts` database table — no hardcoded layout.
  * Falls back to default RenderedLetter for backward compat.
  */
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import type { RenderedLetter } from "@/lib/letter-engine";
 import { getSettings } from "@/lib/settings-store";
 import { sanitizeHtml } from "@/lib/utils";
@@ -35,7 +35,7 @@ type Props = {
   className?: string;
 };
 
-export function LetterRenderer({
+export const LetterRenderer = memo(function LetterRenderer({
   letter,
   layout,
   context,
@@ -137,12 +137,8 @@ export function LetterRenderer({
 
       {/* ── 6. "Menerangkan bahwa :" ────────────────── */}
       <p
-        style={{
-          fontFamily: bodyFont,
-          fontSize: bodyFontSize,
-          margin: "4px 0 2px",
-          fontWeight: "normal",
-        }}
+        className="font-normal"
+        style={{ fontFamily: bodyFont, fontSize: bodyFontSize, margin: "4px 0 2px" }}
       >
         Menerangkan bahwa :
       </p>
@@ -151,23 +147,18 @@ export function LetterRenderer({
       <LetterSubject subject={letter.subject} />
 
       {/* ── Separator ──────────────────────────────── */}
-      <div
-        style={{
-          borderBottom: `0.75px solid ${BRAND_BORDER}`,
-          margin: "6px 0 10px",
-        }}
-      />
+      <div className="mx-0 my-2.5" style={{ borderBottom: `0.75px solid ${BRAND_BORDER}` }} />
 
       {/* ── 8. ISI SURAT (DNA CLAUSES) ─────────────── */}
       <LetterBody body={letter.body} />
 
       {/* ── 9. PENUTUP ─────────────────────────────── */}
       <p
+        className="text-justify"
         style={{
           fontFamily: bodyFont,
           fontSize: bodyFontSize,
           margin: "12px 0 0",
-          textAlign: "justify",
           lineHeight: 1.7,
         }}
       >
@@ -178,4 +169,4 @@ export function LetterRenderer({
       <LetterSignature signature={letter.signature} namaPemohon={namaPemohon} />
     </div>
   );
-}
+});

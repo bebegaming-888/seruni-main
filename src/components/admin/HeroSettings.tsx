@@ -82,6 +82,8 @@ const MARQUEE_FONT_OPTIONS = [
   { label: "Fraunces (Display)", value: "Fraunces, serif" },
   { label: "Raleway (Body)", value: "Raleway, sans-serif" },
   { label: "Poppins (UI)", value: "Poppins, sans-serif" },
+  { label: "Arial", value: "Arial, sans-serif" },
+  { label: "Plus Jakarta Sans", value: "Plus Jakarta Sans, sans-serif" },
 ];
 
 // ── Marquee color options — STRICT brand palette ────────────────────────────────

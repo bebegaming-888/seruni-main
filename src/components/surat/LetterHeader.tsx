@@ -9,7 +9,7 @@
  *                 "center"  → Logo Desa di tengah, teks di sekitar
  *                 "right"   → Logo Desa di kanan, teks+kab di kiri
  */
-import React from "react";
+import { memo } from "react";
 import type { RenderedLetter } from "@/lib/letter-engine";
 import { getSettings } from "@/lib/settings-store";
 import { getMediaUrl } from "@/lib/media-upload";
@@ -26,7 +26,10 @@ type Props = {
   primaryColor?: string;
 };
 
-export function LetterHeader({ header, primaryColor = BRAND_PRIMARY }: Props) {
+export const LetterHeader = memo(function LetterHeader({
+  header,
+  primaryColor = BRAND_PRIMARY,
+}: Props) {
   const settings = getSettings();
   const bodyFont = settings.pdfLayout?.body_font || DEFAULT_FONT;
   const logoPos = settings.kopSurat.logo_position;
@@ -57,7 +60,10 @@ export function LetterHeader({ header, primaryColor = BRAND_PRIMARY }: Props) {
       {/* Row — layout depends on logo_position setting */}
       <div
         className="flex items-center gap-3 py-1.5"
-        style={{ paddingLeft: logoPos === "center" ? 80 : 0, paddingRight: logoPos === "center" ? 80 : 0 }}
+        style={{
+          paddingLeft: logoPos === "center" ? 80 : 0,
+          paddingRight: logoPos === "center" ? 80 : 0,
+        }}
       >
         {/* Logo Kabupaten — shown when position includes left */}
         {logoPos !== "right" && (logoPos === "separate" || logoPos === "left") && (
@@ -67,7 +73,10 @@ export function LetterHeader({ header, primaryColor = BRAND_PRIMARY }: Props) {
                 src={logoKabUrl}
                 alt="Logo Kabupaten"
                 className="object-contain mx-auto"
-                style={{ width: logoPos === "separate" ? 68 : 56, height: logoPos === "separate" ? 68 : 56 }}
+                style={{
+                  width: logoPos === "separate" ? 68 : 56,
+                  height: logoPos === "separate" ? 68 : 56,
+                }}
               />
             ) : (
               <div
@@ -100,20 +109,30 @@ export function LetterHeader({ header, primaryColor = BRAND_PRIMARY }: Props) {
           <div className="text-[13px] font-bold tracking-wide">{header.namaKabupaten}</div>
           <div className="text-sm font-bold">{header.namaKecamatan}</div>
           <div className="text-sm font-bold tracking-widest">{header.namaDesa}</div>
-          <div className="text-[9px] mt-1" style={{ color: BRAND_TEXT }}>{header.alamat}</div>
-          <div className="text-[9px]" style={{ color: BRAND_MUTED }}>{header.kontak}</div>
+          <div className="text-[9px] mt-1" style={{ color: BRAND_TEXT }}>
+            {header.alamat}
+          </div>
+          <div className="text-[9px]" style={{ color: BRAND_MUTED }}>
+            {header.kontak}
+          </div>
         </div>
 
         {/* Logo Desa — shown when position includes right */}
         {logoPos !== "left" &&
           (logoPos === "separate" || logoPos === "center" || logoPos === "right") && (
-            <div className="shrink-0 text-center" style={{ width: logoPos === "separate" ? 72 : 60 }}>
+            <div
+              className="shrink-0 text-center"
+              style={{ width: logoPos === "separate" ? 72 : 60 }}
+            >
               {hasLogoDesa ? (
                 <img
                   src={logoDesaUrl}
                   alt="Logo Desa"
                   className="object-contain mx-auto"
-                  style={{ width: logoPos === "separate" ? 68 : 56, height: logoPos === "separate" ? 68 : 56 }}
+                  style={{
+                    width: logoPos === "separate" ? 68 : 56,
+                    height: logoPos === "separate" ? 68 : 56,
+                  }}
                 />
               ) : (
                 <div
@@ -144,4 +163,4 @@ export function LetterHeader({ header, primaryColor = BRAND_PRIMARY }: Props) {
       />
     </div>
   );
-}
+});

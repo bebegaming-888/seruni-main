@@ -2,6 +2,7 @@
  * ErrorState — shows an error message with optional retry action.
  * Displays a warning icon and a friendly error description.
  */
+import { memo } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "./button";
 
@@ -11,7 +12,7 @@ interface ErrorStateProps {
   onRetry?: () => void;
 }
 
-export function ErrorState({
+export const ErrorState = memo(function ErrorState({
   title = "Terjadi Kesalahan",
   description = "Gagal memuat data. Periksa koneksi internet Anda.",
   onRetry,
@@ -31,4 +32,4 @@ export function ErrorState({
       )}
     </div>
   );
-}
+});

@@ -217,7 +217,7 @@ export function KopDanBlankoSettings({
           </div>
           <Field label="Tata Letak Logo">
             <select
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
               value={s.kopSurat.logo_position}
               onChange={(e) =>
                 update("kopSurat", {
@@ -290,7 +290,7 @@ export function KopDanBlankoSettings({
                 <div className="grid grid-cols-4 gap-2">
                   <Field label="Ukuran">
                     <select
-                      className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus-visible:outline-none"
                       value={line.font_size}
                       onChange={(e) =>
                         updateKopLine(line.id, { font_size: Number(e.target.value) })
@@ -305,7 +305,7 @@ export function KopDanBlankoSettings({
                   </Field>
                   <Field label="Bold">
                     <select
-                      className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus-visible:outline-none"
                       value={line.bold ? "1" : "0"}
                       onChange={(e) => updateKopLine(line.id, { bold: e.target.value === "1" })}
                     >
@@ -315,7 +315,7 @@ export function KopDanBlankoSettings({
                   </Field>
                   <Field label="Italic">
                     <select
-                      className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus-visible:outline-none"
                       value={line.italic ? "1" : "0"}
                       onChange={(e) => updateKopLine(line.id, { italic: e.target.value === "1" })}
                     >
@@ -376,7 +376,7 @@ export function KopDanBlankoSettings({
           )}
           <Field label="Style Tanda Tangan">
             <select
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
               value={s.kopSurat.signature_style}
               onChange={(e) =>
                 update("kopSurat", {
@@ -411,7 +411,7 @@ export function KopDanBlankoSettings({
               {(["top", "bottom", "left", "right"] as const).map((dir) => (
                 <Field key={dir} label={dir.charAt(0).toUpperCase() + dir.slice(1)}>
                   <select
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                     value={pdfLayout.margin[dir]}
                     onChange={(e) => updateMargin(dir, e.target.value)}
                   >
@@ -434,7 +434,7 @@ export function KopDanBlankoSettings({
             <Grid2>
               <Field label="Font Family">
                 <select
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                   value={pdfLayout.body_font || "Arial, sans-serif"}
                   onChange={(e) =>
                     update("pdfLayout", {
@@ -452,7 +452,7 @@ export function KopDanBlankoSettings({
               </Field>
               <Field label="Ukuran Font">
                 <select
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                   value={pdfLayout.body_font_size ?? 11}
                   onChange={(e) => update("pdfLayout", { body_font_size: Number(e.target.value) })}
                 >
@@ -465,7 +465,7 @@ export function KopDanBlankoSettings({
               </Field>
               <Field label="Line Height">
                 <select
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                   value={pdfLayout.font.lineHeight}
                   onChange={(e) => updateFont("lineHeight", e.target.value)}
                 >
@@ -484,7 +484,7 @@ export function KopDanBlankoSettings({
               </Field>
               <Field label="Font Heading (Kop)">
                 <select
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                   value={pdfLayout.font.family}
                   onChange={(e) => updateFont("family", e.target.value)}
                 >
@@ -505,7 +505,7 @@ export function KopDanBlankoSettings({
           <Grid2>
             <Field label="Lebar QR Code">
               <select
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                 value={pdfLayout.signaturePos.qrWidth}
                 onChange={(e) => updateSigPos("qrWidth", e.target.value)}
               >
@@ -518,7 +518,7 @@ export function KopDanBlankoSettings({
             </Field>
             <Field label="Jarak Vertikal TTD">
               <select
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary/30"
                 value={pdfLayout.signaturePos.marginY}
                 onChange={(e) => updateSigPos("marginY", e.target.value)}
               >

@@ -6,7 +6,7 @@
  * All animations respect prefers-reduced-motion
  */
 
-@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900&family=DM+Sans:ital,opsz,wght@0,9..40,300;1,9..40,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 
 @import "tailwindcss" source(none);
 @source "../src";
@@ -90,10 +90,10 @@
   --animate-pulse-subtle: pulse-subtle 2.5s ease-in-out infinite;
   --animate-shimmer: shimmer 1.5s ease-in-out infinite;
 
-  /* ── Fonts — Bricolage Grotesque display, DM Sans body/UI (Mei 2026) ── */
-  --font-display: "Bricolage Grotesque", "Georgia", serif;
+  /* ── Fonts — Fraunces display, DM Sans body/UI, JetBrains Mono mono (Mei 2026) ── */
+  --font-display: "Fraunces", "Georgia", serif;
   --font-body: "DM Sans", "Helvetica Neue", sans-serif;
-  --font-ui: "DM Sans", "Helvetica Neue", sans-serif;
+  --font-ui: "Plus Jakarta Sans", "Helvetica Neue", sans-serif;
   --font-mono: "JetBrains Mono", "Courier New", monospace;
 
   /* ── Layout ──────────────────────────────────────────────────────── */

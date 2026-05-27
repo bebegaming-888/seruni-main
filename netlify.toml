@@ -1,16 +1,32 @@
+# =============================================================================
+# Netlify Configuration — Seruni Mumbul
+#
+# Deployment target: Cloudflare Pages (frontend SPA)
+# API: Railway (standalone, tidak melalui Netlify)
+#
+# Frontend di-host di Cloudflare Pages.
+# netlify.toml ini adalah fallback / reference only.
+# SPA routing: semua path diarahkan ke index.html untuk client-side routing.
+#
+# Catatan: Tidak ada redirect /api/* di sini.
+# API proxy dilakukan di Cloudflare Pages dashboard (rewrite rules).
+# =============================================================================
+
 [build]
-  command = "npm run build"
+  command = "npm install && npm run build"
   publish = "dist/client"
-  functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "20"
   NPM_FLAGS = "--prefix=false"
 
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
-  included_files = ["dist/**"]
+# SPA Fallback — semua route yang tidak match file/static asset
+# diarahkan ke index.html untuk client-side routing (React Router)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = [PathNot=/*.ico/, PathNot=/*.png/, PathNot=/*.jpg/, PathNot=/*.svg/, PathNot=/*.js/, PathNot=/*.css/, PathNot=/*.woff2/, PathNot=/*.json/]
 
 [[headers]]
   for = "/*"
@@ -25,14 +41,7 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/server"
-  status = 200
-  force = true
-
-# SPA fallback — must be LAST redirect (catch-all for client-side routes)
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+[[headers]]
+  for = "*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
