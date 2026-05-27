@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Continue'
-$token = "sbp_2d688f6c60d1c71a05130e3adf3b1688f947d344"
+$token = $env:SUPABASE_PERSONAL_ACCESS_TOKEN
 $projectRef = "wrfraskmawmciiutwcpx"
 
 $sql = Get-Content "supabase\migrations\058_wilayah.sql" -Raw

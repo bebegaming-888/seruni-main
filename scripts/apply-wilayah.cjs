@@ -4,7 +4,12 @@
 const https = require("https");
 const fs = require("fs");
 
-const token = "sbp_2d688f6c60d1c71a05130e3adf3b1688f947d344";
+const token = process.env.SUPABASE_PERSONAL_ACCESS_TOKEN || "";
+if (!token) {
+  console.error("❌ SUPABASE_PERSONAL_ACCESS_TOKEN environment variable is not set.");
+  console.error("   Set it via: export SUPABASE_PERSONAL_ACCESS_TOKEN=<your-token>");
+  process.exit(1);
+}
 const projectRef = "wrfraskmawmciiutwcpx";
 
 const sql = fs.readFileSync("supabase/migrations/058_wilayah.sql", "utf8");
